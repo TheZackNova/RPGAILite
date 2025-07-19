@@ -136,6 +136,24 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
         }
     }
     
+    // NEW DEDICATED INVENTORY BLOCK
+    const pcItems = Object.values(knownEntities).filter(e => e.type === 'item' && e.owner === pc?.name && e.state !== 'broken' && e.state !== 'destroyed');
+    if (pcItems.length > 0) {
+        retrievedContext += "--- HÀNH TRANG & VẬT PHẨM (Sẵn sàng sử dụng) ---\n";
+        pcItems.forEach(item => {
+            let itemDetails = [];
+            if (item.description) {
+                const firstSentence = item.description.split('.')[0];
+                itemDetails.push(`Công dụng: ${firstSentence}.`);
+            }
+            if (item.equipped) itemDetails.push('Trang bị');
+            if (typeof item.uses === 'number') itemDetails.push(`Dùng: ${item.uses} lần`);
+            if (typeof item.durability === 'number') itemDetails.push(`Bền: ${item.durability}/100`);
+            retrievedContext += `- ${item.name}: ${itemDetails.join('; ')}\n`;
+        });
+        retrievedContext += "----------------------------------------------\n\n";
+    }
+
     // Add world context
     if (worldData) {
         retrievedContext += "--- BỐI CẢNH THẾ GIỚI (CỐT LÕI) ---\n";
@@ -161,8 +179,11 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
         }
         return true; // Keep everything else
     };
+    
+    // Filter out PC-owned items since they are now in their own block
+    const isPcItem = (e: Entity) => e.type === 'item' && e.owner === pc?.name;
 
-    const otherDirectEntities = Array.from(directEntities).filter(e => e.type !== 'pc' && filterInteractable(e));
+    const otherDirectEntities = Array.from(directEntities).filter(e => e.type !== 'pc' && !isPcItem(e) && filterInteractable(e));
     retrievedContext += "**Thực thể & Vật phẩm liên quan (trực tiếp):**\n";
     if (otherDirectEntities.length > 0) {
         otherDirectEntities.forEach(entity => {
@@ -172,7 +193,7 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
         retrievedContext += "Không có.\n";
     }
 
-    const filteredRecursiveEntities = Array.from(recursiveEntities).filter(filterInteractable);
+    const filteredRecursiveEntities = Array.from(recursiveEntities).filter(e => !isPcItem(e) && filterInteractable(e));
     if (filteredRecursiveEntities.length > 0) {
         retrievedContext += "\n**Thực thể & Vật phẩm liên quan (gián tiếp):**\n";
         filteredRecursiveEntities.forEach(entity => {
