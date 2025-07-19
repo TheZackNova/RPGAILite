@@ -1,6 +1,4 @@
 
-
-
 import type { GoogleGenAI } from "@google/genai";
 
 export type EntityType = 'pc' | 'npc' | 'location' | 'faction' | 'item' | 'skill' | 'status_effect' | 'companion' | 'concept';
@@ -16,6 +14,7 @@ export interface Entity {
   personality?: string;
   personalityMbti?: string;
   motivation?: string;
+  location?: string;
   relationship?: string; // For relationship tracking
   uses?: number; // For consumable items
   realm?: string; // For power levels or skill levels

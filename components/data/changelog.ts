@@ -4,6 +4,30 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.10.2',
+    date: '2024-08-06',
+    changes: [
+      { type: 'improvement', text: 'Giao diện trên di động được cải thiện bằng cách ẩn các tùy chọn Phông chữ và Cỡ chữ để có giao diện gọn gàng hơn.' },
+    ],
+  },
+  {
+    version: '1.10.1',
+    date: '2024-08-05',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi import thiếu trong component Bản Đồ (MapModal), gây ra sự cố hiển thị và tương tác.' },
+    ],
+  },
+  {
+    version: '1.10.0',
+    date: '2024-08-05',
+    changes: [
+      { type: 'feature', text: 'Thêm Bản Đồ Thế Giới tương tác, cho phép người chơi xem các địa điểm đã khám phá và vị trí hiện tại của nhân vật.' },
+      { type: 'feature', text: 'Bản đồ hỗ trợ zoom (phóng to/thu nhỏ) và pan (kéo thả) để khám phá.' },
+      { type: 'improvement', text: 'Cập nhật AI để theo dõi và cập nhật vị trí của nhân vật chính và NPC, làm dữ liệu cho bản đồ.' },
+      { type: 'improvement', text: 'Thêm thông tin "Vị trí" vào bảng thông tin chi tiết của nhân vật.' },
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2024-08-04',
     changes: [

@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -14,6 +13,7 @@ import { MemoryModal } from './MemoryModal.tsx';
 import { QuestDetailModal } from './QuestDetailModal.tsx';
 import { KnowledgeBaseModal } from './KnowledgeBaseModal.tsx';
 import { CustomRulesModal } from './CustomRulesModal.tsx';
+import { MapModal } from './MapModal.tsx';
 import { InteractiveText } from './InteractiveText.tsx';
 import { QuestLog } from './QuestLog.tsx';
 import { PartyMemberTab } from './PartyMemberTab.tsx';
@@ -84,6 +84,7 @@ const PlayerCharacterSheet: React.FC<{
                 </h4>
                 <div className="space-y-1 text-sm pl-2">
                     <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Tên:</strong> {pc.name}</p>
+                    {pc.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Vị trí:</strong> {pc.location}</p>}
                     {pc.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Tuổi tác:</strong> {pc.age}</p>}
                     {pc.appearance && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Dung mạo:</strong> {pc.appearance}</p>}
                     {pc.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Thực lực:</strong> {pc.realm}</p>}
@@ -251,6 +252,7 @@ export const GameScreen: React.FC<{
     const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
     const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState(false);
     const [isCustomRulesModalOpen, setIsCustomRulesModalOpen] = useState(false);
+    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
     const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
     const [showSaveSuccess, setShowSaveSuccess] = useState(false);
     const [showRulesSavedSuccess, setShowRulesSavedSuccess] = useState(false);
@@ -259,6 +261,31 @@ export const GameScreen: React.FC<{
     const [isQuestLogModalOpen, setIsQuestLogModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
+    
+    // Map State
+    const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
+        // Rehydrate location order from history if possible
+        const order: string[] = [];
+        const seen = new Set<string>();
+        initialGameState.gameHistory.forEach(entry => {
+            if (entry.role === 'model') {
+                 try {
+                    const jsonResponse = JSON.parse(entry.parts[0].text);
+                    const storyText = jsonResponse.story || '';
+                    const tagRegex = /\[LORE_LOCATION:\s*name="([^"]+)"[^\]]*\]/g;
+                    let match;
+                    while ((match = tagRegex.exec(storyText)) !== null) {
+                        const locName = match[1];
+                        if (!seen.has(locName)) {
+                            order.push(locName);
+                            seen.add(locName);
+                        }
+                    }
+                } catch (e) { /* Ignore non-json responses */ }
+            }
+        });
+        return order;
+    });
 
     // Rule change tracking
     const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
@@ -277,11 +304,12 @@ export const GameScreen: React.FC<{
     
         const parseAttributes = (attrString: string): { [key: string]: any } => {
             const attributes: { [key: string]: any } = {};
-            const attrRegex = /(\w+)\s*=\s*"([^"]*)"/g;
+            const attrRegex = /(\w+)=("([^"]*)"|([^\s"\]]+))/g; // Handle quoted and unquoted values
             let match;
             while ((match = attrRegex.exec(attrString)) !== null) {
                 const key = match[1];
-                let value: string | boolean | number | { description: string, completed: boolean }[] = match[2];
+                // Value is in capture group 3 (if quoted) or 4 (if not quoted)
+                let value: string | boolean | number | { description: string, completed: boolean }[] = match[3] !== undefined ? match[3] : match[4];
     
                 if ((key === 'isMainQuest' || key === 'equippable' || key === 'usable' || key === 'consumable' || key === 'learnable') && typeof value === 'string') {
                     value = value.toLowerCase() === 'true';
@@ -354,6 +382,22 @@ export const GameScreen: React.FC<{
                     case 'STATUS_CURED_NPC':
                         setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)));
                         break;
+                    case 'LORE_SKILL':
+                        setKnownEntities(prev => {
+                            const { name, description, ...rest } = attributes;
+                            if (name && description) {
+                                const newSkill: Entity = {
+                                    type: 'skill',
+                                    name: name,
+                                    description: description,
+                                    ...rest
+                                };
+                                return { ...prev, [name]: newSkill };
+                            }
+                            console.warn('LORE_SKILL tag is missing required attributes (name, description)', attributes);
+                            return prev;
+                        });
+                        break;
                     case 'SKILL_LEARNED':
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };
@@ -398,7 +442,16 @@ export const GameScreen: React.FC<{
                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
                         break;
                     case 'LORE_LOCATION':
-                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'location', ...attributes } }));
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev, [attributes.name]: { type: 'location', ...attributes } };
+                            setLocationDiscoveryOrder(prevOrder => {
+                                if (!prevOrder.includes(attributes.name)) {
+                                    return [...prevOrder, attributes.name];
+                                }
+                                return prevOrder;
+                            });
+                            return newEntities;
+                        });
                         break;
                     case 'LORE_FACTION':
                          setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
@@ -1093,6 +1146,7 @@ YÊU CẦU:
                 <nav className="flex flex-col space-y-3">
                     <button onClick={() => { setIsHomeModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><HomeIcon className="w-5 h-5 mr-3" /> Home</button>
                     <button onClick={() => { handleSaveGame(); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><ArchiveIcon className="w-5 h-5 mr-3" /> Lưu Trữ</button>
+                    <button onClick={() => { setIsMapModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><GameIcons.MapPinIcon className="w-5 h-5 mr-3" /> Bản Đồ</button>
                     <button onClick={() => { setIsCustomRulesModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><DocumentAddIcon className="w-5 h-5 mr-3" /> Nạp Tri Thức</button>
                     <button onClick={() => { setIsKnowledgeModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><BrainIcon className="w-5 h-5 mr-3" /> Tri Thức</button>
                     <button onClick={() => { setIsMemoryModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><MemoryIcon className="w-5 h-5 mr-3" /> Ký Ức</button>
@@ -1151,6 +1205,7 @@ YÊU CẦU:
                             <span>Tổng: {totalTokens.toLocaleString()}</span>
                         </div>
                         <button onClick={handleSaveGame} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><ArchiveIcon className="w-4 h-4 mr-1.5" /> Lưu Trữ</button>
+                        <button onClick={() => setIsMapModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><GameIcons.MapPinIcon className="w-4 h-4 mr-1.5" /> Bản Đồ</button>
                         <button onClick={() => setIsCustomRulesModalOpen(true)} className="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded shadow-sm border border-purple-500/50 transition-colors"><DocumentAddIcon className="w-4 h-4 mr-1.5" /> Nạp Tri Thức</button>
                         <button onClick={() => setIsKnowledgeModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><BrainIcon className="w-4 h-4 mr-1.5" /> Tri Thức</button>
                         <button onClick={() => setIsMemoryModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><MemoryIcon className="w-4 h-4 mr-1.5" /> Ký Ức</button>
@@ -1237,7 +1292,8 @@ YÊU CẦU:
                             <button 
                                 onClick={() => handleAction(customAction)}
                                 disabled={isLoading || !isAiReady || isCustomActionLocked}
-                                className="px-4 py-2 bg-cyan-500 dark:bg-cyan-600 hover:bg-cyan-400 dark:hover:bg-cyan-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
+                                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
+                                aria-label="Gửi hành động"
                             >
                                 Gửi
                             </button>
@@ -1245,18 +1301,15 @@ YÊU CẦU:
                     </div>
                 </div>
             </div>
-            
-            {/* Mobile Bottom Bar - Fixed */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1f2238]/90 backdrop-blur-md p-3 border-t border-slate-300 dark:border-slate-700 z-40 space-y-2">
-                {choices.length > 0 && !isLoading && (
-                    <button
-                        onClick={() => setIsChoicesModalOpen(true)}
-                        className="w-full flex items-center justify-center gap-2 text-white font-semibold py-3 px-4 rounded-lg shadow-lg bg-purple-600 hover:bg-purple-700 transition-all duration-300 transform hover:scale-105"
-                    >
-                        <SparklesIcon className="w-5 h-5" />
-                        Hiển thị Lựa chọn ({choices.length})
-                    </button>
-                )}
+
+            {/* Mobile UI */}
+            <button 
+                onClick={() => setIsChoicesModalOpen(true)}
+                className="md:hidden fixed bottom-20 right-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-full shadow-lg z-40"
+            >
+               <GameIcons.SwordIcon className="w-6 h-6"/>
+            </button>
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#1f2238]/95 backdrop-blur-sm p-3 border-t border-slate-300 dark:border-slate-700 shadow-lg z-30">
                  <div className="flex items-center">
                     <input 
                         type="text"
@@ -1265,108 +1318,76 @@ YÊU CẦU:
                         onKeyPress={(e) => e.key === 'Enter' && handleAction(customAction)}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa." : "Nhập hành động..."}
-                        className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 disabled:bg-slate-500"
+                        className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500"
                     />
-                    <button 
-                        onClick={handleSuggestAction}
-                        disabled={isLoading || !isAiReady}
-                        className="px-3 py-2 bg-yellow-500 dark:bg-yellow-600 hover:bg-yellow-400 dark:hover:bg-yellow-500 text-white font-semibold transition-colors disabled:bg-slate-500"
-                        aria-label="Gợi ý hành động"
-                    >
-                        <SparklesIcon className="w-5 h-5" />
-                    </button>
                     <button 
                         onClick={() => handleAction(customAction)}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
-                        className="px-4 py-2 bg-cyan-500 dark:bg-cyan-600 hover:bg-cyan-400 dark:hover:bg-cyan-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
                     >
                         Gửi
                     </button>
                 </div>
             </div>
 
+            {/* MODALS */}
             <ConfirmationModal
                 isOpen={isHomeModalOpen}
                 onClose={() => setIsHomeModalOpen(false)}
                 onConfirm={onBackToMenu}
-                title="Xác nhận Quay Về Trang Chủ"
-                message={<p>Toàn bộ tiến trình chưa lưu sẽ bị mất. Bạn có chắc chắn muốn quay về trang chủ không?</p>}
+                title="Về Trang Chủ?"
+                message="Bạn có chắc muốn thoát? Mọi tiến trình chưa lưu sẽ bị mất."
             />
-            <ConfirmationModal
+             <ConfirmationModal
                 isOpen={isRestartModalOpen}
                 onClose={() => setIsRestartModalOpen(false)}
                 onConfirm={handleRestartGame}
-                title="Xác nhận Bắt Đầu Lại"
-                message={<p>Hành động này sẽ xóa toàn bộ tiến trình hiện tại và bắt đầu một cuộc phiêu lưu mới với cùng bối cảnh và luật lệ ban đầu. Bạn có chắc chắn không?</p>}
+                title="Bắt Đầu Lại?"
+                message="Bạn có chắc muốn bắt đầu lại cuộc phiêu lưu? Toàn bộ tiến trình hiện tại sẽ được khởi tạo lại từ đầu với cùng thiết lập thế giới."
             />
-            <EntityInfoModal 
-                entity={activeEntity} 
-                onClose={() => setActiveEntity(null)} 
-                onUseItem={handleUseItem} 
-                onLearnItem={handleLearnItem}
-                onEquipItem={handleEquipItem}
-                onUnequipItem={handleUnequipItem}
-                statuses={statuses} 
-                onStatusClick={handleStatusClick} 
-            />
+            <EntityInfoModal entity={activeEntity} onClose={() => setActiveEntity(null)} onUseItem={handleUseItem} onLearnItem={handleLearnItem} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} statuses={statuses} onStatusClick={handleStatusClick} />
             <StatusDetailModal status={activeStatus} onClose={() => setActiveStatus(null)} />
-            <MemoryModal isOpen={isMemoryModalOpen} onClose={() => setIsMemoryModalOpen(false)} memories={memories} onTogglePin={handleToggleMemoryPin} />
             <QuestDetailModal quest={activeQuest} onClose={() => setActiveQuest(null)} />
-            <KnowledgeBaseModal 
-                isOpen={isKnowledgeModalOpen} 
-                onClose={() => setIsKnowledgeModalOpen(false)} 
-                pc={pcEntity}
-                knownEntities={knownEntities}
-                onEntityClick={handleEntityClick}
-                turnCount={turnCount}
+            <MemoryModal isOpen={isMemoryModalOpen} onClose={() => setIsMemoryModalOpen(false)} memories={memories} onTogglePin={handleToggleMemoryPin} />
+            <KnowledgeBaseModal isOpen={isKnowledgeModalOpen} onClose={() => setIsKnowledgeModalOpen(false)} pc={pcEntity} knownEntities={knownEntities} onEntityClick={handleEntityClick} turnCount={turnCount} />
+            <CustomRulesModal isOpen={isCustomRulesModalOpen} onClose={() => setIsCustomRulesModalOpen(false)} onSave={handleSaveRules} currentRules={customRules} />
+            <MapModal 
+                isOpen={isMapModalOpen} 
+                onClose={() => setIsMapModalOpen(false)}
+                locations={Object.values(knownEntities).filter(e => e.type === 'location')}
+                currentLocationName={pcEntity?.location || ''}
+                discoveryOrder={locationDiscoveryOrder}
             />
-            <CustomRulesModal
-                isOpen={isCustomRulesModalOpen}
-                onClose={() => setIsCustomRulesModalOpen(false)}
-                onSave={handleSaveRules}
-                currentRules={customRules}
-            />
+             <InfoPanelModal
+                isOpen={isPcInfoModalOpen}
+                onClose={() => setIsPcInfoModalOpen(false)}
+                title="Thông Tin Nhân Vật"
+                icon={<UserIcon className="w-6 h-6" />}
+            >
+                <PlayerCharacterSheet pc={pcEntity} statuses={pcStatuses} knownEntities={knownEntities} onStatusClick={handleStatusClick} onEntityClick={handleEntityClick}/>
+            </InfoPanelModal>
+             <InfoPanelModal
+                isOpen={isPartyModalOpen}
+                onClose={() => setIsPartyModalOpen(false)}
+                title="Tổ Đội"
+                icon={<GameIcons.NpcIcon className="w-6 h-6" />}
+            >
+                <PartyMemberTab party={displayParty} onMemberClick={handleEntityClick}/>
+            </InfoPanelModal>
+            <InfoPanelModal
+                isOpen={isQuestLogModalOpen}
+                onClose={() => setIsQuestLogModalOpen(false)}
+                title="Nhật Ký Nhiệm Vụ"
+                icon={<GameIcons.ScrollIcon className="w-6 h-6" />}
+            >
+                <QuestLog quests={quests} onQuestClick={handleQuestClick} />
+            </InfoPanelModal>
             <MobileChoicesModal 
                 isOpen={isChoicesModalOpen}
                 onClose={() => setIsChoicesModalOpen(false)}
                 choices={choices}
                 onAction={handleAction}
             />
-
-            {/* Info Panel Modals */}
-             <InfoPanelModal
-                isOpen={isPcInfoModalOpen}
-                onClose={() => setIsPcInfoModalOpen(false)}
-                title="Thông tin Nhân vật"
-                icon={<UserIcon className="w-6 h-6" />}
-            >
-                <PlayerCharacterSheet 
-                    pc={pcEntity}
-                    statuses={pcStatuses}
-                    knownEntities={knownEntities}
-                    onStatusClick={(status) => { setIsPcInfoModalOpen(false); handleStatusClick(status); }}
-                    onEntityClick={(entityName) => { setIsPcInfoModalOpen(false); handleEntityClick(entityName); }}
-                />
-            </InfoPanelModal>
-
-            <InfoPanelModal
-                isOpen={isPartyModalOpen}
-                onClose={() => setIsPartyModalOpen(false)}
-                title="Thành viên Tổ đội"
-                icon={<GameIcons.NpcIcon className="w-6 h-6" />}
-            >
-                <PartyMemberTab party={displayParty} onMemberClick={(name) => { setIsPartyModalOpen(false); handleEntityClick(name); }} />
-            </InfoPanelModal>
-
-            <InfoPanelModal
-                isOpen={isQuestLogModalOpen}
-                onClose={() => setIsQuestLogModalOpen(false)}
-                title="Nhật ký Nhiệm vụ"
-                icon={<GameIcons.ScrollIcon className="w-6 h-6" />}
-            >
-                <QuestLog quests={quests} onQuestClick={(quest) => { setIsQuestLogModalOpen(false); handleQuestClick(quest); }} />
-            </InfoPanelModal>
-
         </div>
     );
 };

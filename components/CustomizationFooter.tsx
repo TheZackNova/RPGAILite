@@ -26,7 +26,7 @@ export const CustomizationFooter: React.FC<{
     
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1f2238]/80 backdrop-blur-sm border-t border-slate-300 dark:border-slate-700 p-2 z-[100]">
-            <div className="max-w-7xl mx-auto flex items-center justify-center space-x-4 md:space-x-8">
+            <div className="max-w-7xl mx-auto hidden md:flex items-center justify-center space-x-4 md:space-x-8">
                 {/* Font Family Selector */}
                 <div className="flex items-center space-x-2">
                     <label htmlFor="font-family" className="text-sm font-medium text-slate-700 dark:text-slate-300">Phông chữ:</label>

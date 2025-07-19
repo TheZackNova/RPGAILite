@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
@@ -27,8 +26,8 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ QUẢN TRÒ (GAME MASTER) T
     *   **QUY TẮC VỀ THUỘC TÍNH:** Tất cả các thuộc tính trong thẻ lệnh BẮT BUỘC phải ở định dạng camelCase (ví dụ: \`npcName\`, \`questTitle\`, \`isComplete\`). TUYỆT ĐỐI không dùng PascalCase (Name) hoặc snake_case (npc_name).
     *   **Tạo Thực Thể (QUAN TRỌNG):**
         *   **QUY TẮC TỐI THƯỢNG:** Mọi thực thể được tạo ra thông qua thẻ \`LORE_...\` **BẮT BUỘC PHẢI** có thuộc tính \`description\` do AI tự viết. **TUYỆT ĐỐI CẤM** sử dụng các cụm từ như "Chưa có mô tả", "Không có thông tin" hoặc để trống trường \`description\`. Vi phạm quy tắc này sẽ phá hỏng trò chơi.
-        *   \`[LORE_NPC: name="...", gender="...", age="...", appearance="...", skills="...", personality="...", personalityMbti="...", motivation="..."]\`:
-            *   \`description\`, \`personality\` (tính cách bề ngoài), \`age\` (tuổi tác), \`appearance\` (dung mạo/ngoại hình), và \`motivation\` (động cơ) là **BẮT BUỘC**.
+        *   \`[LORE_NPC: name="...", gender="...", age="...", appearance="...", skills="...", personality="...", personalityMbti="...", motivation="...", location="..."]\`:
+            *   \`description\`, \`personality\` (tính cách bề ngoài), \`age\` (tuổi tác), \`appearance\` (dung mạo/ngoại hình), \`motivation\` (động cơ), và \`location\` (vị trí hiện tại của NPC, phải là tên một địa danh đã biết) là **BẮT BUỘC**.
             *   \`description\` cũng nên đề cập đến tình hình hiện tại hoặc mối quan hệ của NPC với các thực thể đã biết khác (nếu có).
             *   \`appearance\` phải mô tả chi tiết ngoại hình của NPC (ví dụ: "Khuôn mặt trái xoan, mắt phượng mày ngài, dáng người thon thả.").
             *   \`skills\` (danh sách kỹ năng, phân tách bằng dấu phẩy, ví dụ: "Kiếm Pháp Cơ Bản, Phi Thân Thuật") là **BẮT BUỘC** nếu NPC có khả năng chiến đấu.
@@ -51,7 +50,7 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ QUẢN TRÒ (GAME MASTER) T
         *   **Trạng Thái Tiến Triển & Vĩnh Viễn (QUAN TRỌNG):** Các trạng thái (đặc biệt là \`injury\`) có thể trở nên tồi tệ hơn hoặc vĩnh viễn nếu không được xử lý.
             *   Ví dụ 1 (Ban đầu): Nhân vật bị \`[STATUS_APPLIED_SELF: name="Gãy Xương Tay", description="Một tiếng rắc khô khốc vang lên, cánh tay trái của ngươi đau nhói và không thể cử động.", type="injury", effects="Không thể dùng tay trái cho bất kỳ hành động nào.", source="Đòn tấn công của Kẻ Cướp", duration="Cho đến khi được chữa trị", cureConditions="Yêu cầu Nẹp và Băng Bó."]\`.
             *   Ví dụ 2 (Nếu bị bỏ mặc): Sau vài lượt người chơi không chữa trị, bạn PHẢI cập nhật nó bằng cách áp dụng lại thẻ: \`[STATUS_APPLIED_SELF: name="Di Tật Tay Trái", description="Xương tay đã liền lại sai vị trí, gây đau nhức và yếu đi vĩnh viễn.", type="injury", effects="Giảm 25% sức mạnh và sự khéo léo của tay trái.", source="Gãy xương không được chữa trị.", duration="Vĩnh viễn"]\`.
-        *   **Trạng Thái Tinh Thần & Cảm Xúc (BẮT BUỘC):** Chủ động áp dụng các trạng thái về tinh thần, cảm xúc dựa trên diễn biến.
+        *   **Trạng thái Tinh Thần & Cảm Xúc (BẮT BUỘC):** Chủ động áp dụng các trạng thái về tinh thần, cảm xúc dựa trên diễn biến.
             *   Ví dụ (Sợ hãi): \`[STATUS_APPLIED_NPC: npcName="Tên Cướp", name="Hoảng Loạn", description="Nhìn thấy đồng bọn bị hạ gục, hắn mất hết ý chí chiến đấu.", type="debuff", effects="Giảm mạnh độ chính xác, có khả năng sẽ bỏ chạy.", duration="2 lượt", source="Chứng kiến đồng bọn thảm bại."]\`
             *   Ví dụ (Hưng phấn): \`[STATUS_APPLIED_SELF: name="Hưng Phấn Chiến Đấu", description="Adrenaline tuôn trào, cảm thấy mình bất khả chiến bại.", type="buff", effects="Tăng sát thương, nhưng giảm khả năng phòng thủ và né tránh.", duration="3 lượt", source="Trận chiến kịch tính."]\`
             *   Ví dụ (Buồn bã): \`[STATUS_APPLIED_SELF: name="Trái Tim Tan Vỡ", description="Cái chết của người đồng đội thân thiết khiến tâm trí trống rỗng.", type="debuff", effects="Không thể sử dụng các kỹ năng cần sự tập trung.", duration="Cho đến khi tìm thấy sự khuây khỏa", source="Mất mát người thân."]\`
@@ -77,7 +76,7 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ QUẢN TRÒ (GAME MASTER) T
         *   \`[SKILL_LEARNED: name="...", description="...", realm="..."]\`: Kỹ năng được học.
         *   \`[REALM_UPDATE: target="Tên Thực Thể", realm="..."]\`: Cập nhật cảnh giới cho một thực thể (nhân vật, NPC, hoặc kỹ năng/công pháp). Nếu việc tăng cảnh giới làm thay đổi mô tả của kỹ năng, hãy sử dụng thêm thẻ \`[ENTITY_UPDATE]\`.
         *   \`[RELATIONSHIP_CHANGED: npcName="Tên NPC", relationship="Mối quan hệ"]\`
-        *   \`[ENTITY_UPDATE: name="Tên Thực Thể", newDescription="Mô tả mới đầy đủ...", age="...", appearance="...", fame="..."]\`: **QUAN TRỌNG:** Sử dụng để cập nhật thông tin cho bất kỳ thực thể nào, bao gồm cả PC. Có thể cập nhật \`description\`, \`age\`, \`appearance\`, \`fame\` (danh vọng) và các thuộc tính khác.
+        *   \`[ENTITY_UPDATE: name="Tên Thực Thể", newDescription="Mô tả mới đầy đủ...", age="...", appearance="...", fame="...", location="..."]\`: **QUAN TRỌNG:** Sử dụng để cập nhật thông tin cho bất kỳ thực thể nào, bao gồm cả PC. Có thể cập nhật \`description\`, \`age\`, \`appearance\`, \`fame\` (danh vọng), \`location\` (vị trí) và các thuộc tính khác. Khi PC di chuyển đến một địa điểm mới, **BẮT BUỘC** phải dùng thẻ này để cập nhật vị trí của họ.
         *   \`[MEMORY_ADD: text="..."]\`
     *Khi  người chơi nhập hành động tuỳ ý bắt đầu bằng "ADMIN:" Quản Trò phải tuyệt đối chấp hành yêu cầu của người chơi thay đổi thông tin được nêu ra có liên quan.
 3.  **LUẬT VỀ LỰA CHỌN VÀ HÀNH ĐỘNG (QUAN TRỌNG NHẤT - ĐÃ CẬP NHẬT):**
@@ -244,13 +243,18 @@ export default function App() {
             if (typeof text === 'string') {
                 const loadedJson = JSON.parse(text);
                 // Basic validation
-                if (loadedJson.worldData && loadedJson.gameHistory) {
+                if (loadedJson.worldData && loadedJson.knownEntities && loadedJson.gameHistory) {
                     const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
                     // Ensure new fields have default values if loading an old save
-                    const validatedData = {
-                        ...loadedJson,
-                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
+                    const validatedData: SaveData = {
+                        worldData: loadedJson.worldData,
+                        knownEntities: loadedJson.knownEntities,
+                        statuses: loadedJson.statuses || [],
+                        quests: loadedJson.quests || [],
+                        gameHistory: loadedJson.gameHistory,
+                        memories: loadedJson.memories || [],
                         party: loadedJson.party || (pc ? [pc] : []),
+                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
                         systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
                         turnCount: loadedJson.turnCount || 0,
                         totalTokens: loadedJson.totalTokens || 0,
@@ -259,7 +263,7 @@ export default function App() {
                     };
                     delete (validatedData as any).userKnowledge;
 
-                    setGameState(validatedData as SaveData);
+                    setGameState(validatedData);
                     setView('game');
                 } else {
                     alert('Tệp lưu không hợp lệ.');
@@ -312,7 +316,7 @@ export default function App() {
             100% { background-position: 0% 50%; }
         }
       `}</style>
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-20 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
+      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 md:pb-20 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
         {renderContent()}
         <ApiSettingsModal 
           isOpen={isApiSettingsModalOpen} 

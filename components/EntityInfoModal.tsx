@@ -68,6 +68,7 @@ export const EntityInfoModal: React.FC<{
                             {entity.gender && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Giới tính:</strong> {entity.gender}</p>}
                             {entity.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tuổi:</strong> {entity.age}</p>}
                             {entity.appearance && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Dung mạo:</strong> {entity.appearance}</p>}
+                            {entity.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Vị trí:</strong> {entity.location}</p>}
                             {entity.personality && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Bề ngoài):</strong> {entity.personality}</p>}
                             {entity.motivation && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Động cơ:</strong> {entity.motivation}</p>}
                             {entity.type !== 'pc' && entity.personalityMbti && MBTI_PERSONALITIES[entity.personalityMbti] && (

@@ -1,5 +1,4 @@
 
-
 import { SaveData, Entity, Status, Quest, GameHistoryEntry } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
@@ -22,6 +21,7 @@ const formatEntityForPrompt = (entity: Entity, allStatuses: Status[]): string =>
         details.push(`Tính cách (Cốt lõi - ${entity.personalityMbti}): ${MBTI_PERSONALITIES[entity.personalityMbti].description}`);
     }
     if (entity.motivation) details.push(`Động cơ: ${entity.motivation}`);
+    if (entity.location) details.push(`Vị trí: ${entity.location}`);
     if (entity.realm) details.push(`Cảnh giới: ${entity.realm}`);
     if ((entity.type === 'npc' || entity.type === 'companion') && Array.isArray(entity.skills) && entity.skills.length > 0) {
         details.push(`Kỹ năng: ${entity.skills.join(', ')}`);
@@ -103,6 +103,7 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
     if (pc) {
         retrievedContext += "--- BỐI CẢNH NHÂN VẬT CHÍNH (PC) ---\n";
         retrievedContext += `Tên: ${pc.name}\n`;
+        if (pc.location) retrievedContext += `Vị trí hiện tại: ${pc.location}\n`;
         if (pc.gender) retrievedContext += `Giới tính: ${pc.gender}\n`;
         if (pc.age) retrievedContext += `Tuổi: ${pc.age}\n`;
         if (pc.appearance) retrievedContext += `Dung mạo: ${pc.appearance}\n`;

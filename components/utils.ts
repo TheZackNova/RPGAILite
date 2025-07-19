@@ -1,6 +1,6 @@
 import React from 'react';
 import { Entity, Status, Quest } from './types.ts';
-import { BrainIcon, CrossIcon, InfoIcon } from './Icons.tsx';
+import { BrainIcon, CrossIcon, InfoIcon, HomeIcon } from './Icons.tsx';
 import * as GameIcons from './GameIcons.tsx';
 
 // --- Icon Factory ---
@@ -55,6 +55,31 @@ export const getIconForEntity = (entity: Entity): React.ReactNode => {
 
     return React.createElement(GameIcons.SparklesIcon);
 };
+
+export const getIconForLocation = (location: Entity, isCurrent: boolean): React.ReactNode => {
+    if (isCurrent) return React.createElement(GameIcons.LocationCurrentIcon);
+    if (!location) return React.createElement(GameIcons.DefaultLocationIcon);
+
+    const name = location.name.toLowerCase();
+    
+    if (name.includes('làng')) return React.createElement(HomeIcon);
+    if (name.includes('thị trấn')) return React.createElement(GameIcons.TownIcon);
+    if (name.includes('thành phố')) return React.createElement(GameIcons.CityIcon);
+    if (name.includes('thủ đô')) return React.createElement(GameIcons.CapitalIcon);
+    if (name.includes('tông') || name.includes('gia tộc') || name.includes('môn phái')) return React.createElement(GameIcons.SectIcon);
+    if (name.includes('cửa hàng') || name.includes('tiệm')) return React.createElement(GameIcons.ShopIcon);
+    if (name.includes('quán trọ') || name.includes('tửu điếm') || name.includes('nhà trọ')) return React.createElement(GameIcons.InnIcon);
+    if (name.includes('rừng')) return React.createElement(GameIcons.ForestIcon);
+    if (name.includes('núi') || name.includes('đỉnh') || name.includes('sơn')) return React.createElement(GameIcons.MountainIcon);
+    if (name.includes('hang') || name.includes('động')) return React.createElement(GameIcons.CaveIcon);
+    if (name.includes('hầm ngục') || name.includes('bí cảnh')) return React.createElement(GameIcons.DungeonIcon);
+    if (name.includes('tàn tích') || name.includes('phế tích')) return React.createElement(GameIcons.RuinsIcon);
+    if (name.includes('sông') || name.includes('hồ') || name.includes('suối')) return React.createElement(GameIcons.WaterIcon);
+    if (name.includes('địa danh đặc biệt')) return React.createElement(GameIcons.LandmarkIcon);
+    
+    return React.createElement(GameIcons.DefaultLocationIcon);
+};
+
 
 export const getIconForStatus = (status: Status): React.ReactNode => {
     if (!status) return React.createElement(InfoIcon);
