@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
@@ -78,7 +79,7 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ QUẢN TRÒ (GAME MASTER) T
         *   \`[RELATIONSHIP_CHANGED: npcName="Tên NPC", relationship="Mối quan hệ"]\`
         *   \`[ENTITY_UPDATE: name="Tên Thực Thể", newDescription="Mô tả mới đầy đủ...", age="...", appearance="...", fame="..."]\`: **QUAN TRỌNG:** Sử dụng để cập nhật thông tin cho bất kỳ thực thể nào, bao gồm cả PC. Có thể cập nhật \`description\`, \`age\`, \`appearance\`, \`fame\` (danh vọng) và các thuộc tính khác.
         *   \`[MEMORY_ADD: text="..."]\`
-
+    *Khi  người chơi nhập hành động tuỳ ý bắt đầu bằng "ADMIN:" Quản Trò phải tuyệt đối chấp hành yêu cầu của người chơi thay đổi thông tin được nêu ra có liên quan.
 3.  **LUẬT VỀ LỰA CHỌN VÀ HÀNH ĐỘNG (QUAN TRỌNG NHẤT - ĐÃ CẬP NHẬT):**
     *   **Đánh giá Toàn diện:** Trước khi tạo lựa chọn, bạn PHẢI phân tích TOÀN DIỆN bối cảnh (trạng thái, kỹ năng, trang bị của nhân vật; trạng thái, quan hệ của NPC; môi trường; tình huống).
     *   **KẾT QUẢ KHÔNG ĐẢM BẢO:** Kết quả của các lựa chọn có tỷ lệ phần trăm **KHÔNG** được đảm bảo. Bạn phải **BÍ MẬT "TUNG XÚC XẮC"** để quyết định kết quả và tường thuật lại kết quả thực tế (thành công, thành công nhưng gặp rủi ro, hoặc thất bại).
@@ -215,8 +216,6 @@ export default function App() {
 
       setGameState({
         worldData: worldData,
-        storyLog: [],
-        choices: [],
         knownEntities: { [pcEntity.name]: pcEntity },
         statuses: [],
         quests: [],
@@ -248,7 +247,7 @@ export default function App() {
                 if (loadedJson.worldData && loadedJson.gameHistory) {
                     const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
                     // Ensure new fields have default values if loading an old save
-                    const validatedData: SaveData = {
+                    const validatedData = {
                         ...loadedJson,
                         customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
                         party: loadedJson.party || (pc ? [pc] : []),
@@ -260,7 +259,7 @@ export default function App() {
                     };
                     delete (validatedData as any).userKnowledge;
 
-                    setGameState(validatedData);
+                    setGameState(validatedData as SaveData);
                     setView('game');
                 } else {
                     alert('Tệp lưu không hợp lệ.');

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -223,8 +225,6 @@ export const GameScreen: React.FC<{
 }> = ({ initialGameState, onBackToMenu, fontFamily, fontSize }) => {
     const { ai, isAiReady, apiKeyError } = useContext(AIContext);
     const [worldData, setWorldData] = useState(initialGameState.worldData);
-    const [storyLog, setStoryLog] = useState(initialGameState.storyLog);
-    const [choices, setChoices] = useState(initialGameState.choices);
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
     const [customAction, setCustomAction] = useState('');
     const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
@@ -269,48 +269,7 @@ export const GameScreen: React.FC<{
     const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
     const pcName = pcEntity?.name;
 
-    const isCustomActionLocked = useMemo(() => {
-        return customRules.some(rule =>
-            rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')
-        );
-    }, [customRules]);
-
-    useEffect(() => {
-        if (storyContainerRef.current) {
-            storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
-        }
-    }, [storyLog]);
-    
-    useEffect(() => {
-        // Only generate story if history is empty (i.e., it's a new game or a restart)
-        if (gameHistory.length === 0 && isAiReady) {
-            setIsLoading(true); // Ensure loading state is active
-            generateInitialStory();
-        } else if (!isAiReady) {
-            setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
-            setIsLoading(false);
-        } else {
-             // For loaded games, still need to scroll to bottom on initial load
-            if (storyContainerRef.current) {
-                storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
-            }
-        }
-    }, [gameHistory, isAiReady]);
-    
-    const responseSchema = {
-      type: Type.OBJECT,
-      properties: {
-        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
-        choices: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
-        },
-      },
-      required: ['story', 'choices']
-    };
-
-    const parseStoryAndTags = (storyText: string): string => {
+    const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
         if (!storyText) return '';
     
         const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
@@ -341,318 +300,403 @@ export const GameScreen: React.FC<{
         const unprocessedTags: string[] = [];
         while ((match = tagRegex.exec(storyText)) !== null) {
             cleanStory = cleanStory.replace(match[0], ''); // Remove tag from displayed story
-            const tagType = match[1];
-            const rawContent = match[2];
             
-            const attributes = parseAttributes(rawContent);
-            if (tagType === 'MEMORY_ADD' && attributes.text) {
-                setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
-                continue;
-            }
-            if (Object.keys(attributes).length === 0) {
-                 unprocessedTags.push(match[0]);
-                 continue;
-            }
-    
-            switch (tagType) {
-                case 'TIME_ELAPSED':
-                    const elapsed = {
-                        years: Number(attributes.years) || 0,
-                        months: Number(attributes.months) || 0,
-                        days: Number(attributes.days) || 0,
-                        hours: Number(attributes.hours) || 0
-                    };
-                    if (Object.values(elapsed).some(v => v > 0)) {
-                        setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
-                    }
-                    break;
-                case 'CHRONICLE_TURN':
-                    if (attributes.text) {
-                        setChronicle(prev => ({ ...prev, turn: [...prev.turn, attributes.text] }));
-                    }
-                    break;
-                case 'CHRONICLE_CHAPTER':
-                    if (attributes.text) {
-                        setChronicle(prev => ({ ...prev, chapter: [...prev.chapter, attributes.text] }));
-                    }
-                    break;
-                case 'CHRONICLE_MEMOIR':
-                     if (attributes.text) {
-                        setChronicle(prev => ({ ...prev, memoir: [...prev.memoir, attributes.text] }));
-                    }
-                    break;
-                case 'STATUS_APPLIED_SELF':
-                    setStatuses(prev => [...prev.filter(s => s.name !== attributes.name || s.owner !== 'pc'), { ...attributes, owner: 'pc' } as Status]);
-                    break;
-                case 'STATUS_APPLIED_NPC':
-                    setStatuses(prev => [...prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)), { ...attributes, owner: attributes.npcName } as Status]);
-                    break;
-                case 'STATUS_CURED_SELF':
-                    setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
-                    break;
-                case 'STATUS_CURED_NPC':
-                    setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)));
-                    break;
-                case 'SKILL_LEARNED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const { name, description, ...rest } = attributes;
-                        if (name && description) {
-                            const newSkill: Entity = {
-                                type: 'skill',
-                                name: name,
-                                description: description,
-                                ...rest
-                            };
-                            newEntities[name] = newSkill;
-                    
-                            const pc = Object.values(newEntities).find(e => e.type === 'pc');
-                            if (pc) {
-                                const pcName = pc.name;
-                                const updatedPc = { ...newEntities[pcName] };
-                                if (!updatedPc.learnedSkills) {
-                                    updatedPc.learnedSkills = [];
+            if (applySideEffects) {
+                const tagType = match[1];
+                const rawContent = match[2];
+                
+                const attributes = parseAttributes(rawContent);
+                if (tagType === 'MEMORY_ADD' && attributes.text) {
+                    setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
+                    continue;
+                }
+                if (Object.keys(attributes).length === 0) {
+                     unprocessedTags.push(match[0]);
+                     continue;
+                }
+        
+                switch (tagType) {
+                    case 'TIME_ELAPSED':
+                        const elapsed = {
+                            years: Number(attributes.years) || 0,
+                            months: Number(attributes.months) || 0,
+                            days: Number(attributes.days) || 0,
+                            hours: Number(attributes.hours) || 0
+                        };
+                        if (Object.values(elapsed).some(v => v > 0)) {
+                            setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
+                        }
+                        break;
+                    case 'CHRONICLE_TURN':
+                        if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, turn: [...prev.turn, attributes.text] }));
+                        }
+                        break;
+                    case 'CHRONICLE_CHAPTER':
+                        if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, chapter: [...prev.chapter, attributes.text] }));
+                        }
+                        break;
+                    case 'CHRONICLE_MEMOIR':
+                         if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, memoir: [...prev.memoir, attributes.text] }));
+                        }
+                        break;
+                    case 'STATUS_APPLIED_SELF':
+                        setStatuses(prev => [...prev.filter(s => s.name !== attributes.name || s.owner !== 'pc'), { ...attributes, owner: 'pc' } as Status]);
+                        break;
+                    case 'STATUS_APPLIED_NPC':
+                        setStatuses(prev => [...prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)), { ...attributes, owner: attributes.npcName } as Status]);
+                        break;
+                    case 'STATUS_CURED_SELF':
+                        setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
+                        break;
+                    case 'STATUS_CURED_NPC':
+                        setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)));
+                        break;
+                    case 'SKILL_LEARNED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const { name, description, ...rest } = attributes;
+                            if (name && description) {
+                                const newSkill: Entity = {
+                                    type: 'skill',
+                                    name: name,
+                                    description: description,
+                                    ...rest
+                                };
+                                newEntities[name] = newSkill;
+                        
+                                const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                if (pc) {
+                                    const pcName = pc.name;
+                                    const updatedPc = { ...newEntities[pcName] };
+                                    if (!updatedPc.learnedSkills) {
+                                        updatedPc.learnedSkills = [];
+                                    }
+                                    if (!updatedPc.learnedSkills.includes(name)) {
+                                        updatedPc.learnedSkills.push(name);
+                                    }
+                                    newEntities[pcName] = updatedPc;
                                 }
-                                if (!updatedPc.learnedSkills.includes(name)) {
-                                    updatedPc.learnedSkills.push(name);
-                                }
-                                newEntities[pcName] = updatedPc;
+                            } else {
+                                console.warn('SKILL_LEARNED tag is missing required attributes (name, description)', attributes);
                             }
-                        } else {
-                            console.warn('SKILL_LEARNED tag is missing required attributes (name, description)', attributes);
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'LORE_NPC':
-                    setKnownEntities(prev => {
-                        const newAttributes = { ...attributes };
-                        if (typeof newAttributes.skills === 'string') {
-                            newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
-                        }
-                        return { ...prev, [attributes.name]: { type: 'npc', ...newAttributes } };
-                    });
-                    break;
-                case 'LORE_ITEM':
-                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
-                    break;
-                case 'LORE_LOCATION':
-                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'location', ...attributes } }));
-                    break;
-                case 'LORE_FACTION':
-                     setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
-                     break;
-                case 'LORE_CONCEPT':
-                     setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'concept', ...attributes } }));
-                     break;
-                case 'ENTITY_UPDATE':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const targetName = attributes.name;
-                        if (newEntities[targetName]) {
-                            // Use newDescription and remove it from attributes to avoid overwriting description with undefined
-                            const { name, newDescription, ...updateData } = attributes;
-                            const finalUpdateData = { ...updateData };
-                            if (newDescription) {
-                                finalUpdateData.description = newDescription;
+                            return newEntities;
+                        });
+                        break;
+                    case 'LORE_NPC':
+                        setKnownEntities(prev => {
+                            const newAttributes = { ...attributes };
+                            if (typeof newAttributes.skills === 'string') {
+                                newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+                            }
+                            return { ...prev, [attributes.name]: { type: 'npc', ...newAttributes } };
+                        });
+                        break;
+                    case 'LORE_ITEM':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
+                        break;
+                    case 'LORE_LOCATION':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'location', ...attributes } }));
+                        break;
+                    case 'LORE_FACTION':
+                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
+                         break;
+                    case 'LORE_CONCEPT':
+                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'concept', ...attributes } }));
+                         break;
+                    case 'ENTITY_UPDATE':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const targetName = attributes.name;
+                            if (newEntities[targetName]) {
+                                // Use newDescription and remove it from attributes to avoid overwriting description with undefined
+                                const { name, newDescription, ...updateData } = attributes;
+                                const finalUpdateData = { ...updateData };
+                                if (newDescription) {
+                                    finalUpdateData.description = newDescription;
+                                }
+                                
+                                // Handle renaming
+                                if (attributes.newName && attributes.newName !== targetName) {
+                                    const oldEntity = newEntities[targetName];
+                                    delete newEntities[targetName];
+                                    newEntities[attributes.newName] = {
+                                        ...oldEntity,
+                                        ...finalUpdateData,
+                                        name: attributes.newName
+                                    };
+                                } else {
+                                    newEntities[targetName] = { ...newEntities[targetName], ...finalUpdateData };
+                                }
+                            } else {
+                                console.warn(`Attempted to update non-existent entity: ${targetName}`);
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_AQUIRED':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', owner: 'pc', ...attributes } }));
+                        break;
+                     case 'ITEM_CONSUMED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const itemToConsume = newEntities[attributes.name];
+    
+                            if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
+                                if (typeof itemToConsume.uses === 'number' && itemToConsume.uses > 1) {
+                                    newEntities[attributes.name] = {
+                                        ...itemToConsume,
+                                        uses: itemToConsume.uses - 1,
+                                    };
+                                } else {
+                                    const { owner, equipped, ...restOfItem } = itemToConsume;
+                                    newEntities[attributes.name] = restOfItem;
+                                }
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_EQUIPPED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc' && item.equippable) {
+                                item.equipped = true;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_UNEQUIPPED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc') {
+                                item.equipped = false;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_TRANSFORMED':
+                        setKnownEntities(prev => {
+                            const { oldName, newName, description, ...rest } = attributes;
+                            if (!oldName || !newName) {
+                                console.warn("ITEM_TRANSFORMED tag missing oldName or newName", attributes);
+                                return prev;
+                            }
+    
+                            const newEntities = { ...prev };
+                            const oldItem = newEntities[oldName];
+                            
+                            if (oldItem) {
+                                delete newEntities[oldName];
+                            } else {
+                                 console.warn(`Attempted to transform non-existent item: ${oldName}`);
                             }
                             
-                            // Handle renaming
-                            if (attributes.newName && attributes.newName !== targetName) {
-                                const oldEntity = newEntities[targetName];
-                                delete newEntities[targetName];
-                                newEntities[attributes.newName] = {
-                                    ...oldEntity,
-                                    ...finalUpdateData,
-                                    name: attributes.newName
-                                };
-                            } else {
-                                newEntities[targetName] = { ...newEntities[targetName], ...finalUpdateData };
-                            }
-                        } else {
-                            console.warn(`Attempted to update non-existent entity: ${targetName}`);
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'ITEM_AQUIRED':
-                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', owner: 'pc', ...attributes } }));
-                    break;
-                 case 'ITEM_CONSUMED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const itemToConsume = newEntities[attributes.name];
-
-                        if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
-                            if (typeof itemToConsume.uses === 'number' && itemToConsume.uses > 1) {
-                                newEntities[attributes.name] = {
-                                    ...itemToConsume,
-                                    uses: itemToConsume.uses - 1,
-                                };
-                            } else {
-                                const { owner, equipped, ...restOfItem } = itemToConsume;
-                                newEntities[attributes.name] = restOfItem;
-                            }
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'ITEM_EQUIPPED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const item = newEntities[attributes.name];
-                        if (item && item.owner === 'pc' && item.equippable) {
-                            item.equipped = true;
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'ITEM_UNEQUIPPED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const item = newEntities[attributes.name];
-                        if (item && item.owner === 'pc') {
-                            item.equipped = false;
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'ITEM_TRANSFORMED':
-                    setKnownEntities(prev => {
-                        const { oldName, newName, description, ...rest } = attributes;
-                        if (!oldName || !newName) {
-                            console.warn("ITEM_TRANSFORMED tag missing oldName or newName", attributes);
-                            return prev;
-                        }
-
-                        const newEntities = { ...prev };
-                        const oldItem = newEntities[oldName];
-                        
-                        if (oldItem) {
-                            delete newEntities[oldName];
-                        } else {
-                             console.warn(`Attempted to transform non-existent item: ${oldName}`);
-                        }
-                        
-                        const newItem: Entity = {
-                            ...rest,
-                            name: newName,
-                            type: 'item',
-                            owner: oldItem?.owner || 'pc',
-                            description: description || `Vật phẩm được biến đổi từ ${oldName}.`,
-                        };
-
-                        newEntities[newName] = newItem;
-                        
-                        return newEntities;
-                    });
-                    break;
-                case 'ITEM_UPDATED':
-                     setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        if (newEntities[attributes.name] && newEntities[attributes.name].owner === 'pc') {
-                             newEntities[attributes.name] = { ...newEntities[attributes.name], ...attributes };
-                        }
-                        return newEntities;
-                    });
-                    break;
-                 case 'ITEM_DAMAGED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const item = newEntities[attributes.name];
-                        if (item && typeof item.durability === 'number') {
-                            item.durability = Math.max(0, item.durability - (attributes.damage || 0));
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'ITEM_REPAIRED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const item = newEntities[attributes.name];
-                        if (item && typeof item.durability === 'number') {
-                            item.durability = Math.min(100, item.durability + (attributes.repairedAmount || 0));
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'REALM_UPDATE':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        const targetEntity = Object.values(newEntities).find(e => e.name === attributes.target);
-                        if (targetEntity) {
-                            newEntities[targetEntity.name].realm = attributes.realm;
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'COMPANION':
-                     const newCompanion = { type: 'companion', ...attributes } as Entity;
-                     if (newCompanion.name && newCompanion.description) {
-                        setParty(prev => [...prev.filter(p => p.name !== newCompanion.name), newCompanion]);
-                        setKnownEntities(prev => ({ ...prev, [newCompanion.name]: newCompanion }));
-                     } else {
-                        console.warn('COMPANION tag is missing required attributes (name, description)', attributes);
-                     }
-                     break;
-                case 'RELATIONSHIP_CHANGED':
-                    setKnownEntities(prev => {
-                        const newEntities = { ...prev };
-                        if (newEntities[attributes.npcName]) {
-                            newEntities[attributes.npcName].relationship = attributes.relationship;
-                        }
-                        return newEntities;
-                    });
-                    break;
-                case 'QUEST_ASSIGNED':
-                    const newQuest: Quest = {
-                         title: attributes.title,
-                         description: attributes.description,
-                         objectives: attributes.objectives || [],
-                         giver: attributes.giver,
-                         reward: attributes.reward,
-                         isMainQuest: attributes.isMainQuest || false,
-                         status: 'active'
-                    };
-                    setQuests(prev => [...prev.filter(q => q.title !== newQuest.title), newQuest]);
-                    break;
-                case 'QUEST_UPDATED':
-                    setQuests(prev => prev.map(q => q.title === attributes.title ? { ...q, status: attributes.status } : q));
-                    break;
-                case 'QUEST_OBJECTIVE_COMPLETED':
-                    setQuests(prev => prev.map(q => {
-                        if (q.title === attributes.questTitle) {
-                            const newObjectives = q.objectives.map(obj => 
-                                obj.description === attributes.objectiveDescription ? { ...obj, completed: true } : obj
-                            );
-                            const allCompleted = newObjectives.every(obj => obj.completed);
-                            return {
-                                ...q,
-                                objectives: newObjectives,
-                                status: allCompleted ? 'completed' : q.status
+                            const newItem: Entity = {
+                                ...rest,
+                                name: newName,
+                                type: 'item',
+                                owner: oldItem?.owner || 'pc',
+                                description: description || `Vật phẩm được biến đổi từ ${oldName}.`,
                             };
+    
+                            newEntities[newName] = newItem;
+                            
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_UPDATED':
+                         setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            if (newEntities[attributes.name] && newEntities[attributes.name].owner === 'pc') {
+                                 newEntities[attributes.name] = { ...newEntities[attributes.name], ...attributes };
+                            }
+                            return newEntities;
+                        });
+                        break;
+                     case 'ITEM_DAMAGED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && typeof item.durability === 'number') {
+                                item.durability = Math.max(0, item.durability - (attributes.damage || 0));
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_REPAIRED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && typeof item.durability === 'number') {
+                                item.durability = Math.min(100, item.durability + (attributes.repairedAmount || 0));
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'REALM_UPDATE':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const targetEntity = Object.values(newEntities).find(e => e.name === attributes.target);
+                            if (targetEntity) {
+                                newEntities[targetEntity.name].realm = attributes.realm;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'COMPANION':
+                         const newCompanion = { type: 'companion', ...attributes } as Entity;
+                         if (newCompanion.name && newCompanion.description) {
+                            setParty(prev => [...prev.filter(p => p.name !== newCompanion.name), newCompanion]);
+                            setKnownEntities(prev => ({ ...prev, [newCompanion.name]: newCompanion }));
+                         } else {
+                            console.warn('COMPANION tag is missing required attributes (name, description)', attributes);
+                         }
+                         break;
+                    case 'RELATIONSHIP_CHANGED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            if (newEntities[attributes.npcName]) {
+                                newEntities[attributes.npcName].relationship = attributes.relationship;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'QUEST_ASSIGNED':
+                        const newQuest: Quest = {
+                             title: attributes.title,
+                             description: attributes.description,
+                             objectives: attributes.objectives || [],
+                             giver: attributes.giver,
+                             reward: attributes.reward,
+                             isMainQuest: attributes.isMainQuest || false,
+                             status: 'active'
+                        };
+                        setQuests(prev => [...prev.filter(q => q.title !== newQuest.title), newQuest]);
+                        break;
+                    case 'QUEST_UPDATED':
+                        setQuests(prev => prev.map(q => q.title === attributes.title ? { ...q, status: attributes.status } : q));
+                        break;
+                    case 'QUEST_OBJECTIVE_COMPLETED':
+                        setQuests(prev => prev.map(q => {
+                            if (q.title === attributes.questTitle) {
+                                const newObjectives = q.objectives.map(obj => 
+                                    obj.description === attributes.objectiveDescription ? { ...obj, completed: true } : obj
+                                );
+                                const allCompleted = newObjectives.every(obj => obj.completed);
+                                return {
+                                    ...q,
+                                    objectives: newObjectives,
+                                    status: allCompleted ? 'completed' : q.status
+                                };
+                            }
+                            return q;
+                        }));
+                        break;
+                     default:
+                        if (tagType !== 'DEFINE_REALM_SYSTEM') {
+                           unprocessedTags.push(match[0]);
                         }
-                        return q;
-                    }));
-                    break;
-                 default:
-                    if (tagType !== 'DEFINE_REALM_SYSTEM') {
-                       unprocessedTags.push(match[0]);
-                    }
+                }
             }
         }
         const finalStory = cleanStory.trim();
-        if (unprocessedTags.length > 0) {
+        if (unprocessedTags.length > 0 && applySideEffects) {
              console.warn("Unprocessed Tags:", unprocessedTags);
         }
         return finalStory;
     };
     
+    // --- Data Rehydration Logic ---
+    const { rehydratedLog, rehydratedChoices } = useMemo(() => {
+        // For backward compatibility, if an old save has storyLog, use it.
+        const typedInitialState = initialGameState as any;
+        if (typedInitialState.storyLog?.length > 0) {
+            return { 
+                rehydratedLog: typedInitialState.storyLog, 
+                rehydratedChoices: typedInitialState.choices || [] 
+            };
+        }
+        
+        // New saves (or migrated ones) rehydrate from history.
+        const log: string[] = [];
+        let lastChoices: string[] = [];
+    
+        gameHistory.forEach(entry => {
+            if (entry.role === 'user') {
+                const fullPrompt = entry.parts[0].text;
+                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
+                const actionText = actionMatch ? actionMatch[1] : null;
+    
+                if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
+                    log.push(`> ${actionText}`);
+                }
+            } else { // 'model' role
+                try {
+                    const jsonResponse = JSON.parse(entry.parts[0].text);
+                    const storyText = jsonResponse.story || '';
+                    // Pass false to prevent state updates during rehydration
+                    const cleanStory = parseStoryAndTags(storyText, false); 
+                    if (cleanStory) {
+                        log.push(cleanStory);
+                    }
+                    lastChoices = jsonResponse.choices || [];
+                } catch (e) {
+                     // Not a JSON response, probably an error message.
+                    const cleanText = entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
+                    log.push(cleanText);
+                }
+            }
+        });
+    
+        return { rehydratedLog: log, rehydratedChoices: lastChoices };
+    }, [initialGameState]); // Rerun only when the initial game state changes
+    
+    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
+    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
+
+    useEffect(() => {
+        if (storyContainerRef.current) {
+            storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
+        }
+    }, [storyLog]);
+    
+    useEffect(() => {
+        // Only generate story if history is empty (i.e., it's a new game)
+        if (gameHistory.length === 0 && isAiReady) {
+            setIsLoading(true);
+            generateInitialStory();
+        } else if (!isAiReady) {
+            setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
+            setIsLoading(false);
+        } else {
+             // For loaded games, scroll to bottom on initial load
+            if (storyContainerRef.current) {
+                storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
+            }
+        }
+    }, [gameHistory, isAiReady]); // depends on gameHistory to detect new game
+    
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
+        choices: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
+        },
+      },
+      required: ['story', 'choices']
+    };
 
     const parseApiResponse = (text: string) => {
         try {
             const jsonResponse = JSON.parse(text);
-            const cleanStory = parseStoryAndTags(jsonResponse.story);
+            const cleanStory = parseStoryAndTags(jsonResponse.story, true);
 
             setStoryLog(prev => [...prev, cleanStory]);
             setChoices(jsonResponse.choices || []);
@@ -795,7 +839,7 @@ YÊU CẦU:
         }
         
         const currentGameState: SaveData = {
-            worldData, storyLog, choices, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle
         };
         const userPrompt = buildRagPrompt(originalAction, currentGameState, ruleChangeContext, customRulesContext, nsfwInstructionPart);
     
@@ -915,8 +959,6 @@ YÊU CẦU:
     
         const currentGameState: SaveData = {
           worldData,
-          storyLog,
-          choices,
           knownEntities,
           statuses,
           quests,
@@ -1034,6 +1076,12 @@ YÊU CẦU:
     const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
     const displayParty = party.filter(p => p.name !== pcName);
 
+    const isCustomActionLocked = useMemo(() => {
+        return customRules.some(rule =>
+            rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')
+        );
+    }, [customRules]);
+    
     const SidebarNav = () => (
         <>
             <div className={`fixed inset-0 bg-black/60 z-[80] transition-opacity md:hidden ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)}></div>

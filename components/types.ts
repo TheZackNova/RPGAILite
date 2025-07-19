@@ -1,5 +1,6 @@
 
 
+
 import type { GoogleGenAI } from "@google/genai";
 
 export type EntityType = 'pc' | 'npc' | 'location' | 'faction' | 'item' | 'skill' | 'status_effect' | 'companion' | 'concept';
@@ -113,8 +114,6 @@ export interface ChangelogEntry {
 // --- Save Game Data Structure ---
 export interface SaveData {
     worldData: Omit<FormData, 'customRules'>; // World data from creation doesn't need to store rules again
-    storyLog: string[];
-    choices: string[];
     knownEntities: KnownEntities;
     statuses: Status[];
     quests: Quest[];
