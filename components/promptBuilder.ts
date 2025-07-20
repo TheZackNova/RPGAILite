@@ -1,6 +1,3 @@
-
-
-
 import { SaveData, Entity, Status, Quest, GameHistoryEntry, CustomRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
@@ -197,19 +194,19 @@ export const buildRagPrompt = (
     if (chronicle && (chronicle.memoir.length > 0 || chronicle.chapter.length > 0 || chronicle.turn.length > 0)) {
         summaryContext += `\n--- BIÊN NIÊN SỬ (TÓM TẮT LỊCH SỬ) ---\n`;
         if (chronicle.memoir.length > 0) {
-            summaryContext += `**Hồi Ký (Các sự kiện lớn nhất):**\n` + chronicle.memoir.slice(-2).map(s => `- ${s}`).join('\n') + '\n';
+            summaryContext += `**Hồi Ký (Các sự kiện lớn nhất):**\n` + chronicle.memoir.slice(-7).map(s => `- ${s}`).join('\n') + '\n';
         }
         if (chronicle.chapter.length > 0) {
             summaryContext += `**Chương (Sự kiện gần đây):**\n` + chronicle.chapter.slice(-3).map(s => `- ${s}`).join('\n') + '\n';
         }
         if (chronicle.turn.length > 0) {
-             summaryContext += `**Lượt (Diễn biến vừa qua):**\n` + chronicle.turn.slice(-3).map(s => `- ${s}`).join('\n') + '\n';
+             summaryContext += `**Lượt (Diễn biến vừa qua):**\n` + chronicle.turn.slice(-2).map(s => `- ${s}`).join('\n') + '\n';
         }
         summaryContext += `--- KẾT THÚC BIÊN NIÊN SỬ ---\n`;
     }
 
-    let recentHistoryContext = "--- DIỄN BIẾN GẦN NHẤT (3 LƯỢT TRỞ LẠI) ---\n";
-    const historyWindow = gameHistory.slice(-6); 
+    let recentHistoryContext = "--- DIỄN BIẾN GẦN NHẤT (2 LƯỢT TRỞ LẠI) ---\n";
+    const historyWindow = gameHistory.slice(-4); 
 
     if (historyWindow.length > 0) {
         const cleanedHistory = historyWindow.map(entry => {

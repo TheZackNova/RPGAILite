@@ -2,6 +2,14 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
  {
+    version: '1.15.0',
+    date: '2024-08-11',
+    changes: [
+      { type: 'improvement', text: 'Tối ưu hóa prompt AI: Tăng cường trí nhớ dài hạn (truy xuất 7 Hồi Ký) và giảm bớt bối cảnh ngắn hạn (2 lượt diễn biến gần nhất) để AI phản hồi tập trung hơn.' },
+      { type: 'fix', text: 'Sửa lỗi logic hiển thị khiến nội dung truyện có thể bị mất hoặc hiển thị không chính xác trong lượt đầu tiên, đặc biệt khi có nhiệm vụ được giao.' },
+    ],
+  },
+ {
     version: '1.14.0',
     date: '2024-08-10',
     changes: [
