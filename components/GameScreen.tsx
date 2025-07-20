@@ -328,854 +328,1138 @@ export const GameScreen: React.FC<{
         return order;
     });
 
-    // --- Core References & Derived State ---
-    const storyEndRef = useRef<HTMLDivElement>(null);
-    const pc = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
-    const pcStatuses = useMemo(() => statuses.filter(s => s.owner === pc?.name), [statuses, pc]);
-    const currentInventory = useMemo(() => Object.values(knownEntities).filter(e => e.type === 'item' && e.owner === pc?.name), [knownEntities, pc]);
-    
-    const storyAndChoices = useMemo(() => {
-        // This is a rehydration fix. If the component remounts or state is slow to update,
-        // we use initialGameState.gameHistory as a fallback for the first render.
-        const currentHistory = gameHistory.length > 0 ? gameHistory : initialGameState.gameHistory;
+    // Rule change tracking
+    const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
+    const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
 
-        if (currentHistory.length === 0) {
-            // If loading (i.e., first turn is being generated), show a loading message.
-            if (isLoading) {
-                return { story: "Đang kiến tạo thế giới, xin chờ...", choices: [] };
-            }
-            // Otherwise, show the default start message.
-            return { story: "Bắt đầu cuộc phiêu lưu của bạn...", choices: [] };
-        }
+    const storyContainerRef = useRef<HTMLDivElement>(null);
 
-        const lastEntry = currentHistory[currentHistory.length - 1];
+    const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
+    const pcName = pcEntity?.name;
 
-        if (lastEntry.role !== 'model') {
-            // This handles when the user has submitted an action and is waiting for the AI.
-            return { story: "Đang chờ phản hồi từ AI...", choices: [] };
-        }
-
-        try {
-            const jsonResponse = JSON.parse(lastEntry.parts[0].text);
-            const storyText = jsonResponse.story || "Lỗi: Không tìm thấy nội dung truyện.";
-            const choices = jsonResponse.choices || [];
-            return { story: storyText, choices: choices };
-        } catch (e) {
-            // Fallback for non-JSON responses or parsing errors
-            console.error("Lỗi phân tích phản hồi từ AI:", e);
-            console.error("Phản hồi gốc:", lastEntry.parts[0].text);
-            return { story: `Lỗi hiển thị: Không thể phân tích phản hồi từ AI. Hãy thử làm mới hoặc tải lại game.\n\nNội dung gốc:\n${lastEntry.parts[0].text}`, choices: [] };
-        }
-    }, [gameHistory, initialGameState.gameHistory, isLoading]);
-
-
-    // --- Side Effects ---
-    // Scroll to bottom on new story
-    useEffect(() => {
-        storyEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [storyAndChoices.story]);
-
-    // Show API key rotation notification
+    // --- Handle Key Rotation Notification ---
     useEffect(() => {
         if (keyRotationNotification) {
             setNotification(keyRotationNotification);
-            onClearNotification(); // Clear it from App state once handled
-        }
-    }, [keyRotationNotification, onClearNotification]);
-    
-    // Clear notification after a delay
-    useEffect(() => {
-        if (notification) {
             const timer = setTimeout(() => {
                 setNotification(null);
-            }, 6000);
+                onClearNotification();
+            }, 5000);
             return () => clearTimeout(timer);
         }
-    }, [notification]);
-
-    // This effect runs once on component mount to generate the initial story turn
-    useEffect(() => {
-        if (initialGameState.gameHistory.length === 0 && isAiReady) {
-            setIsLoading(true);
-            // The prompt for the very first turn is special
-            const firstAction = "Bắt đầu. Hãy giới thiệu thế giới và tình hình hiện tại của nhân vật chính. Tạo ra một vài lựa chọn ban đầu.";
-            
-            let firstTurnContext = '';
-            
-            const initialRules = initialGameState.customRules.filter(r => r.isActive).map(r => r.content).join('\n');
-            if(initialRules) {
-                firstTurnContext += `--- CẬP NHẬT LUẬT LỆ ---\n${initialRules}\n--- KẾT THÚC LUẬT LỆ ---\n`;
-            }
-
-            const firstSkill = initialGameState.worldData.startSkill;
-            if(firstSkill){
-                firstTurnContext += `\nADMIN: Player đã chọn kỹ năng khởi đầu là "${firstSkill}". Hãy dùng thẻ [SKILL_LEARNED] để thêm kỹ năng này cho nhân vật chính.`;
-            }
-
-            if(initialGameState.worldData.addGoal){
-                 firstTurnContext += `\nADMIN: Người chơi yêu cầu một mục tiêu ban đầu. Hãy dùng thẻ [QUEST_ASSIGNED] để tạo một nhiệm vụ chính đầu tiên hấp dẫn.`;
-            }
-
-            getAiResponse(firstAction, firstTurnContext, '');
-        }
-    }, [isAiReady]);
+    }, [keyRotationNotification, onClearNotification]);
 
 
-    // --- Tag Parsing and State Update Logic ---
-    const parseStoryAndTags = (text: string): string => {
-        // Regex to find all [TAG: key="value" ...]
+    const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
+        if (!storyText) return '';
+    
         const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
-        let match;
-        const newEntities: KnownEntities = {};
-        const newQuests: Quest[] = [];
-        const completedQuestObjectives: { questTitle: string, objectiveDescription: string }[] = [];
-        const newLearnedSkills: string[] = [];
-        const newMemories: Memory[] = [];
-        const updatedQuests: Quest[] = [];
-        let timeElapsed = { years: 0, months: 0, days: 0, hours: 0 };
-        const newChronicleEntries: { type: 'turn' | 'chapter' | 'memoir', text: string }[] = [];
-        
-        const textWithoutTags = text.replace(tagRegex, '').trim();
-
-        while ((match = tagRegex.exec(text)) !== null) {
-            const tagName = match[1];
-            const attributesText = match[2];
-            
-            // Regex to parse attributes: key="value" or key=value
-            const attrRegex = /(\w+)\s*=\s*(?:"([^"]*)"|([^"\s]+))/g;
-            let attrMatch;
+        let cleanStory = storyText;
+    
+        const parseAttributes = (attrString: string): { [key: string]: any } => {
             const attributes: { [key: string]: any } = {};
-
-            while ((attrMatch = attrRegex.exec(attributesText)) !== null) {
-                attributes[attrMatch[1]] = attrMatch[2] ?? attrMatch[3]; // Use quoted value if available
+            const attrRegex = /(\w+)=("([^"]*)"|([^\s"\]]+))/g; // Handle quoted and unquoted values
+            let match;
+            while ((match = attrRegex.exec(attrString)) !== null) {
+                const key = match[1];
+                // Value is in capture group 3 (if quoted) or 4 (if not quoted)
+                let value: string | boolean | number | { description: string, completed: boolean }[] = match[3] !== undefined ? match[3] : match[4];
+    
+                if ((key === 'isMainQuest' || key === 'equippable' || key === 'usable' || key === 'consumable' || key === 'learnable') && typeof value === 'string') {
+                    value = value.toLowerCase() === 'true';
+                } else if (key === 'objectives' && typeof value === 'string') {
+                    value = value.split(';').map(desc => ({ description: desc.trim(), completed: false }));
+                } else if ((key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours') && typeof value === 'string' && !isNaN(Number(value))) {
+                    attributes[key] = Number(value);
+                    continue;
+                }
+                attributes[key] = value;
             }
-
-            try {
-                switch(tagName) {
-                    // --- Entity Creation ---
-                    case 'LORE_NPC':
-                    case 'LORE_ITEM':
-                    case 'LORE_LOCATION':
-                    case 'LORE_FACTION':
-                    case 'LORE_CONCEPT':
-                    case 'LORE_COMPANION':
-                    case 'SKILL_LEARNED': {
-                        const typeMap: { [key: string]: any } = {
-                            LORE_NPC: 'npc', LORE_ITEM: 'item', LORE_LOCATION: 'location',
-                            LORE_FACTION: 'faction', LORE_CONCEPT: 'concept', LORE_COMPANION: 'companion',
-                            SKILL_LEARNED: 'skill'
+            return attributes;
+        };
+    
+        let match;
+        const unprocessedTags: string[] = [];
+        while ((match = tagRegex.exec(storyText)) !== null) {
+            cleanStory = cleanStory.replace(match[0], ''); // Remove tag from displayed story
+            
+            if (applySideEffects) {
+                const tagType = match[1];
+                const rawContent = match[2];
+                
+                const attributes = parseAttributes(rawContent);
+                if (tagType === 'MEMORY_ADD' && attributes.text) {
+                    setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
+                    continue;
+                }
+                if (Object.keys(attributes).length === 0) {
+                     unprocessedTags.push(match[0]);
+                     continue;
+                }
+        
+                switch (tagType) {
+                    case 'TIME_ELAPSED':
+                        const elapsed = {
+                            years: Number(attributes.years) || 0,
+                            months: Number(attributes.months) || 0,
+                            days: Number(attributes.days) || 0,
+                            hours: Number(attributes.hours) || 0
                         };
-                        const entityType = typeMap[tagName];
-                        if (attributes.name) {
-                            const newEntity: Entity = {
-                                name: attributes.name,
-                                type: entityType,
-                                description: attributes.description || '',
-                            };
-                            
-                            // Assign specific attributes
-                            for (const key in attributes) {
-                                if (key !== 'name' && key !== 'type') {
-                                    if (['usable', 'equippable', 'consumable', 'learnable', 'equipped'].includes(key)) {
-                                        newEntity[key] = attributes[key] === 'true';
-                                    } else if (['durability', 'uses'].includes(key)) {
-                                        newEntity[key] = parseInt(attributes[key], 10);
-                                    } else {
-                                        newEntity[key] = attributes[key];
-                                    }
-                                }
-                            }
-                            newEntities[attributes.name] = newEntity;
-
-                            if (tagName === 'SKILL_LEARNED') {
-                                newLearnedSkills.push(attributes.name);
-                            }
-                            if (tagName === 'LORE_COMPANION') {
-                               setParty(prev => {
-                                    const existing = prev.find(p => p.name === newEntity.name);
-                                    return existing ? prev : [...prev, newEntity];
-                               });
-                            }
-                             if (tagName === 'LORE_LOCATION') {
-                                setLocationDiscoveryOrder(prev => {
-                                    if (!prev.includes(attributes.name)) {
-                                        return [...prev, attributes.name];
-                                    }
-                                    return prev;
-                                });
-                            }
+                        if (Object.values(elapsed).some(v => v > 0)) {
+                            setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
                         }
-                        break;
-                    }
-                     // --- Entity Update ---
-                    case 'ENTITY_UPDATE': {
-                        const { name, ...updates } = attributes;
-                        if (name) {
-                            setKnownEntities(prev => {
-                                const entityToUpdate = prev[name];
-                                if (!entityToUpdate) return prev;
-                                
-                                const newName = (updates as any).newName || name;
-                                const newEntity = { ...entityToUpdate, ...updates, name: newName };
-                                delete (newEntity as any).newName; // clean up temp field
-
-                                for (const key in newEntity) {
-                                    if(['usable', 'equippable', 'consumable', 'learnable', 'equipped'].includes(key) && typeof (newEntity as any)[key] === 'string') {
-                                        (newEntity as any)[key] = (newEntity as any)[key] === 'true';
-                                    }
-                                }
-
-                                const newEntitiesState = { ...prev };
-                                if (name !== newName) {
-                                    delete newEntitiesState[name];
-                                }
-                                newEntitiesState[newName] = newEntity as Entity;
-                                
-                                // Also update in party if exists
-                                setParty(partyPrev => partyPrev.map(p => p.name === name ? newEntity as Entity : p));
-                                // Also update quest givers
-                                setQuests(questPrev => questPrev.map(q => q.giver === name ? {...q, giver: newName} : q));
-                                // Also update item owners
-                                setKnownEntities(entitiesPrev => {
-                                    const updatedItemOwners = {...entitiesPrev};
-                                    Object.values(updatedItemOwners).forEach(e => {
-                                        if (e.owner === name) e.owner = newName;
-                                    });
-                                    return updatedItemOwners;
-                                });
-                                // Also update status owners
-                                setStatuses(statusPrev => statusPrev.map(s => s.owner === name ? {...s, owner: newName} : s));
-
-                                return newEntitiesState;
-                            });
-                        }
-                        break;
-                    }
-                    // --- Statuses ---
-                    case 'STATUS_APPLIED_SELF':
-                    case 'STATUS_APPLIED_NPC': {
-                        const owner = tagName === 'STATUS_APPLIED_SELF' ? (pc?.name || 'Vô Danh') : attributes.name;
-                        const { name, ...statusAttrs } = attributes;
-                        if(owner && statusAttrs.type){
-                            setStatuses(prev => applyStatusWithLimit(prev, statusAttrs, owner));
-                        }
-                        break;
-                    }
-                    case 'STATUS_CURED_SELF':
-                    case 'STATUS_CURED_NPC': {
-                        const owner = tagName === 'STATUS_CURED_SELF' ? (pc?.name || 'Vô Danh') : attributes.name;
-                        const statusName = attributes.name;
-                        if (owner && statusName) {
-                            setStatuses(prev => prev.filter(s => !(s.name === statusName && s.owner === owner)));
-                        }
-                        break;
-                    }
-                    // --- Quests ---
-                    case 'QUEST_ASSIGNED': {
-                        const objectives = attributes.objectives.split(';').map((desc: string) => ({ description: desc.trim(), completed: false }));
-                        newQuests.push({
-                            title: attributes.title,
-                            description: attributes.description,
-                            objectives: objectives,
-                            giver: attributes.giver,
-                            reward: attributes.reward,
-                            isMainQuest: attributes.isMainQuest === 'true',
-                            status: 'active'
-                        });
-                        break;
-                    }
-                    case 'QUEST_UPDATED': {
-                        const { title, status } = attributes;
-                        updatedQuests.push({ title, status } as any);
-                        break;
-                    }
-                    case 'QUEST_OBJECTIVE_COMPLETED': {
-                         completedQuestObjectives.push({ 
-                            questTitle: attributes.questTitle, 
-                            objectiveDescription: attributes.objectiveDescription 
-                        });
-                        break;
-                    }
-                    // --- Inventory ---
-                     case 'ITEM_AQUIRED': {
-                        setKnownEntities(prev => {
-                            const item = prev[attributes.name];
-                            if (item && item.type === 'item') {
-                                const owner = attributes.owner || 'pc';
-                                return {...prev, [attributes.name]: {...item, owner}};
-                            }
-                            return prev;
-                        });
-                        break;
-                    }
-                    case 'ITEM_CONSUMED': {
-                        setKnownEntities(prev => {
-                            const item = prev[attributes.name];
-                            if(item && item.type === 'item') {
-                                if (typeof item.uses === 'number' && item.uses > 1) {
-                                    return { ...prev, [attributes.name]: {...item, uses: item.uses - 1} };
-                                } else {
-                                    // Remove item
-                                    const newState = { ...prev };
-                                    delete newState[attributes.name];
-                                    return newState;
-                                }
-                            }
-                            return prev;
-                        });
-                        break;
-                    }
-                    case 'ITEM_EQUIPPED': {
-                        const itemName = attributes.name;
-                        if (itemName) {
-                            setKnownEntities(prev => {
-                                // Unequip other items in the same slot if needed (future logic)
-                                const updatedItem = { ...prev[itemName], equipped: true };
-                                return { ...prev, [itemName]: updatedItem };
-                            });
-                        }
-                        break;
-                    }
-                    case 'ITEM_UNEQUIPPED': {
-                         const itemName = attributes.name;
-                        if (itemName) {
-                            setKnownEntities(prev => {
-                                const updatedItem = { ...prev[itemName], equipped: false };
-                                return { ...prev, [itemName]: updatedItem };
-                            });
-                        }
-                        break;
-                    }
-                    // --- Chronicle & Memory ---
-                    case 'MEMORY_ADD':
-                         newMemories.push({ text: attributes.text, pinned: false });
                         break;
                     case 'CHRONICLE_TURN':
-                    case 'CHRONICLE_CHAPTER':
-                    case 'CHRONICLE_MEMOIR':
-                        const type = tagName.split('_')[1].toLowerCase() as 'turn' | 'chapter' | 'memoir';
-                        newChronicleEntries.push({type: type, text: attributes.text});
-                        break;
-                    // --- Time ---
-                    case 'TIME_ELAPSED':
-                        timeElapsed = {
-                            years: parseInt(attributes.years || '0', 10),
-                            months: parseInt(attributes.months || '0', 10),
-                            days: parseInt(attributes.days || '0', 10),
-                            hours: parseInt(attributes.hours || '0', 10),
-                        };
-                        break;
-                    // --- Realm ---
-                    case 'REALM_UPDATE': {
-                        const { target, realm } = attributes;
-                        if (target && realm) {
-                            setKnownEntities(prev => {
-                                if (prev[target]) {
-                                    const updatedEntity = { ...prev[target], realm };
-                                    return { ...prev, [target]: updatedEntity };
-                                }
-                                return prev;
-                            });
+                        if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, turn: [...prev.turn, attributes.text] }));
                         }
                         break;
-                    }
+                    case 'CHRONICLE_CHAPTER':
+                        if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, chapter: [...prev.chapter, attributes.text] }));
+                        }
+                        break;
+                    case 'CHRONICLE_MEMOIR':
+                         if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, memoir: [...prev.memoir, attributes.text] }));
+                        }
+                        break;
+                    case 'STATUS_APPLIED_SELF':
+                        setStatuses(prev => applyStatusWithLimit(prev, attributes, 'pc'));
+                        break;
+                    case 'STATUS_APPLIED_NPC':
+                        if (attributes.npcName) {
+                            const { npcName, ...statusData } = attributes;
+                            setStatuses(prev => applyStatusWithLimit(prev, statusData, npcName));
+                        }
+                        break;
+                    case 'STATUS_CURED_SELF':
+                        setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
+                        break;
+                    case 'STATUS_CURED_NPC':
+                        setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)));
+                        break;
+                    case 'LORE_SKILL':
+                        setKnownEntities(prev => {
+                            const { name, description, ...rest } = attributes;
+                            if (name && description) {
+                                const newSkill: Entity = {
+                                    type: 'skill',
+                                    name: name,
+                                    description: description,
+                                    ...rest
+                                };
+                                return { ...prev, [name]: newSkill };
+                            }
+                            console.warn('LORE_SKILL tag is missing required attributes (name, description)', attributes);
+                            return prev;
+                        });
+                        break;
+                    case 'SKILL_LEARNED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const { name, description, ...rest } = attributes;
+                            if (name && description) {
+                                const newSkill: Entity = {
+                                    type: 'skill',
+                                    name: name,
+                                    description: description,
+                                    ...rest
+                                };
+                                newEntities[name] = newSkill;
+                        
+                                const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                if (pc) {
+                                    const pcName = pc.name;
+                                    const updatedPc = { ...newEntities[pcName] };
+                                    if (!updatedPc.learnedSkills) {
+                                        updatedPc.learnedSkills = [];
+                                    }
+                                    if (!updatedPc.learnedSkills.includes(name)) {
+                                        updatedPc.learnedSkills.push(name);
+                                    }
+                                    newEntities[pcName] = updatedPc;
+                                }
+                            } else {
+                                console.warn('SKILL_LEARNED tag is missing required attributes (name, description)', attributes);
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'LORE_NPC':
+                        setKnownEntities(prev => {
+                            const newAttributes = { ...attributes };
+                            if (typeof newAttributes.skills === 'string') {
+                                newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+                            }
+                            return { ...prev, [attributes.name]: { type: 'npc', ...newAttributes } };
+                        });
+                        break;
+                    case 'LORE_ITEM':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
+                        break;
+                    case 'LORE_LOCATION':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev, [attributes.name]: { type: 'location', ...attributes } };
+                            setLocationDiscoveryOrder(prevOrder => {
+                                if (!prevOrder.includes(attributes.name)) {
+                                    return [...prevOrder, attributes.name];
+                                }
+                                return prevOrder;
+                            });
+                            return newEntities;
+                        });
+                        break;
+                    case 'LORE_FACTION':
+                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
+                         break;
+                    case 'LORE_CONCEPT':
+                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'concept', ...attributes } }));
+                         break;
+                    case 'ENTITY_UPDATE':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const targetName = attributes.name;
+                            if (newEntities[targetName]) {
+                                // Use newDescription and remove it from attributes to avoid overwriting description with undefined
+                                const { name, newDescription, ...updateData } = attributes;
+                                const finalUpdateData = { ...updateData };
+                                if (newDescription) {
+                                    finalUpdateData.description = newDescription;
+                                }
+                                
+                                // Handle renaming
+                                if (attributes.newName && attributes.newName !== targetName) {
+                                    const oldEntity = newEntities[targetName];
+                                    delete newEntities[targetName];
+                                    newEntities[attributes.newName] = {
+                                        ...oldEntity,
+                                        ...finalUpdateData,
+                                        name: attributes.newName
+                                    };
+                                } else {
+                                    newEntities[targetName] = { ...newEntities[targetName], ...finalUpdateData };
+                                }
+                            } else {
+                                console.warn(`Attempted to update non-existent entity: ${targetName}`);
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_AQUIRED':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', owner: 'pc', ...attributes } }));
+                        break;
+                     case 'ITEM_CONSUMED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const itemToConsume = newEntities[attributes.name];
+    
+                            if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
+                                if (typeof itemToConsume.uses === 'number' && itemToConsume.uses > 1) {
+                                    newEntities[attributes.name] = {
+                                        ...itemToConsume,
+                                        uses: itemToConsume.uses - 1,
+                                    };
+                                } else {
+                                    const { owner, equipped, ...restOfItem } = itemToConsume;
+                                    newEntities[attributes.name] = restOfItem;
+                                }
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_EQUIPPED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc' && item.equippable) {
+                                item.equipped = true;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_UNEQUIPPED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc') {
+                                item.equipped = false;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_TRANSFORMED':
+                        setKnownEntities(prev => {
+                            const { oldName, newName, description, ...rest } = attributes;
+                            if (!oldName || !newName) {
+                                console.warn("ITEM_TRANSFORMED tag missing oldName or newName", attributes);
+                                return prev;
+                            }
+    
+                            const newEntities = { ...prev };
+                            const oldItem = newEntities[oldName];
+                            
+                            if (oldItem) {
+                                delete newEntities[oldName];
+                            } else {
+                                 console.warn(`Attempted to transform non-existent item: ${oldName}`);
+                            }
+                            
+                            const newItem: Entity = {
+                                ...rest,
+                                name: newName,
+                                type: 'item',
+                                owner: oldItem?.owner || 'pc',
+                                description: description || `Vật phẩm được biến đổi từ ${oldName}.`,
+                            };
+    
+                            newEntities[newName] = newItem;
+                            
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_UPDATED':
+                         setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            if (newEntities[attributes.name] && newEntities[attributes.name].owner === 'pc') {
+                                 newEntities[attributes.name] = { ...newEntities[attributes.name], ...attributes };
+                            }
+                            return newEntities;
+                        });
+                        break;
+                     case 'ITEM_DAMAGED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && typeof item.durability === 'number') {
+                                item.durability = Math.max(0, item.durability - (attributes.damage || 0));
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_REPAIRED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && typeof item.durability === 'number') {
+                                item.durability = Math.min(100, item.durability + (attributes.repairedAmount || 0));
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'REALM_UPDATE':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const targetEntity = Object.values(newEntities).find(e => e.name === attributes.target);
+                            if (targetEntity) {
+                                newEntities[targetEntity.name].realm = attributes.realm;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'COMPANION':
+                         const newCompanion = { type: 'companion', ...attributes } as Entity;
+                         if (newCompanion.name && newCompanion.description) {
+                            setParty(prev => [...prev.filter(p => p.name !== newCompanion.name), newCompanion]);
+                            setKnownEntities(prev => ({ ...prev, [newCompanion.name]: newCompanion }));
+                         } else {
+                            console.warn('COMPANION tag is missing required attributes (name, description)', attributes);
+                         }
+                         break;
+                    case 'RELATIONSHIP_CHANGED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            if (newEntities[attributes.npcName]) {
+                                newEntities[attributes.npcName].relationship = attributes.relationship;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'QUEST_ASSIGNED':
+                        const newQuest: Quest = {
+                             title: attributes.title,
+                             description: attributes.description,
+                             objectives: attributes.objectives || [],
+                             giver: attributes.giver,
+                             reward: attributes.reward,
+                             isMainQuest: attributes.isMainQuest || false,
+                             status: 'active'
+                        };
+                        setQuests(prev => [...prev.filter(q => q.title !== newQuest.title), newQuest]);
+                        break;
+                    case 'QUEST_UPDATED':
+                        setQuests(prev => prev.map(q => q.title === attributes.title ? { ...q, status: attributes.status } : q));
+                        break;
+                    case 'QUEST_OBJECTIVE_COMPLETED':
+                        setQuests(prev => prev.map(q => {
+                            if (q.title === attributes.questTitle) {
+                                const newObjectives = q.objectives.map(obj => 
+                                    obj.description === attributes.objectiveDescription ? { ...obj, completed: true } : obj
+                                );
+                                const allCompleted = newObjectives.every(obj => obj.completed);
+                                return {
+                                    ...q,
+                                    objectives: newObjectives,
+                                    status: allCompleted ? 'completed' : q.status
+                                };
+                            }
+                            return q;
+                        }));
+                        break;
+                     default:
+                        if (tagType !== 'DEFINE_REALM_SYSTEM') {
+                           unprocessedTags.push(match[0]);
+                        }
                 }
-            } catch (e) {
-                console.error(`Error parsing tag: ${match[0]}`, e);
             }
         }
+        const finalStory = cleanStory.trim();
+        if (unprocessedTags.length > 0 && applySideEffects) {
+             console.warn("Unprocessed Tags:", unprocessedTags);
+        }
+        return finalStory;
+    };
+    
+    // --- Data Rehydration Logic ---
+    const { rehydratedLog, rehydratedChoices } = useMemo(() => {
+        // For backward compatibility, if an old save has storyLog, use it.
+        const typedInitialState = initialGameState as any;
+        if (typedInitialState.storyLog?.length > 0) {
+            return { 
+                rehydratedLog: typedInitialState.storyLog, 
+                rehydratedChoices: typedInitialState.choices || [] 
+            };
+        }
         
-        // --- Batch State Updates ---
-        if (Object.keys(newEntities).length > 0) {
-            setKnownEntities(prev => ({ ...prev, ...newEntities }));
-        }
-        if (newLearnedSkills.length > 0 && pc) {
-            setKnownEntities(prev => ({ 
-                ...prev, 
-                [pc.name]: { 
-                    ...pc, 
-                    learnedSkills: [...new Set([...(pc.learnedSkills || []), ...newLearnedSkills])] 
+        // New saves (or migrated ones) rehydrate from history.
+        const log: string[] = [];
+        let lastChoices: string[] = [];
+    
+        initialGameState.gameHistory.forEach(entry => {
+            if (entry.role === 'user') {
+                const fullPrompt = entry.parts[0].text;
+                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
+                const actionText = actionMatch ? actionMatch[1] : null;
+    
+                if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
+                    log.push(`> ${actionText}`);
                 }
-            }));
-        }
-        if (newQuests.length > 0) {
-            setQuests(prev => [...prev, ...newQuests]);
-        }
-        if (updatedQuests.length > 0) {
-             setQuests(prev => prev.map(q => {
-                const update = updatedQuests.find(uq => uq.title === q.title);
-                return update ? { ...q, status: update.status as 'active' | 'completed' | 'failed' } : q;
-             }));
-        }
-        if (completedQuestObjectives.length > 0) {
-            setQuests(prev => prev.map(q => {
-                const completedForThisQuest = completedQuestObjectives.filter(co => co.questTitle === q.title).map(co => co.objectiveDescription);
-                if(completedForThisQuest.length === 0) return q;
-
-                const newObjectives = q.objectives.map(obj => {
-                    if (completedForThisQuest.includes(obj.description)) {
-                        return { ...obj, completed: true };
+            } else { // 'model' role
+                try {
+                    const jsonResponse = JSON.parse(entry.parts[0].text);
+                    const storyText = jsonResponse.story || '';
+                    // Pass false to prevent state updates during rehydration
+                    const cleanStory = parseStoryAndTags(storyText, false); 
+                    if (cleanStory) {
+                        log.push(cleanStory);
                     }
-                    return obj;
-                });
-                return { ...q, objectives: newObjectives };
-            }));
-        }
-        if (newMemories.length > 0) {
-            setMemories(prev => [...prev, ...newMemories]);
-        }
-        if (newChronicleEntries.length > 0) {
-            setChronicle(prev => {
-                const newChron = {...prev};
-                newChronicleEntries.forEach(entry => {
-                    newChron[entry.type] = [...newChron[entry.type], entry.text];
-                });
-                return newChron;
-            });
-        }
-        if (timeElapsed.years > 0 || timeElapsed.months > 0 || timeElapsed.days > 0 || timeElapsed.hours > 0) {
-            setGameTime(prev => calculateNewTime(prev, timeElapsed));
-        }
+                    lastChoices = jsonResponse.choices || [];
+                } catch (e) {
+                     // Not a JSON response, probably an error message.
+                    const cleanText = entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
+                    log.push(cleanText);
+                }
+            }
+        });
+    
+        return { rehydratedLog: log, rehydratedChoices: lastChoices };
+    }, [initialGameState]); // Rerun only when the initial game state changes
+    
+    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
+    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
 
-        return textWithoutTags;
+    useEffect(() => {
+        if (storyContainerRef.current) {
+            storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
+        }
+    }, [storyLog]);
+    
+    useEffect(() => {
+        // Only generate story if history is empty (i.e., it's a new game)
+        if (gameHistory.length === 0 && isAiReady) {
+            setIsLoading(true);
+            generateInitialStory();
+        } else if (!isAiReady) {
+            setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
+            setIsLoading(false);
+        } else {
+             // For loaded games, scroll to bottom on initial load
+            if (storyContainerRef.current) {
+                storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
+            }
+        }
+    }, [gameHistory, isAiReady]); // depends on gameHistory to detect new game
+    
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
+        choices: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
+        },
+      },
+      required: ['story', 'choices']
     };
 
-
-    const handleAiResponse = (response: any) => {
+    const parseApiResponse = (text: string) => {
         try {
-            const jsonString = response.text.trim();
-            const jsonResponse = JSON.parse(jsonString);
+            const jsonResponse = JSON.parse(text);
+            const cleanStory = parseStoryAndTags(jsonResponse.story, true);
 
-            // Parse tags, update state, and get the cleaned story text
-            const cleanedStory = parseStoryAndTags(jsonResponse.story);
-
-            // Update history with the cleaned story
-            const newHistoryEntryText = JSON.stringify({
-                story: cleanedStory,
-                choices: jsonResponse.choices || []
-            });
-
-            setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: newHistoryEntryText }] }]);
-            
-            // Update token count
-            // const tokens = response.usageMetadata.totalTokens;
-            // setCurrentTurnTokens(tokens);
-            // setTotalTokens(prev => prev + tokens);
+            setStoryLog(prev => [...prev, cleanStory]);
+            setChoices(jsonResponse.choices || []);
 
         } catch (e) {
-            console.error("Lỗi phân tích JSON từ AI:", e);
-            console.error("Phản hồi gốc:", response.text);
-            const errorText = `Lỗi hiển thị: Không thể phân tích phản hồi từ AI. Hãy thử làm mới hoặc tải lại game.\n\nNội dung gốc:\n${response.text}`;
-            setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: JSON.stringify({ story: errorText, choices: [] }) }] }]);
+            console.error("Failed to parse AI response:", e);
+            console.error("Raw response text:", text);
+            setStoryLog(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);
+            setChoices([]);
         }
-    }
+    };
+    
+    const generateInitialStory = async () => {
+            if (!ai) return;
+            setIsLoading(true);
+            const finalPersonality = worldData.customPersonality || worldData.personalityFromList;
+            const writingStyleText = worldData.writingStyle === 'first_person' ? 'Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"' : 'Ngôi thứ hai - "Ngươi" là nhân vật chính';
+            const nsfwInstruction = worldData.allowNsfw ? 'Cho phép. Kích hoạt quy tắc nội dung 18+ của Quản Trò. Viết một cách trần trụi, bạo lực, tục tĩu và không giới hạn.' : 'Không, AI phải tránh các chủ đề và mô tả 18+.';
+            
+            const activeRules = customRules.filter(r => r.isActive);
+            let customRulesContext = '';
+            if (activeRules.length > 0) {
+                customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
+            }
+
+            const userPrompt = `${customRulesContext}BẠN LÀ QUẢN TRÒ. Hãy bắt đầu một câu chuyện phiêu lưu mới dựa trên các thông tin sau:
+- Thể loại: '${worldData.genre}'
+- Phong cách viết: '${writingStyleText}'
+- Bối cảnh: ${worldData.worldDetail}
+- Độ khó: ${worldData.difficulty}
+- Nhân vật chính (PC):
+  - Tên: ${worldData.characterName || 'Vô Danh'}
+  - Giới tính: ${worldData.gender}
+  - Tiểu sử: ${worldData.bio}
+  - Tính cách CỐT LÕI: "${finalPersonality}"
+- Kỹ năng khởi đầu mong muốn: ${worldData.startSkill || 'Không có'}
+- NSFW: ${nsfwInstruction}
+
+YÊU CẦU:
+1.  Bắt đầu câu chuyện bằng cách giới thiệu nhân vật chính. Sử dụng thẻ \`[ENTITY_UPDATE]\` để thiết lập các thông số ban đầu cho nhân vật chính (PC) bao gồm tuổi tác, dung mạo, và danh vọng ban đầu (VD: danh vọng="Vô danh tiểu tốt").
+2.  Dùng thẻ \`[DEFINE_REALM_SYSTEM]\` để tạo hệ thống sức mạnh cho thế giới (nếu có).
+3.  Tạo và định nghĩa kỹ năng khởi đầu cho nhân vật bằng thẻ \`[SKILL_LEARNED]\`. Nếu là công pháp, hãy thêm thuộc tính \`realm\`.
+4.  Dùng các thẻ lệnh phù hợp khác để thiết lập trạng thái ban đầu (nếu có vật phẩm, hãy dùng \`[ITEM_AQUIRED]\`).
+5.  Giao cho người chơi một nhiệm vụ đầu tiên đơn giản bằng thẻ \`[QUEST_ASSIGNED]\`, nhiệm vụ phải có tiêu đề, mô tả và ít nhất một mục tiêu.
+6.  Cung cấp phần đầu của câu chuyện và 4-5 lựa chọn đầu tiên cho người chơi.
+7.  Sử dụng định dạng thông báo nổi bật \`**⭐...⭐**\` nếu cần.`;
+            
+            // Create the PC entity
+            const pcEntity: Entity = {
+                name: worldData.characterName || 'Vô Danh',
+                type: 'pc',
+                description: worldData.bio,
+                gender: worldData.gender,
+                personality: finalPersonality,
+                learnedSkills: [],
+            };
+            setKnownEntities({ [pcEntity.name]: pcEntity });
+            setParty([pcEntity]);
 
 
-    const getAiResponse = async (action: string, context: string, nsfwContext: string) => {
-        if (!isAiReady || !ai) {
-            console.error("AI is not ready");
-            setNotification("AI chưa sẵn sàng. Vui lòng kiểm tra lại API Key.");
-            return;
+            const initialHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
+            setGameHistory(initialHistory);
+
+            try {
+                 const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: initialHistory,
+                    config: {
+                        systemInstruction: systemInstruction,
+                        responseMimeType: "application/json",
+                        responseSchema: responseSchema,
+                    }
+                });
+                const turnTokens = response.usageMetadata?.totalTokenCount || 0;
+                setCurrentTurnTokens(turnTokens);
+                setTotalTokens(prev => prev + turnTokens);
+
+                const responseText = response.text.trim();
+                parseApiResponse(responseText);
+                setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
+            } catch (error: any) {
+                if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
+                    rotateKey();
+                    setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+                    setChoices(rehydratedChoices);
+                } else {
+                    console.error("Error generating initial story:", error);
+                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+                }
+            } finally {
+                setIsLoading(false);
+            }
+    };
+        
+    const handleAction = async (action: string) => {
+        let originalAction = action.trim();
+        let isNsfwRequest = false;
+        
+        // Check for 'nsfw' at the end, possibly separated by spaces
+        const nsfwRegex = /\s+nsfw\s*$/i;
+        if (nsfwRegex.test(originalAction)) {
+            isNsfwRequest = true;
+            originalAction = originalAction.replace(nsfwRegex, '').trim();
         }
-
+    
+        if (!originalAction || isLoading || !ai) return;
+    
         setIsLoading(true);
+        setChoices([]);
+        setCustomAction('');
+    
+        setStoryLog(prev => [...prev, `> ${originalAction}`]);
+    
+        let ruleChangeContext = '';
+        if (ruleChanges && (ruleChanges.activated.length > 0 || ruleChanges.deactivated.length > 0 || ruleChanges.updated.length > 0)) {
+            ruleChangeContext += '--- CẬP NHẬT LUẬT LỆ THẾ GIỚI (XỬ LÝ TRƯỚC HÀNH ĐỘNG NGƯỜI CHƠI) ---\n';
+            
+            if (ruleChanges.activated.length > 0) {
+                ruleChangeContext += 'KÍCH HOẠT LUẬT MỚI:\n';
+                ruleChangeContext += ruleChanges.activated.map(r => `- "${r.content}"`).join('\n') + '\n';
+            }
+    
+            if (ruleChanges.deactivated.length > 0) {
+                ruleChangeContext += 'VÔ HIỆU HÓA LUẬT CŨ:\n';
+                ruleChangeContext += ruleChanges.deactivated.map(r => `- "${r.content}"`).join('\n') + '\n';
+            }
 
-        const fullPrompt = buildRagPrompt(
-            action,
-            { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, chronicle, gameTime, totalTokens },
-            context,
-            nsfwContext
-        );
+            if (ruleChanges.updated.length > 0) {
+                ruleChangeContext += 'CẬP NHẬT LUẬT ĐANG HOẠT ĐỘNG:\n';
+                ruleChangeContext += ruleChanges.updated.map(u => `LUẬT CŨ: "${u.oldRule.content}"\nLUẬT MỚI: "${u.newRule.content}"`).join('\n\n') + '\n';
+            }
+    
+            ruleChangeContext += '--- KẾT THÚC CẬP NHẬT LUẬT ---\n';
+            setRuleChanges(null); // Consume the changes
+        }
 
-        // Add user action to history
-        setGameHistory(prev => [...prev, { role: 'user', parts: [{ text: `--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"${action}"\n${context}` }] }]);
-        setTurnCount(prev => prev + 1);
-
+        let nsfwInstructionPart = '';
+        if (isNsfwRequest && worldData.allowNsfw) {
+            nsfwInstructionPart = `\nLƯU Ý ĐẶC BIỆT: Người chơi đã yêu cầu "nsfw". Hãy tạo ra một phản hồi 18+ cực kỳ chi tiết, trần trụi và không giới hạn, ngay cả khi hành động có vẻ bình thường. Tập trung vào các yếu tố khiêu dâm, bạo lực, và tâm lý.`;
+        }
+        
+        const currentGameState: SaveData = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle
+        };
+        const userPrompt = buildRagPrompt(originalAction, currentGameState, ruleChangeContext, nsfwInstructionPart);
+    
+        const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
+        const updatedHistory = [...gameHistory, newUserEntry];
+        setGameHistory(updatedHistory);
+    
         try {
-            const result = await ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: fullPrompt,
+                contents: updatedHistory,
                 config: {
                     systemInstruction: systemInstruction,
                     responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            story: { type: Type.STRING, description: 'Phần tường thuật câu chuyện (tiếng Việt). Bắt buộc phải có.' },
-                            choices: { 
-                                type: Type.ARRAY, 
-                                items: { type: Type.STRING },
-                                description: 'Danh sách các lựa chọn hành động cho người chơi (tiếng Việt). Từ 3-5 lựa chọn.',
-                                nullable: true
-                            }
-                        },
-                        required: ['story', 'choices']
-                    },
-                },
+                    responseSchema: responseSchema,
+                }
             });
-            handleAiResponse(result);
+            const turnTokens = response.usageMetadata?.totalTokenCount || 0;
+            setCurrentTurnTokens(turnTokens);
+            setTotalTokens(prev => prev + turnTokens);
+
+            const responseText = response.text.trim();
+            parseApiResponse(responseText);
+            setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
+            setTurnCount(prev => prev + 1); // Increment turn count
         } catch (error: any) {
-            console.error("Lỗi gọi API Gemini:", error);
-            if (error.toString().includes('429') && !isUsingDefaultKey && userApiKeyCount > 1) {
+            console.error("Error continuing story:", error);
+            // Revert the optimistic UI update on failure
+            setStoryLog(prev => prev.slice(0, -1));
+
+            if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
                 rotateKey();
+                setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
             } else {
-                 setNotification(`Lỗi API: ${error.message}. Hãy thử lại hoặc kiểm tra API Key.`);
+                 setStoryLog(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
             }
-             // Rollback history and turn count on error
-             setGameHistory(prev => prev.slice(0, -1));
-             setTurnCount(prev => prev - 1);
+
+            const lastModelResponseText = [...gameHistory].reverse().find(h => h.role === 'model')?.parts[0].text;
+            if(lastModelResponseText) {
+                try {
+                    const prevChoices = JSON.parse(lastModelResponseText).choices;
+                    setChoices(prevChoices || []);
+                } catch(e) {
+                    console.error("Could not restore choices:", e);
+                    setChoices([]);
+                }
+            } else {
+                setChoices([]);
+            }
         } finally {
             setIsLoading(false);
-            setCustomAction('');
-        }
-    };
-
-    const handleAction = (action: string) => {
-        if (isLoading || !isAiReady) return;
-        
-        let nsfwContext = '';
-        if (worldData.allowNsfw && action.toLowerCase().includes('nsfw')) {
-            nsfwContext = '\nLƯU Ý: Đây là một hành động NSFW. Hãy mô tả kết quả một cách chi tiết, trần trụi và không bị kiểm duyệt.';
-        }
-
-        getAiResponse(action, '', nsfwContext);
-    };
-
-    // --- User Interactions ---
-    const handleCustomActionSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (customAction.trim()) {
-            handleAction(customAction.trim());
         }
     };
     
-    const handleSaveGame = () => {
-        const saveData: SaveData = {
-            worldData,
-            knownEntities,
-            statuses,
-            quests,
-            gameHistory,
-            memories,
-            party,
-            customRules,
-            systemInstruction,
-            turnCount,
-            totalTokens,
-            gameTime,
-            chronicle,
-        };
-        const jsonString = JSON.stringify(saveData, null, 2);
-        const blob = new Blob([jsonString], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const pcName = pc?.name || 'Vô-Danh';
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        link.download = `AI-RPG_${pcName}_Turn-${turnCount}_${timestamp}.json`;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        setShowSaveSuccess(true);
-        setTimeout(() => setShowSaveSuccess(false), 3000);
-    };
-
-    const handleRestart = () => {
-        // Reset all state to initial state, but keep world settings
-        setKnownEntities(initialGameState.knownEntities);
-        setStatuses(initialGameState.statuses);
-        setQuests(initialGameState.quests);
-        setGameHistory([]);
-        setTurnCount(0);
-        setMemories(initialGameState.memories);
-        setParty(initialGameState.party);
-        // Do not reset customRules, as they are part of the world setup
-        setChronicle({ memoir: [], chapter: [], turn: [] });
-        setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
-        setCurrentTurnTokens(0);
-        setTotalTokens(0);
-        setLocationDiscoveryOrder([]);
-
-        setIsLoading(true);
-
-        // Trigger the first turn generation again
-        const firstAction = "Bắt đầu lại. Hãy giới thiệu thế giới và tình hình hiện tại của nhân vật chính. Tạo ra một vài lựa chọn ban đầu.";
-        
-        let firstTurnContext = '';
-        const initialRules = customRules.filter(r => r.isActive).map(r => r.content).join('\n');
-         if(initialRules) {
-            firstTurnContext += `--- CẬP NHẬT LUẬT LỆ ---\n${initialRules}\n--- KẾT THÚC LUẬT LỆ ---\n`;
-        }
-        const firstSkill = worldData.startSkill;
-        if(firstSkill){
-            firstTurnContext += `\nADMIN: Player đã chọn kỹ năng khởi đầu là "${firstSkill}". Hãy dùng thẻ [SKILL_LEARNED] để thêm kỹ năng này cho nhân vật chính.`;
-        }
-        if(worldData.addGoal){
-             firstTurnContext += `\nADMIN: Người chơi yêu cầu một mục tiêu ban đầu. Hãy dùng thẻ [QUEST_ASSIGNED] để tạo một nhiệm vụ chính đầu tiên hấp dẫn.`;
-        }
-
-        getAiResponse(firstAction, firstTurnContext, '');
-        setIsRestartModalOpen(false);
-    };
-
+    
     const handleEntityClick = (entityName: string) => {
         const entity = knownEntities[entityName];
         if (entity) {
             setActiveEntity(entity);
         }
     };
+
+    const handleUseItem = (itemName: string) => {
+        setActiveEntity(null); // Close modal
+        // A short delay to prevent the modal from re-opening if the layout shifts
+        setTimeout(() => {
+            handleAction(`Sử dụng vật phẩm: ${itemName}`);
+        }, 100);
+    };
+
+    const handleLearnItem = (itemName: string) => {
+        setActiveEntity(null);
+        setTimeout(() => {
+            handleAction(`Học công pháp: ${itemName}`);
+        }, 100);
+    };
+
+    const handleEquipItem = (itemName: string) => {
+        setActiveEntity(null);
+        setTimeout(() => {
+            handleAction(`Trang bị ${itemName}`);
+        }, 100);
+    };
     
+    const handleUnequipItem = (itemName: string) => {
+        setActiveEntity(null);
+        setTimeout(() => {
+            handleAction(`Tháo ${itemName}`);
+        }, 100);
+    };
+
     const handleStatusClick = (status: Status) => {
         setActiveStatus(status);
     };
 
+    const handleToggleMemoryPin = (index: number) => {
+        setMemories(prev => prev.map((mem, i) => i === index ? { ...mem, pinned: !mem.pinned } : mem));
+    };
+
     const handleQuestClick = (quest: Quest) => {
         setActiveQuest(quest);
-    }
-    
-    const handleToggleMemoryPin = (index: number) => {
-        setMemories(prev => {
-            const newMems = [...prev];
-            newMems[index].pinned = !newMems[index].pinned;
-            return newMems;
-        });
     };
     
-    const handleSaveRules = (newRules: CustomRule[]) => {
-        const rulesChanged = JSON.stringify(customRules) !== JSON.stringify(newRules);
-        setCustomRules(newRules);
-        
-        if(rulesChanged) {
-            const activeRules = newRules.filter(r => r.isActive).map(r => r.content).join('\n');
-            const ruleUpdateContext = `--- CẬP NHẬT LUẬT LỆ ---\n${activeRules}\n--- KẾT THÚC LUẬT LỆ ---\n`;
-            
-            // Send a "no-op" action to the AI to process the rule change
-            getAiResponse("Quản trò, hãy ghi nhận và áp dụng các thay đổi về luật lệ vừa được cập nhật. Tiếp tục câu chuyện.", ruleUpdateContext, '');
-        
-            setShowRulesSavedSuccess(true);
-            setTimeout(() => setShowRulesSavedSuccess(false), 3000);
+     const handleSuggestAction = async () => {
+        if (isLoading || !ai) return;
+        setIsLoading(true);
+        const finalPersonality = worldData.customPersonality || worldData.personalityFromList;
+        const suggestionPrompt = `Bối cảnh: "${storyLog.slice(-1)[0]}". Tính cách NV: "${finalPersonality}". Gợi ý một hành động sáng tạo hoặc hợp lý tiếp theo cho người chơi. Chỉ trả về một câu hành động ngắn gọn.`;
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: suggestionPrompt,
+            });
+            setCustomAction(response.text.trim());
+        } catch (error) {
+            console.error("Error suggesting action:", error);
+            setCustomAction("Không thể nhận gợi ý lúc này.");
+        } finally {
+            setIsLoading(false);
         }
     };
+
+    const handleSaveGame = () => {
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 3000);
     
-    // --- Item Interaction Handlers ---
-    const handleItemAction = (itemName: string, actionType: 'use' | 'learn' | 'equip' | 'unequip') => {
-        const actionMap = {
-            use: "sử dụng",
-            learn: "học/lĩnh ngộ",
-            equip: "trang bị",
-            unequip: "tháo"
+        const currentGameState: SaveData = {
+          worldData,
+          knownEntities,
+          statuses,
+          quests,
+          gameHistory,
+          memories,
+          party,
+          customRules,
+          systemInstruction,
+          turnCount,
+          totalTokens,
+          gameTime,
+          chronicle,
         };
-        const actionVerb = actionMap[actionType];
-        const action = `Ta ${actionVerb} ${itemName}.`;
-        handleAction(action);
-        setActiveEntity(null); // Close modal
+        
+        const jsonString = JSON.stringify(currentGameState, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        const charName = worldData.characterName.replace(/\s+/g, '_') || 'NhanVat';
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `AI-RolePlay-${charName}-${timestamp}.json`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
-    const renderActionButtons = (choices: string[]) => (
-        <div className="hidden md:flex flex-wrap justify-center gap-3 mt-4">
-            {choices.map((choice, index) => (
-                <button
-                    key={index}
-                    onClick={() => handleAction(choice)}
-                    className="flex-grow basis-1/3 min-w-[200px] text-left p-3 bg-slate-200 dark:bg-slate-700 hover:bg-purple-600 dark:hover:bg-purple-600 text-slate-800 dark:text-gray-200 hover:text-white rounded-md transition-colors duration-200 shadow-sm border border-slate-300 dark:border-slate-600"
-                >
-                    {choice.match(/^\d+\.\s/) ? choice : `${index + 1}. ${choice}`}
-                </button>
-            ))}
-        </div>
-    );
+    const handleSaveRules = (newRules: CustomRule[]) => {
+        const oldRules = previousRulesRef.current;
+        
+        const activated: CustomRule[] = [];
+        const deactivated: CustomRule[] = [];
+        const updated: { oldRule: CustomRule, newRule: CustomRule }[] = [];
     
-    const sidebarButtons = [
-        { label: "Lưu Game", icon: <ArchiveIcon />, onClick: handleSaveGame, notification: showSaveSuccess ? "Đã lưu!" : undefined },
-        { label: "Thông tin PC", icon: <UserIcon />, onClick: () => setIsPcInfoModalOpen(true) },
-        { label: "Nhiệm vụ", icon: <GameIcons.ScrollIcon />, onClick: () => setIsQuestLogModalOpen(true) },
-        { label: "Tri Thức", icon: <BrainIcon />, onClick: () => setIsKnowledgeModalOpen(true) },
-        { label: "Bản Đồ", icon: <GameIcons.MapPinIcon />, onClick: () => setIsMapModalOpen(true) },
-        { label: "Ký Ức", icon: <MemoryIcon />, onClick: () => setIsMemoryModalOpen(true) },
-        { label: "Luật Lệ", icon: <DocumentAddIcon />, onClick: () => setIsCustomRulesModalOpen(true), notification: showRulesSavedSuccess ? "Đã lưu!" : undefined },
-        { label: "Tổ Đội", icon: <GameIcons.NpcIcon/>, onClick: () => setIsPartyModalOpen(true) },
-        { label: "Bắt Đầu Lại", icon: <RefreshIcon />, onClick: () => setIsRestartModalOpen(true) },
-        { label: "Về Trang Chủ", icon: <HomeIcon />, onClick: () => setIsHomeModalOpen(true) }
-    ];
+        const newRulesMap = new Map(newRules.map(r => [r.id, r]));
+        const oldRulesMap = new Map(oldRules.map(r => [r.id, r]));
+    
+        // Check for new, updated, and activated/deactivated rules
+        for (const [id, newRule] of newRulesMap.entries()) {
+            const oldRule = oldRulesMap.get(id);
+            if (!oldRule) {
+                // Brand new rule
+                if (newRule.isActive && newRule.content.trim()) {
+                    activated.push(newRule);
+                }
+            } else {
+                // Existing rule, check for changes
+                if (newRule.isActive && !oldRule.isActive) {
+                    // Was inactive, now active
+                    if (newRule.content.trim()) {
+                        activated.push(newRule);
+                    }
+                } else if (!newRule.isActive && oldRule.isActive) {
+                    // Was active, now inactive
+                    deactivated.push(oldRule);
+                } else if (newRule.isActive && oldRule.isActive && newRule.content !== oldRule.content) {
+                    // Is active and content changed -> treat as update
+                    if (newRule.content.trim()) {
+                        updated.push({ oldRule, newRule });
+                    } else {
+                        // Content was deleted, treat as deactivation
+                        deactivated.push(oldRule);
+                    }
+                }
+            }
+        }
+    
+        // Check for deleted rules that were active
+        for (const [id, oldRule] of oldRulesMap.entries()) {
+            if (!newRulesMap.has(id) && oldRule.isActive) {
+                deactivated.push(oldRule);
+            }
+        }
+        
+        if (activated.length > 0 || deactivated.length > 0 || updated.length > 0) {
+            setRuleChanges({ activated, deactivated, updated });
+            setStoryLog(prev => [...prev, `**⭐ [HỆ THỐNG]: Đã ghi nhận thay đổi luật lệ. Thay đổi sẽ được áp dụng vào lượt đi tiếp theo. ⭐**`]);
+        }
+        
+        setCustomRules(newRules);
+        // Use deep copy to prevent mutation issues
+        previousRulesRef.current = JSON.parse(JSON.stringify(newRules));
+    
+        setShowRulesSavedSuccess(true);
+        setTimeout(() => setShowRulesSavedSuccess(false), 3500);
+    };
 
-    const mainContent = (
-         <div className="relative flex-grow flex flex-col p-2 sm:p-4 md:p-6 pb-24 md:pb-6">
-            <div className="flex-grow overflow-y-auto pr-2" id="story-container">
-                <InteractiveText text={storyAndChoices.story} onEntityClick={handleEntityClick} knownEntities={knownEntities} />
-                <div ref={storyEndRef} />
+    const handleRestartGame = () => {
+        setIsRestartModalOpen(false);
+        
+        // Give immediate visual feedback
+        setIsLoading(true);
+        setChoices([]);
+        setStoryLog([]);
+        
+        // Reset all game data to initial state
+        setStatuses([]);
+        setQuests([]);
+        setMemories([]);
+        setTurnCount(0);
+        setTotalTokens(0);
+        setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
+        setChronicle({ memoir: [], chapter: [], turn: [] });
+        setRuleChanges(null);
+        previousRulesRef.current = initialGameState.customRules;
+
+        // Trigger the re-generation by clearing history.
+        // The useEffect hook watching `gameHistory` will then call `generateInitialStory`.
+        setGameHistory([]);
+    };
+    
+    const hasActiveQuests = quests.some(q => q.status === 'active');
+    const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
+    const displayParty = party.filter(p => p.name !== pcName);
+
+    const isCustomActionLocked = useMemo(() => {
+        return customRules.some(rule =>
+            rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')
+        );
+    }, [customRules]);
+    
+    const SidebarNav = () => (
+        <>
+            <div className={`fixed inset-0 bg-black/60 z-[80] transition-opacity md:hidden ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)}></div>
+            <div className={`fixed top-0 left-0 bottom-0 w-64 bg-slate-100 dark:bg-[#1f2238] shadow-2xl z-[90] p-4 transform transition-transform md:hidden ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                 <div className="flex justify-between items-center mb-4">
+                     <h3 className="text-lg font-bold text-purple-600 dark:text-purple-400">Menu</h3>
+                     <button onClick={() => setIsSidebarOpen(false)}><CrossIcon className="w-6 h-6"/></button>
+                 </div>
+                <nav className="flex flex-col space-y-3">
+                    <button onClick={() => { setIsHomeModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><HomeIcon className="w-5 h-5 mr-3" /> Home</button>
+                    <button onClick={() => { handleSaveGame(); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><ArchiveIcon className="w-5 h-5 mr-3" /> Lưu Trữ</button>
+                    <button onClick={() => { setIsMapModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><GameIcons.MapPinIcon className="w-5 h-5 mr-3" /> Bản Đồ</button>
+                    <button onClick={() => { setIsCustomRulesModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><DocumentAddIcon className="w-5 h-5 mr-3" /> Nạp Tri Thức</button>
+                    <button onClick={() => { setIsKnowledgeModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><BrainIcon className="w-5 h-5 mr-3" /> Tri Thức</button>
+                    <button onClick={() => { setIsMemoryModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><MemoryIcon className="w-5 h-5 mr-3" /> Ký Ức</button>
+                    <button onClick={() => { setIsRestartModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-red-600/80 hover:bg-red-500 rounded text-white"><RefreshIcon className="w-5 h-5 mr-3" /> Bắt Đầu Lại</button>
+                     <div className="border-t border-slate-300 dark:border-slate-700 pt-4 mt-4 space-y-3">
+                        <button onClick={() => { setIsPcInfoModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><UserIcon className="w-5 h-5 mr-3" /> Thông tin</button>
+                        <button onClick={() => { setIsPartyModalOpen(true); setIsSidebarOpen(false); }} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><GameIcons.NpcIcon className="w-5 h-5 mr-3" /> Tổ đội</button>
+                        <button onClick={() => { setIsQuestLogModalOpen(true); setIsSidebarOpen(false); }} className="relative flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded">
+                            <GameIcons.ScrollIcon className="w-5 h-5 mr-3" /> Nhiệm vụ
+                            {hasActiveQuests && <span className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-yellow-500 text-white"><ExclamationIcon className="w-3 h-3" /></span>}
+                        </button>
+                     </div>
+                </nav>
             </div>
-
-            {isLoading && (
-                <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center z-10">
-                    <SpinnerIcon className="w-12 h-12 text-purple-400" />
-                    <p className="mt-4 text-white font-semibold">AI đang suy nghĩ...</p>
-                </div>
-            )}
-            
-            <div className="mt-4 flex-shrink-0">
-                 {/* Action buttons for Desktop */}
-                {!isLoading && renderActionButtons(storyAndChoices.choices)}
-
-                 {/* Custom Action Input */}
-                <form onSubmit={handleCustomActionSubmit} className="mt-4 flex items-center">
-                    <input
-                        type="text"
-                        value={customAction}
-                        onChange={(e) => setCustomAction(e.target.value)}
-                        placeholder="Hành động khác..."
-                        className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-3 px-4 text-base text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400"
-                        disabled={isLoading}
-                    />
-                    <button type="submit" className="px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-r-md transition-colors duration-200 disabled:bg-slate-500" disabled={isLoading}>Gửi</button>
-                </form>
-            </div>
-             {/* Mobile: Choices Button */}
-             <div className="md:hidden fixed bottom-16 left-4 right-4 z-20">
-                 {!isLoading && storyAndChoices.choices.length > 0 && (
-                     <button
-                         onClick={() => setIsChoicesModalOpen(true)}
-                         className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg shadow-lg flex items-center justify-center text-lg"
-                     >
-                         <SparklesIcon className="w-6 h-6 mr-2" />
-                         Hiển thị lựa chọn
-                     </button>
-                 )}
-             </div>
-        </div>
+        </>
     );
 
     return (
-      <div className={`w-full max-w-full min-h-screen h-full flex flex-col md:flex-row bg-white dark:bg-[#1f2238] shadow-2xl rounded-lg ${fontFamily} ${fontSize}`}>
-        
-        {/* Mobile Header */}
-        <div className="md:hidden p-2 bg-slate-100 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-700 flex justify-between items-center">
-             <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-700 dark:text-slate-200">
-                <MenuIcon className="w-6 h-6"/>
-            </button>
-            <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-cyan-400">Nhập Vai A.I</h1>
-            <div className="w-10"></div>
-        </div>
-        
-        {/* Mobile Sidebar */}
-        {isSidebarOpen && (
-            <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setIsSidebarOpen(false)}>
-                 <div className="w-64 h-full bg-slate-100 dark:bg-slate-900 shadow-xl p-4 flex flex-col space-y-2" onClick={e => e.stopPropagation()}>
-                     <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-white">Chức năng</h2>
-                     {sidebarButtons.map(btn => (
-                        <button key={btn.label} onClick={() => { btn.onClick(); setIsSidebarOpen(false); }} className="w-full flex items-center p-3 text-left bg-slate-200 dark:bg-slate-800 rounded-md hover:bg-purple-500 dark:hover:bg-purple-600 hover:text-white dark:text-white text-sm">
-                           <span className="w-5 h-5 mr-3">{btn.icon}</span>
-                            {btn.label}
-                             {btn.notification && <span className="ml-auto text-xs font-bold text-green-500">{btn.notification}</span>}
-                        </button>
-                     ))}
-                </div>
-            </div>
-        )}
-
-        {/* --- Desktop Sidebar --- */}
-        <aside className="hidden md:flex flex-col flex-shrink-0 w-64 bg-slate-100 dark:bg-slate-900 p-4 border-r border-slate-300 dark:border-slate-700 space-y-2">
-            <h1 className="text-xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-cyan-400">Nhập Vai A.I</h1>
-            <div className="text-center text-xs text-slate-500 dark:text-slate-400 mb-2">Lượt: {turnCount} | {gameTime.hour}:00, {gameTime.day}/{gameTime.month}/{gameTime.year}</div>
-            
-            <div className="flex-grow overflow-y-auto space-y-2 pr-1">
-                {sidebarButtons.map(btn => (
-                    <button
-                        key={btn.label}
-                        onClick={btn.onClick}
-                        className="w-full flex items-center p-2 text-left bg-slate-200 dark:bg-slate-800 rounded-md hover:bg-purple-500 dark:hover:bg-purple-600 hover:text-white dark:text-white text-sm relative"
-                    >
-                        <span className="w-5 h-5 mr-3">{btn.icon}</span>
-                        {btn.label}
-                        {btn.notification && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-green-500 animate-ping-once">{btn.notification}</span>}
-                    </button>
-                ))}
-            </div>
-            
-            <div className="text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-300 dark:border-slate-700 text-center">
-                 <p>{isUsingDefaultKey ? 'Đang dùng Gemini AI mặc định.' : `Đang dùng API Key của bạn.`}</p>
-                 <p>Dev: Bách Mật Nhất Sơ</p>
-            </div>
-        </aside>
-
-        {/* --- Main Content Area --- */}
-        <main className={`flex-grow flex flex-col relative ${fontFamily} ${fontSize}`}>
+        <div className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" style={{maxHeight: '98vh', height: '98vh'}}>
             {notification && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-red-100 dark:bg-red-900 border-b-2 border-red-500 dark:border-red-400 text-red-800 dark:text-red-200 p-3 text-sm font-semibold z-30 shadow-lg text-center flex items-center justify-center gap-2">
-                    <ExclamationIcon className="w-5 h-5"/> {notification}
+                 <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg z-[100] animate-pulse flex items-center gap-2">
+                    <InfoIcon className="w-5 h-5" />
+                    {notification}
+                </div>
+            )}
+            {showSaveSuccess && (
+                <div className="absolute top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+                    Lưu trữ thành công!
+                </div>
+            )}
+            {showRulesSavedSuccess && (
+                <div className="absolute top-20 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+                    Lưu luật lệ thành công! Sẽ có hiệu lực ở lượt sau.
                 </div>
             )}
             
-            {/* For Desktop Layout */}
-            <div className="hidden md:flex flex-grow">
-               {mainContent}
+            <SidebarNav />
+
+            {/* Mobile Header */}
+            <div className="flex md:hidden justify-between items-center bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-3 rounded-b-lg shadow-lg flex-shrink-0 border-b border-slate-300/20 dark:border-slate-600/20">
+                <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2">
+                    <MenuIcon className="w-6 h-6" />
+                </button>
+                <h1 className="text-lg font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider truncate mx-2">
+                    {worldData.genre || "MANH MUONG TAM QUỐC"}
+                </h1>
+                 <div className="w-6 h-6 p-2 -mr-2" />
             </div>
 
-             {/* For Mobile Layout */}
-            <div className="md:hidden flex-grow flex flex-col h-[calc(100vh-4rem-4rem)]">
-                 {mainContent}
+            {/* Desktop Header */}
+            <div className="hidden md:block">
+                <div className="flex justify-between items-center bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-3 rounded-t-lg shadow-lg flex-shrink-0 border-b border-slate-300/20 dark:border-slate-600/20">
+                    <button onClick={() => setIsHomeModalOpen(true)} className="flex items-center text-sm px-3 py-1.5 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded shadow-sm border border-slate-300 dark:border-slate-500 transition-colors text-slate-800 dark:text-white"><HomeIcon className="w-4 h-4 mr-2" /> Home</button>
+                    <div className="text-center flex-1 min-w-0 mx-4">
+                        <div className="text-lg font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider truncate" title={worldData.genre || "Phiêu Lưu Ký"}>{worldData.genre || "Phiêu Lưu Ký"}</div>
+                        <div className="text-xs text-slate-600 dark:text-slate-300 capitalize truncate" title={`Tính cách: ${worldData.customPersonality || worldData.personalityFromList}`}>Tính cách: {worldData.customPersonality || worldData.personalityFromList}</div>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-white">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono bg-slate-200 dark:bg-slate-800/70 px-2 py-1.5 rounded-md hidden sm:block">
+                            <span>Lượt: {currentTurnTokens.toLocaleString()}</span>
+                            <span className="mx-1.5">|</span>
+                            <span>Tổng: {totalTokens.toLocaleString()}</span>
+                        </div>
+                        <button onClick={handleSaveGame} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><ArchiveIcon className="w-4 h-4 mr-1.5" /> Lưu Trữ</button>
+                        <button onClick={() => setIsMapModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><GameIcons.MapPinIcon className="w-4 h-4 mr-1.5" /> Bản Đồ</button>
+                        <button onClick={() => setIsCustomRulesModalOpen(true)} className="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded shadow-sm border border-purple-500/50 transition-colors"><DocumentAddIcon className="w-4 h-4 mr-1.5" /> Nạp Tri Thức</button>
+                        <button onClick={() => setIsKnowledgeModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><BrainIcon className="w-4 h-4 mr-1.5" /> Tri Thức</button>
+                        <button onClick={() => setIsMemoryModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><MemoryIcon className="w-4 h-4 mr-1.5" /> Ký Ức</button>
+                        <button onClick={() => setIsRestartModalOpen(true)} className="flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded shadow-sm border border-red-500/50 transition-colors"><RefreshIcon className="w-4 h-4 mr-1.5" /> Bắt Đầu Lại</button>
+                    </div>
+                </div>
+                <div className="flex justify-center items-center gap-3 bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-2 rounded-b-lg shadow-lg flex-shrink-0 border-x border-b border-slate-300/20 dark:border-slate-600/20">
+                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700/50 px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 whitespace-nowrap">
+                        Thời Gian: Năm {gameTime.year} Tháng {gameTime.month} Ngày {gameTime.day}, {gameTime.hour} giờ
+                    </div>
+                    <button onClick={() => setIsPcInfoModalOpen(true)} className="flex items-center text-sm px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-md shadow-sm border border-slate-300 dark:border-slate-600 transition-colors text-slate-800 dark:text-white">
+                        <UserIcon className="w-5 h-5 mr-2" /> Thông tin
+                    </button>
+                    <button onClick={() => setIsPartyModalOpen(true)} className="flex items-center text-sm px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-md shadow-sm border border-slate-300 dark:border-slate-600 transition-colors text-slate-800 dark:text-white">
+                         <GameIcons.NpcIcon className="w-5 h-5 mr-2" /> Tổ đội
+                    </button>
+                    <button onClick={() => setIsQuestLogModalOpen(true)} className="relative flex items-center text-sm px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-md shadow-sm border border-slate-300 dark:border-slate-600 transition-colors text-slate-800 dark:text-white">
+                        <GameIcons.ScrollIcon className="w-5 h-5 mr-2" /> Nhiệm vụ
+                         {hasActiveQuests && <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center rounded-full bg-yellow-500 text-white"><ExclamationIcon className="w-3 h-3" /></span>}
+                    </button>
+                </div>
             </div>
 
-        </main>
+            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden p-4 md:p-0">
+                {/* Story Panel */}
+                <div className="md:col-span-1 flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden">
+                    <h2 className="text-xl font-semibold mb-3 text-pink-700 dark:text-pink-400 flex-shrink-0 p-4 pb-0">Diễn Biến Câu Chuyện:</h2>
+                    <div ref={storyContainerRef} className={`flex-grow min-h-0 overflow-y-auto pr-2 space-y-4 p-4 md:pb-4 pb-32 ${fontFamily} ${fontSize}`}>
+                       {storyLog.map((line, index) => (
+                           line.trim() === '' ? null : line.startsWith('>') 
+                            ? <p key={index} className='text-cyan-700 dark:text-cyan-300 italic pl-4'>{line}</p>
+                            : <InteractiveText key={index} text={line} onEntityClick={handleEntityClick} knownEntities={knownEntities} />
+                       ))}
+                       {isLoading && isAiReady && storyLog.length > 0 && <div className="flex justify-center p-4"><SpinnerIcon className="w-8 h-8 text-slate-700 dark:text-white"/></div>}
+                    </div>
+                </div>
 
-        {/* Modals */}
-        <ConfirmationModal
-            isOpen={isRestartModalOpen}
-            onClose={() => setIsRestartModalOpen(false)}
-            onConfirm={handleRestart}
-            title="Bắt đầu lại cuộc phiêu lưu?"
-            message={
-                <>
-                <p>Bạn có chắc chắn muốn bắt đầu lại không?</p>
-                <p className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">Thao tác này sẽ xóa toàn bộ tiến trình hiện tại và tạo một cốt truyện mới dựa trên thiết lập ban đầu của thế giới.</p>
-                </>
-            }
-        />
-        <ConfirmationModal
-            isOpen={isHomeModalOpen}
-            onClose={() => setIsHomeModalOpen(false)}
-            onConfirm={onBackToMenu}
-            title="Quay về Trang Chủ?"
-            message="Bạn có chắc chắn muốn thoát? Toàn bộ tiến trình chưa lưu sẽ bị mất."
-        />
-        
-        {/* Info Modals */}
-        <EntityInfoModal 
-            entity={activeEntity} 
-            onClose={() => setActiveEntity(null)}
-            onUseItem={(name) => handleItemAction(name, 'use')}
-            onLearnItem={(name) => handleItemAction(name, 'learn')}
-            onEquipItem={(name) => handleItemAction(name, 'equip')}
-            onUnequipItem={(name) => handleItemAction(name, 'unequip')}
-            statuses={statuses}
-            onStatusClick={handleStatusClick}
-        />
-        <StatusDetailModal status={activeStatus} onClose={() => setActiveStatus(null)} />
-        <QuestDetailModal quest={activeQuest} onClose={() => setActiveQuest(null)} />
-        <MemoryModal isOpen={isMemoryModalOpen} onClose={() => setIsMemoryModalOpen(false)} memories={memories} onTogglePin={handleToggleMemoryPin} />
-        <KnowledgeBaseModal isOpen={isKnowledgeModalOpen} onClose={() => setIsKnowledgeModalOpen(false)} pc={pc} knownEntities={knownEntities} onEntityClick={handleEntityClick} turnCount={turnCount} />
-        <CustomRulesModal isOpen={isCustomRulesModalOpen} onClose={() => setIsCustomRulesModalOpen(false)} currentRules={customRules} onSave={handleSaveRules} />
-        <MapModal isOpen={isMapModalOpen} onClose={() => setIsMapModalOpen(false)} locations={Object.values(knownEntities).filter(e => e.type === 'location')} currentLocationName={pc?.location || ''} discoveryOrder={locationDiscoveryOrder} />
+                {/* Choices Panel - DESKTOP ONLY */}
+                 <div className="hidden md:flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-4 rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden">
+                    <h2 className="text-xl font-semibold mb-3 text-cyan-600 dark:text-cyan-400 flex-shrink-0">Lựa Chọn Của Ngươi:</h2>
+                    <div className="overflow-y-auto pr-2 flex-grow">
+                        {!isAiReady ? (
+                             <div className="flex items-center justify-center h-full text-red-600 dark:text-red-400 text-center p-4">
+                                {apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."}
+                            </div>
+                        ) : isLoading && choices.length === 0 ? (
+                            <div className="flex items-center justify-center h-full py-4">
+                                <SpinnerIcon className="w-10 h-10 text-slate-700 dark:text-white" />
+                            </div>
+                        ) : (
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {choices.map((choice, index) => (
+                                    <button 
+                                        key={index}
+                                        onClick={() => handleAction(choice)}
+                                        className={`w-full h-full text-left p-3 bg-slate-200 dark:bg-slate-700 hover:bg-purple-600 dark:hover:bg-purple-600 text-slate-800 dark:text-gray-200 hover:text-white rounded-md transition-colors duration-200 shadow-sm border border-slate-300 dark:border-slate-600 ${fontSize}`}
+                                    >
+                                        {choice.match(/^\d+\.\s/) ? choice : `${index + 1}. ${choice}`}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-300 dark:border-slate-700 flex-shrink-0">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Hoặc, nhập hành động tùy ý (thêm "nsfw" ở cuối để có nội dung 18+):</p>
+                        <div className="flex items-center">
+                            <input 
+                                type="text"
+                                value={customAction}
+                                onChange={(e) => setCustomAction(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleAction(customAction)}
+                                disabled={isLoading || !isAiReady || isCustomActionLocked}
+                                placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ." : "Ví dụ: nhặt hòn đá lên..."}
+                                className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 disabled:bg-slate-500"
+                            />
+                            <button 
+                                onClick={handleSuggestAction}
+                                disabled={isLoading || !isAiReady}
+                                className="px-3 py-2 bg-yellow-500 dark:bg-yellow-600 hover:bg-yellow-400 dark:hover:bg-yellow-500 text-white font-semibold transition-colors disabled:bg-slate-500"
+                                aria-label="Gợi ý hành động"
+                            >
+                                <SparklesIcon className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => handleAction(customAction)}
+                                disabled={isLoading || !isAiReady || isCustomActionLocked}
+                                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
+                                aria-label="Gửi hành động"
+                            >
+                                Gửi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        {/* Mobile Modals */}
-        <MobileChoicesModal 
-            isOpen={isChoicesModalOpen}
-            onClose={() => setIsChoicesModalOpen(false)}
-            choices={storyAndChoices.choices}
-            onAction={handleAction}
-        />
+            {/* Mobile UI */}
+            <button 
+                onClick={() => setIsChoicesModalOpen(true)}
+                className="md:hidden fixed bottom-20 right-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-full shadow-lg z-40"
+            >
+               <GameIcons.SwordIcon className="w-6 h-6"/>
+            </button>
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#1f2238]/95 backdrop-blur-sm p-3 border-t border-slate-300 dark:border-slate-700 shadow-lg z-30">
+                 <div className="flex items-center">
+                    <input 
+                        type="text"
+                        value={customAction}
+                        onChange={(e) => setCustomAction(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAction(customAction)}
+                        disabled={isLoading || !isAiReady || isCustomActionLocked}
+                        placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa." : "Nhập hành động..."}
+                        className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500"
+                    />
+                    <button 
+                        onClick={() => handleAction(customAction)}
+                        disabled={isLoading || !isAiReady || isCustomActionLocked}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
+                    >
+                        Gửi
+                    </button>
+                </div>
+            </div>
 
-        {/* Panel Modals */}
-        <InfoPanelModal isOpen={isPcInfoModalOpen} onClose={() => setIsPcInfoModalOpen(false)} title="Bảng Nhân Vật" icon={<UserIcon />}>
-            <PlayerCharacterSheet pc={pc} statuses={pcStatuses} onStatusClick={handleStatusClick} knownEntities={knownEntities} onEntityClick={handleEntityClick} />
-        </InfoPanelModal>
-         <InfoPanelModal isOpen={isPartyModalOpen} onClose={() => setIsPartyModalOpen(false)} title="Tổ Đội" icon={<GameIcons.NpcIcon />}>
-            <PartyMemberTab party={party} onMemberClick={handleEntityClick} />
-        </InfoPanelModal>
-        <InfoPanelModal isOpen={isQuestLogModalOpen} onClose={() => setIsQuestLogModalOpen(false)} title="Nhiệm Vụ" icon={<GameIcons.ScrollIcon />}>
-            <QuestLog quests={quests} onQuestClick={handleQuestClick} />
-        </InfoPanelModal>
-      </div>
+            {/* MODALS */}
+            <ConfirmationModal
+                isOpen={isHomeModalOpen}
+                onClose={() => setIsHomeModalOpen(false)}
+                onConfirm={onBackToMenu}
+                title="Về Trang Chủ?"
+                message="Bạn có chắc muốn thoát? Mọi tiến trình chưa lưu sẽ bị mất."
+            />
+             <ConfirmationModal
+                isOpen={isRestartModalOpen}
+                onClose={() => setIsRestartModalOpen(false)}
+                onConfirm={handleRestartGame}
+                title="Bắt Đầu Lại?"
+                message="Bạn có chắc muốn bắt đầu lại cuộc phiêu lưu? Toàn bộ tiến trình hiện tại sẽ được khởi tạo lại từ đầu với cùng thiết lập thế giới."
+            />
+            <EntityInfoModal entity={activeEntity} onClose={() => setActiveEntity(null)} onUseItem={handleUseItem} onLearnItem={handleLearnItem} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} statuses={statuses} onStatusClick={handleStatusClick} />
+            <StatusDetailModal status={activeStatus} onClose={() => setActiveStatus(null)} />
+            <QuestDetailModal quest={activeQuest} onClose={() => setActiveQuest(null)} />
+            <MemoryModal isOpen={isMemoryModalOpen} onClose={() => setIsMemoryModalOpen(false)} memories={memories} onTogglePin={handleToggleMemoryPin} />
+            <KnowledgeBaseModal isOpen={isKnowledgeModalOpen} onClose={() => setIsKnowledgeModalOpen(false)} pc={pcEntity} knownEntities={knownEntities} onEntityClick={handleEntityClick} turnCount={turnCount} />
+            <CustomRulesModal isOpen={isCustomRulesModalOpen} onClose={() => setIsCustomRulesModalOpen(false)} onSave={handleSaveRules} currentRules={customRules} />
+            <MapModal 
+                isOpen={isMapModalOpen} 
+                onClose={() => setIsMapModalOpen(false)}
+                locations={Object.values(knownEntities).filter(e => e.type === 'location')}
+                currentLocationName={pcEntity?.location || ''}
+                discoveryOrder={locationDiscoveryOrder}
+            />
+             <InfoPanelModal
+                isOpen={isPcInfoModalOpen}
+                onClose={() => setIsPcInfoModalOpen(false)}
+                title="Thông Tin Nhân Vật"
+                icon={<UserIcon className="w-6 h-6" />}
+            >
+                <PlayerCharacterSheet pc={pcEntity} statuses={pcStatuses} knownEntities={knownEntities} onStatusClick={handleStatusClick} onEntityClick={handleEntityClick}/>
+            </InfoPanelModal>
+             <InfoPanelModal
+                isOpen={isPartyModalOpen}
+                onClose={() => setIsPartyModalOpen(false)}
+                title="Tổ Đội"
+                icon={<GameIcons.NpcIcon className="w-6 h-6" />}
+            >
+                <PartyMemberTab party={displayParty} onMemberClick={handleEntityClick}/>
+            </InfoPanelModal>
+            <InfoPanelModal
+                isOpen={isQuestLogModalOpen}
+                onClose={() => setIsQuestLogModalOpen(false)}
+                title="Nhật Ký Nhiệm Vụ"
+                icon={<GameIcons.ScrollIcon className="w-6 h-6" />}
+            >
+                <QuestLog quests={quests} onQuestClick={handleQuestClick} />
+            </InfoPanelModal>
+            <MobileChoicesModal 
+                isOpen={isChoicesModalOpen}
+                onClose={() => setIsChoicesModalOpen(false)}
+                choices={choices}
+                onAction={handleAction}
+            />
+        </div>
     );
 };
