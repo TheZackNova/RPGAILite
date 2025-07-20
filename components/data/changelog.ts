@@ -1,8 +1,43 @@
-
-
 import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
+ {
+    version: '1.14.0',
+    date: '2024-08-10',
+    changes: [
+      { type: 'feature', text: 'Giới hạn số lượng trạng thái: Mỗi nhân vật (PC và NPC) chỉ có thể có tối đa 2 trạng thái cùng một loại (ví dụ: 2 buff, 2 debuff).' },
+      { type: 'improvement', text: 'Khi một trạng thái mới được áp dụng và đã đạt đến giới hạn, trạng thái cũ nhất cùng loại sẽ tự động bị xóa bỏ để nhường chỗ.' },
+      { type: 'fix', text: 'Cải thiện logic áp dụng trạng thái để xử lý việc "làm mới" một trạng thái hiện có (ghi đè thay vì thêm mới).' },
+    ],
+  },
+   {
+    version: '1.13.0',
+    date: '2024-08-09',
+    changes: [
+      { type: 'feature', text: 'Cập nhật hệ thống NSFW. Khi được bật, Quản Trò (AI) giờ đây sẽ chủ động tạo ra ít nhất hai lựa chọn hành động 18+ trong mỗi lượt, dựa trên bối cảnh và mối quan hệ của nhân vật.' },
+      { type: 'improvement', text: 'Các lựa chọn hành động NSFW do AI tạo ra sẽ được đánh dấu rõ ràng bằng "(NSFW)" để người chơi dễ nhận biết.' },
+      { type: 'improvement', text: 'Hệ thống prompt được tối ưu để AI luôn nhận biết được trạng thái của chế độ NSFW trong suốt quá trình chơi.' },
+      { type: 'fix', text: 'Hành động tùy ý có chứa từ khóa "nsfw" của người chơi sẽ được ưu tiên xử lý như một yêu cầu 18+.' },
+    ],
+  },
+  {
+    version: '1.12.0',
+    date: '2024-08-08',
+    changes: [
+      { type: 'feature', text: 'Nâng cấp menu "Thiết Lập Nguồn API" để hỗ trợ quản lý nhiều API key. Người dùng có thể thêm, xóa và lưu một danh sách các key.' },
+      { type: 'feature', text: 'Triển khai tính năng tự động chuyển đổi API key. Khi một key gặp lỗi giới hạn yêu cầu (rate-limit), hệ thống sẽ tự động chuyển sang key tiếp theo trong danh sách.' },
+      { type: 'improvement', text: 'Thêm thông báo trên màn hình game khi API key được tự động chuyển đổi, yêu cầu người chơi gửi lại hành động.' },
+      { type: 'improvement', text: 'Giao diện menu thiết lập API được cập nhật với các nút icon (Thêm, Xóa, Lưu) để thao tác thuận tiện hơn.' },
+    ],
+  },
+  {
+    version: '1.11.0',
+    date: '2024-08-07',
+    changes: [
+      { type: 'improvement', text: 'Tối ưu hóa prompt gửi đến AI bằng cách giảm số lượt diễn biến gần nhất từ 5 xuống 3, giúp tăng tốc độ phản hồi và giảm token sử dụng.' },
+      { type: 'improvement', text: 'Hệ thống truy xuất thông tin (RAG) giờ đây chỉ tập trung vào các kiến thức và luật lệ được đề cập trong 2 lượt chơi gần nhất, giúp AI trả lời tập trung và chính xác hơn.' },
+    ],
+  },
   {
     version: '1.10.2',
     date: '2024-08-06',

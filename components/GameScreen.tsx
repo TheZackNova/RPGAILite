@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -23,7 +21,7 @@ import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusText
 
 import { 
     SpinnerIcon, HomeIcon, ArchiveIcon, BrainIcon, MemoryIcon, RefreshIcon, SparklesIcon,
-    ExclamationIcon, DocumentAddIcon, CrossIcon, UserIcon, MenuIcon,
+    ExclamationIcon, DocumentAddIcon, CrossIcon, UserIcon, MenuIcon, InfoIcon
 } from './Icons.tsx';
 
 
@@ -218,13 +216,55 @@ const MobileChoicesModal: React.FC<{
     );
 };
 
+const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, owner: string): Status[] => {
+    const newStatusType = newStatusAttributes.type;
+    if (!newStatusType) {
+        // Failsafe for statuses without a type, just add it.
+        return [...prevStatuses, { ...newStatusAttributes, owner } as Status];
+    }
+
+    // 1. Remove any existing status with the same name for the same owner to allow "refreshing" a status.
+    const filteredStatuses = prevStatuses.filter(s => !(s.name === newStatusAttributes.name && s.owner === owner));
+    
+    // 2. Separate statuses for the target owner.
+    const otherOwnersStatuses = filteredStatuses.filter(s => s.owner !== owner);
+    const ownerStatuses = filteredStatuses.filter(s => s.owner === owner);
+
+    // 3. Separate the owner's statuses by the new status's type.
+    const ownerStatusesOfType = ownerStatuses.filter(s => s.type === newStatusType);
+    const ownerStatusesOfOtherTypes = ownerStatuses.filter(s => s.type !== newStatusType);
+    
+    // 4. Apply the limit. Max 2 statuses per type.
+    const maxStatusesPerType = 2;
+    let finalOwnerStatusesOfType = ownerStatusesOfType;
+
+    if (ownerStatusesOfType.length >= maxStatusesPerType) {
+        // If limit is reached or exceeded, keep only the newest (limit - 1) statuses.
+        // The oldest ones are at the beginning of the array.
+        finalOwnerStatusesOfType = ownerStatusesOfType.slice(ownerStatusesOfType.length - (maxStatusesPerType - 1));
+    }
+    
+    // 5. Create the new status object to add.
+    const newStatusToAdd: Status = { ...newStatusAttributes, owner: owner };
+    
+    // 6. Reconstruct and return the new status list.
+    return [
+        ...otherOwnersStatuses, 
+        ...ownerStatusesOfOtherTypes,
+        ...finalOwnerStatusesOfType, 
+        newStatusToAdd
+    ];
+};
+
 export const GameScreen: React.FC<{ 
     initialGameState: SaveData, 
     onBackToMenu: () => void,
     fontFamily: string,
-    fontSize: string
-}> = ({ initialGameState, onBackToMenu, fontFamily, fontSize }) => {
-    const { ai, isAiReady, apiKeyError } = useContext(AIContext);
+    fontSize: string,
+    keyRotationNotification: string | null;
+    onClearNotification: () => void;
+}> = ({ initialGameState, onBackToMenu, fontFamily, fontSize, keyRotationNotification, onClearNotification }) => {
+    const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount } = useContext(AIContext);
     const [worldData, setWorldData] = useState(initialGameState.worldData);
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
     const [customAction, setCustomAction] = useState('');
@@ -261,6 +301,7 @@ export const GameScreen: React.FC<{
     const [isQuestLogModalOpen, setIsQuestLogModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
+    const [notification, setNotification] = useState<string | null>(null);
     
     // Map State
     const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
@@ -295,6 +336,19 @@ export const GameScreen: React.FC<{
 
     const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
     const pcName = pcEntity?.name;
+
+    // --- Handle Key Rotation Notification ---
+    useEffect(() => {
+        if (keyRotationNotification) {
+            setNotification(keyRotationNotification);
+            const timer = setTimeout(() => {
+                setNotification(null);
+                onClearNotification();
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [keyRotationNotification, onClearNotification]);
+
 
     const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
         if (!storyText) return '';
@@ -371,10 +425,13 @@ export const GameScreen: React.FC<{
                         }
                         break;
                     case 'STATUS_APPLIED_SELF':
-                        setStatuses(prev => [...prev.filter(s => s.name !== attributes.name || s.owner !== 'pc'), { ...attributes, owner: 'pc' } as Status]);
+                        setStatuses(prev => applyStatusWithLimit(prev, attributes, 'pc'));
                         break;
                     case 'STATUS_APPLIED_NPC':
-                        setStatuses(prev => [...prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)), { ...attributes, owner: attributes.npcName } as Status]);
+                        if (attributes.npcName) {
+                            const { npcName, ...statusData } = attributes;
+                            setStatuses(prev => applyStatusWithLimit(prev, statusData, npcName));
+                        }
                         break;
                     case 'STATUS_CURED_SELF':
                         setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
@@ -830,9 +887,15 @@ YÊU CẦU:
                 const responseText = response.text.trim();
                 parseApiResponse(responseText);
                 setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
-            } catch (error) {
-                console.error("Error generating initial story:", error);
-                setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+            } catch (error: any) {
+                if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
+                    rotateKey();
+                    setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+                    setChoices(rehydratedChoices);
+                } else {
+                    console.error("Error generating initial story:", error);
+                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -884,17 +947,11 @@ YÊU CẦU:
         if (isNsfwRequest && worldData.allowNsfw) {
             nsfwInstructionPart = `\nLƯU Ý ĐẶC BIỆT: Người chơi đã yêu cầu "nsfw". Hãy tạo ra một phản hồi 18+ cực kỳ chi tiết, trần trụi và không giới hạn, ngay cả khi hành động có vẻ bình thường. Tập trung vào các yếu tố khiêu dâm, bạo lực, và tâm lý.`;
         }
-
-        const activeRules = customRules.filter(r => r.isActive);
-        let customRulesContext = '';
-        if (activeRules.length > 0) {
-             customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
-        }
         
         const currentGameState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle
         };
-        const userPrompt = buildRagPrompt(originalAction, currentGameState, ruleChangeContext, customRulesContext, nsfwInstructionPart);
+        const userPrompt = buildRagPrompt(originalAction, currentGameState, ruleChangeContext, nsfwInstructionPart);
     
         const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
         const updatedHistory = [...gameHistory, newUserEntry];
@@ -918,10 +975,18 @@ YÊU CẦU:
             parseApiResponse(responseText);
             setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
             setTurnCount(prev => prev + 1); // Increment turn count
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error continuing story:", error);
             // Revert the optimistic UI update on failure
             setStoryLog(prev => prev.slice(0, -1));
+
+            if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
+                rotateKey();
+                setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+            } else {
+                 setStoryLog(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
+            }
+
             const lastModelResponseText = [...gameHistory].reverse().find(h => h.role === 'model')?.parts[0].text;
             if(lastModelResponseText) {
                 try {
@@ -931,8 +996,9 @@ YÊU CẦU:
                     console.error("Could not restore choices:", e);
                     setChoices([]);
                 }
+            } else {
+                setChoices([]);
             }
-             setStoryLog(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
         } finally {
             setIsLoading(false);
         }
@@ -1166,6 +1232,12 @@ YÊU CẦU:
 
     return (
         <div className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" style={{maxHeight: '98vh', height: '98vh'}}>
+            {notification && (
+                 <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-500 text-black px-4 py-2 rounded-lg shadow-lg z-[100] animate-pulse flex items-center gap-2">
+                    <InfoIcon className="w-5 h-5" />
+                    {notification}
+                </div>
+            )}
             {showSaveSuccess && (
                 <div className="absolute top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
                     Lưu trữ thành công!

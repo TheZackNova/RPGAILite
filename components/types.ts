@@ -1,4 +1,5 @@
 
+
 import type { GoogleGenAI } from "@google/genai";
 
 export type EntityType = 'pc' | 'npc' | 'location' | 'faction' | 'item' | 'skill' | 'status_effect' | 'companion' | 'concept';
@@ -136,4 +137,7 @@ export interface AIContextType {
     ai: GoogleGenAI | null;
     isAiReady: boolean;
     apiKeyError: string | null;
+    isUsingDefaultKey: boolean;
+    userApiKeyCount: number;
+    rotateKey: () => void;
 }

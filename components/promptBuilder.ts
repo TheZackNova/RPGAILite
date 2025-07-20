@@ -1,5 +1,7 @@
 
-import { SaveData, Entity, Status, Quest, GameHistoryEntry } from './types.ts';
+
+
+import { SaveData, Entity, Status, Quest, GameHistoryEntry, CustomRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
 const formatEntityForPrompt = (entity: Entity, allStatuses: Status[]): string => {
@@ -44,117 +46,109 @@ export const buildRagPrompt = (
     action: string,
     gameState: SaveData,
     ruleChangeContext: string,
-    customRulesContext: string,
-    nsfwInstructionPart: string,
+    playerNsfwRequest: string,
 ): string => {
-    // Handle the dedicated System Turn for rule updates
-    if (action === 'SYSTEM_RULE_UPDATE') {
-        const finalPrompt = `${ruleChangeContext}${customRulesContext}
---- YÊU CẦU HỆ THỐNG ---
-Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh cần thiết để cập nhật thế giới. KHÔNG tường thuật bất kỳ câu chuyện nào.
---- KẾT THÚC YÊU CẦU ---`;
-        return finalPrompt;
-    }
-
-    const { worldData, knownEntities, statuses, quests, party, turnCount, gameHistory, memories, chronicle, gameTime } = gameState;
+    const { worldData, knownEntities, statuses, quests, party, turnCount, gameHistory, memories, chronicle, gameTime, customRules } = gameState;
     const lowerCaseAction = action.toLowerCase();
     
-    // --- 1. Retrieval Phase (Smarter RAG with Recursion) ---
-    const directEntities = new Set<Entity>();
-    const recursiveEntities = new Set<Entity>();
-
-    // Always include PC and party members
-    const pc = party.find(p => p.type === 'pc');
-    if (pc) directEntities.add(pc);
-    party.forEach(member => directEntities.add(member));
-
-    // Find entities mentioned in the action string, the last model response, and all equipped items.
-    const lastModelResponse = gameHistory.length > 0 ? gameHistory[gameHistory.length - 1].parts[0].text : '';
-    const relevantText = lowerCaseAction + ' ' + lastModelResponse.toLowerCase();
-
-    Object.values(knownEntities).forEach(entity => {
-        if (entity.name && relevantText.includes(entity.name.toLowerCase())) {
-            directEntities.add(entity);
+    // --- SPECIAL CASE: Rule updates require full context to be processed correctly. ---
+    if (ruleChangeContext) {
+        const activeRules = customRules.filter(r => r.isActive);
+        let fullRulesContext = '';
+        if (activeRules.length > 0) {
+            fullRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
         }
+        
+        // Build the normal prompt for the player's action to provide story context
+        const playerActionPrompt = buildRagPrompt(action, gameState, '', playerNsfwRequest);
+        
+        // Remove the RAG-generated rules from the normal prompt to avoid duplication
+        const cleanedPlayerActionPrompt = playerActionPrompt.replace(/\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH \(LIÊN QUAN ĐẾN LƯỢT NÀY\).*?--- KẾT THÚC ---\n/s, '');
+
+        // The final prompt for a rule-update turn
+        return `${ruleChangeContext}${fullRulesContext}${cleanedPlayerActionPrompt}`;
+    }
+
+    
+    // --- 1. Retrieval Phase (for normal turns) ---
+    // Text from the last 2 turns (2 user + 2 model) + current action for context retrieval
+    const historyForContext = gameHistory.slice(-4);
+    const relevantTextForRetrieval = (lowerCaseAction + ' ' + historyForContext.map(h => {
+        try {
+            const parsed = JSON.parse(h.parts[0].text);
+            return parsed.story || '';
+        } catch (e) {
+            const userActionMatch = h.parts[0].text.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
+            if (userActionMatch) return userActionMatch[1];
+            return h.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
+        }
+    }).join(' ')).toLowerCase();
+
+    const retrievedEntities = new Set<Entity>();
+    const pc = party.find(p => p.type === 'pc');
+
+    // Always include PC, party members, and equipped items as they are always relevant.
+    party.forEach(member => retrievedEntities.add(member));
+    Object.values(knownEntities).forEach(entity => {
         if (entity.type === 'item' && entity.owner === pc?.name && entity.equipped) {
-            directEntities.add(entity);
+            retrievedEntities.add(entity);
         }
     });
 
-    // Recursive retrieval step
+    // Find other entities mentioned in the relevant text window.
+    Object.values(knownEntities).forEach(entity => {
+        if (entity.name && relevantTextForRetrieval.includes(entity.name.toLowerCase())) {
+            retrievedEntities.add(entity);
+        }
+    });
+
+    // Recursive retrieval step (one level deep)
     const allEntityNames = Object.keys(knownEntities);
-    directEntities.forEach(entity => {
-        const description = entity.description?.toLowerCase() || '';
+    const recursivelyRetrieved = new Set<Entity>();
+    retrievedEntities.forEach(entity => {
+        const description = (entity.description || '').toLowerCase();
+        const skills = (entity.skills || []).join(' ').toLowerCase();
+        const textToScan = description + ' ' + skills;
+
         allEntityNames.forEach(name => {
-            if (description.includes(name.toLowerCase())) {
+            if (textToScan.includes(name.toLowerCase())) {
                 const relatedEntity = knownEntities[name];
-                if (relatedEntity && !directEntities.has(relatedEntity)) {
-                    recursiveEntities.add(relatedEntity);
+                if (relatedEntity && !retrievedEntities.has(relatedEntity)) {
+                    recursivelyRetrieved.add(relatedEntity);
                 }
             }
         });
     });
+    recursivelyRetrieved.forEach(e => retrievedEntities.add(e));
+
+
+    // --- Identify relevant custom rules ---
+    const activeRules = customRules.filter(r => r.isActive);
+    const relevantRules = new Set<CustomRule>();
+    if (activeRules.length > 0) {
+        const keywords = new Set<string>();
+        retrievedEntities.forEach(e => keywords.add(e.name.toLowerCase()));
+        
+        lowerCaseAction.split(/\s+/).forEach(word => {
+            const cleanWord = word.replace(/[.,!?]/g, '');
+            if (cleanWord.length > 3) keywords.add(cleanWord);
+        });
+
+        activeRules.forEach(rule => {
+            const ruleText = rule.content.toLowerCase();
+            for (const keyword of keywords) {
+                if (ruleText.includes(keyword)) {
+                    relevantRules.add(rule);
+                    break;
+                }
+            }
+        });
+    }
 
 
     // --- 2. Augmentation/Prompt Construction Phase ---
     let retrievedContext = "";
 
-    // Dedicated PC context block at the top
-    if (pc) {
-        retrievedContext += "--- BỐI CẢNH NHÂN VẬT CHÍNH (PC) ---\n";
-        retrievedContext += `Tên: ${pc.name}\n`;
-        if (pc.location) retrievedContext += `Vị trí hiện tại: ${pc.location}\n`;
-        if (pc.gender) retrievedContext += `Giới tính: ${pc.gender}\n`;
-        if (pc.age) retrievedContext += `Tuổi: ${pc.age}\n`;
-        if (pc.appearance) retrievedContext += `Dung mạo: ${pc.appearance}\n`;
-        if (pc.personality) retrievedContext += `Tính cách (Bề ngoài): ${pc.personality}\n`;
-        if (pc.realm) retrievedContext += `Cảnh giới: ${pc.realm}\n`;
-        if (pc.fame) retrievedContext += `Danh vọng: ${pc.fame}\n`;
-        if (pc.description) retrievedContext += `Tiểu sử: ${pc.description}\n`;
-        
-        const pcStatuses = statuses.filter(s => s.owner === pc.name || s.owner === 'pc');
-        if (pcStatuses.length > 0) {
-            retrievedContext += `Trạng thái hiện tại của PC: ${pcStatuses.map(s => s.name).join(', ')}\n`;
-        }
-        retrievedContext += "-------------------------------------\n\n";
-        
-        // Add a dedicated block for learned skills to make them more prominent for the AI.
-        if (pc.learnedSkills && pc.learnedSkills.length > 0) {
-            retrievedContext += "--- KỸ NĂNG ĐÃ HỌC (Sẵn sàng chiến đấu) ---\n";
-            pc.learnedSkills.forEach(skillName => {
-                const skillEntity = knownEntities[skillName];
-                // Filter out broken/destroyed skills (if that's a mechanic)
-                if (skillEntity && skillEntity.state !== 'broken' && skillEntity.state !== 'destroyed') {
-                     if (skillEntity.description) {
-                        retrievedContext += `- ${skillEntity.name}: ${skillEntity.description}\n`;
-                    } else {
-                        retrievedContext += `- ${skillName}\n`;
-                    }
-                }
-            });
-            retrievedContext += "-------------------------------------------\n\n";
-        }
-    }
-    
-    // NEW DEDICATED INVENTORY BLOCK
-    const pcItems = Object.values(knownEntities).filter(e => e.type === 'item' && e.owner === pc?.name && e.state !== 'broken' && e.state !== 'destroyed');
-    if (pcItems.length > 0) {
-        retrievedContext += "--- HÀNH TRANG & VẬT PHẨM (Sẵn sàng sử dụng) ---\n";
-        pcItems.forEach(item => {
-            let itemDetails = [];
-            if (item.description) {
-                const firstSentence = item.description.split('.')[0];
-                itemDetails.push(`Công dụng: ${firstSentence}.`);
-            }
-            if (item.equipped) itemDetails.push('Trang bị');
-            if (typeof item.uses === 'number') itemDetails.push(`Dùng: ${item.uses} lần`);
-            if (typeof item.durability === 'number') itemDetails.push(`Bền: ${item.durability}/100`);
-            retrievedContext += `- ${item.name}: ${itemDetails.join('; ')}\n`;
-        });
-        retrievedContext += "----------------------------------------------\n\n";
-    }
-
-    // Add world context
     if (worldData) {
         retrievedContext += "--- BỐI CẢNH THẾ GIỚI (CỐT LÕI) ---\n";
         if (worldData.genre) retrievedContext += `Thể loại: ${worldData.genre}\n`;
@@ -162,59 +156,32 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
         retrievedContext += "-----------------------------------\n\n";
     }
 
-    retrievedContext += "--- TRI THỨC LIÊN QUAN (Được truy xuất cho hành động này) ---\n";
+    retrievedContext += "--- TRI THỨC LIÊN QUAN (Được truy xuất cho lượt này) ---\n";
     if (gameTime) {
         retrievedContext += `Thời gian hiện tại: Năm ${gameTime.year} Tháng ${gameTime.month} Ngày ${gameTime.day}, ${gameTime.hour} giờ.\n`;
     }
     retrievedContext += `Lượt hiện tại: ${turnCount}\n\n`;
 
-    // Filter out dead/broken entities before displaying them
-    const filterInteractable = (entity: Entity): boolean => {
-        if (entity.state === 'dead' || entity.state === 'destroyed') {
-            // Companions who are dead should still be shown for story purposes.
-            return entity.type === 'companion';
-        }
-        if (entity.state === 'broken') {
-            return false; // Hide broken items from interactable list
-        }
-        return true; // Keep everything else
-    };
-    
-    // Filter out PC-owned items since they are now in their own block
-    const isPcItem = (e: Entity) => e.type === 'item' && e.owner === pc?.name;
-
-    const otherDirectEntities = Array.from(directEntities).filter(e => e.type !== 'pc' && !isPcItem(e) && filterInteractable(e));
-    retrievedContext += "**Thực thể & Vật phẩm liên quan (trực tiếp):**\n";
-    if (otherDirectEntities.length > 0) {
-        otherDirectEntities.forEach(entity => {
-            retrievedContext += formatEntityForPrompt(entity, statuses) + '\n';
+    if (retrievedEntities.size > 0) {
+        const sortedEntities = Array.from(retrievedEntities).sort((a,b) => {
+             if (a.type === 'pc') return -1;
+             if (b.type === 'pc') return 1;
+             return a.name.localeCompare(b.name);
         });
-    } else {
-        retrievedContext += "Không có.\n";
-    }
-
-    const filteredRecursiveEntities = Array.from(recursiveEntities).filter(e => !isPcItem(e) && filterInteractable(e));
-    if (filteredRecursiveEntities.length > 0) {
-        retrievedContext += "\n**Thực thể & Vật phẩm liên quan (gián tiếp):**\n";
-        filteredRecursiveEntities.forEach(entity => {
-            retrievedContext += formatEntityForPrompt(entity, statuses) + '\n';
-        });
-    }
-    
-    // Add a comprehensive list of all active statuses
-    if (statuses.length > 0) {
-        retrievedContext += "\n**DANH SÁCH TRẠNG THÁI TOÀN CỤC (QUAN TRỌNG):**\n";
-        statuses.forEach(status => {
-            const statusDetails = [
-                `Đối tượng: ${status.owner}`,
-                `Thời gian: ${status.duration || 'Không rõ'}`,
-                status.cureConditions ? `Điều kiện chữa: ${status.cureConditions}` : ''
-            ].filter(Boolean).join('; ');
-            retrievedContext += `- ${status.name}: ${statusDetails}\n`;
+        sortedEntities.forEach(entity => {
+             retrievedContext += formatEntityForPrompt(entity, statuses) + '\n';
         });
     }
 
-    // Find and add quests related to the action
+    const allRetrievedNames = Array.from(retrievedEntities).map(e => e.name);
+    const relevantStatuses = statuses.filter(s => allRetrievedNames.includes(s.owner));
+    if (relevantStatuses.length > 0) {
+        retrievedContext += "\n**Trạng thái đang ảnh hưởng (của các thực thể liên quan):**\n";
+        relevantStatuses.forEach(status => {
+            retrievedContext += `- ${status.name} (Chủ thể: ${status.owner})\n`;
+        });
+    }
+
     const activeQuests = quests.filter(q => q.status === 'active');
     if (activeQuests.length > 0) {
         retrievedContext += "\n**Nhiệm vụ đang hoạt động:**\n";
@@ -226,7 +193,6 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
 
     retrievedContext += "--- KẾT THÚC TRI THỨC ---\n";
     
-    // Tiered Chronicle Context
     let summaryContext = '';
     if (chronicle && (chronicle.memoir.length > 0 || chronicle.chapter.length > 0 || chronicle.turn.length > 0)) {
         summaryContext += `\n--- BIÊN NIÊN SỬ (TÓM TẮT LỊCH SỬ) ---\n`;
@@ -242,9 +208,8 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
         summaryContext += `--- KẾT THÚC BIÊN NIÊN SỬ ---\n`;
     }
 
-
-    let recentHistoryContext = "--- DIỄN BIẾN GẦN NHẤT (5 LƯỢT TRỞ LẠI) ---\n";
-    const historyWindow = gameHistory.slice(-10); // Sliding window of 5 turns (user + model)
+    let recentHistoryContext = "--- DIỄN BIẾN GẦN NHẤT (3 LƯỢT TRỞ LẠI) ---\n";
+    const historyWindow = gameHistory.slice(-6); 
 
     if (historyWindow.length > 0) {
         const cleanedHistory = historyWindow.map(entry => {
@@ -252,7 +217,6 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
                 const match = entry.parts[0].text.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
                 return `> ${match ? match[1] : 'Hành động...'}`;
             }
-            // model role
             try {
                 const parsed = JSON.parse(entry.parts[0].text);
                 const storyContent = parsed.story || '';
@@ -267,18 +231,28 @@ Xử lý các cập nhật luật lệ trên. Chỉ tạo ra các thẻ lệnh c
     }
     recentHistoryContext += "--- KẾT THÚC DIỄN BIẾN ---\n";
 
-
     const pinnedMemories = memories.filter(m => m.pinned).map(m => `- ${m.text}`).join('\n');
     let memoryContext = '';
     if (pinnedMemories) {
         memoryContext = `\n--- KÝ ỨC ĐÃ GHIM (QUAN TRỌNG) ---\n${pinnedMemories}\n`;
     }
 
-    // Assemble the final prompt
-    const finalPrompt = `${ruleChangeContext}${customRulesContext}${retrievedContext}${summaryContext}${recentHistoryContext}${memoryContext}
+    let customRulesContext = '';
+    const rulesToInclude = Array.from(relevantRules);
+    if (rulesToInclude.length > 0) {
+        customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (LIÊN QUAN ĐẾN LƯỢT NÀY) ---\n${rulesToInclude.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
+    }
+    
+    let nsfwContext = playerNsfwRequest;
+    if (worldData.allowNsfw && !nsfwContext) {
+        // Game mode is NSFW, but this specific action isn't. Remind AI to generate choices.
+        nsfwContext = `\nLƯU Ý: Chế độ NSFW của trò chơi đang được BẬT. Hãy tuân thủ quy tắc về việc chủ động tạo các lựa chọn NSFW trong phản hồi của bạn.`;
+    }
+
+    const finalPrompt = `${customRulesContext}${retrievedContext}${summaryContext}${recentHistoryContext}${memoryContext}
 --- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---
 "${action}"
-${nsfwInstructionPart}
+${nsfwContext}
 YÊU CẦU: Dựa trên hành động của người chơi và TOÀN BỘ tri thức đã truy xuất, hãy tiếp tục câu chuyện một cách logic.`;
 
     return finalPrompt;

@@ -1,22 +1,37 @@
+
 import React, { useState } from 'react';
-import { SparklesIcon } from './Icons.tsx';
+import { SparklesIcon, PlusIcon, CrossIcon, SaveIcon } from './Icons.tsx';
 
 export const ApiSettingsModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
-    currentApiKey: string;
+    userApiKeys: string[];
     isUsingDefault: boolean;
-    onSave: (key: string) => void;
+    onSave: (keys: string[]) => void;
     onUseDefault: () => void;
-}> = ({ isOpen, onClose, currentApiKey, isUsingDefault, onSave, onUseDefault }) => {
+}> = ({ isOpen, onClose, userApiKeys, isUsingDefault, onSave, onUseDefault }) => {
     if (!isOpen) return null;
-    const [keyInput, setKeyInput] = useState(isUsingDefault ? '' : currentApiKey);
+    
+    const [keys, setKeys] = useState<string[]>(userApiKeys);
+
+    const handleKeyChange = (index: number, value: string) => {
+        const newKeys = [...keys];
+        newKeys[index] = value;
+        setKeys(newKeys);
+    };
+
+    const handleAddKey = () => {
+        setKeys([...keys, '']);
+    };
+
+    const handleDeleteKey = (index: number) => {
+        const newKeys = keys.filter((_, i) => i !== index);
+        setKeys(newKeys);
+    };
 
     const handleSaveClick = () => {
-        if (keyInput.trim()) {
-            onSave(keyInput.trim());
-            onClose();
-        }
+        onSave(keys);
+        onClose();
     };
 
     const handleDefaultClick = () => {
@@ -47,36 +62,57 @@ export const ApiSettingsModal: React.FC<{
                     <div className="text-center text-sm text-gray-500 dark:text-gray-400">hoặc</div>
 
                     {/* Custom API Key Section */}
-                    <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-4">
-                        <p className="font-semibold text-sm mb-2 text-slate-800 dark:text-gray-300">Sử Dụng API Key Của Bạn</p>
-                        <label htmlFor="api-key-input" className="sr-only">Nhập API Key Gemini của bạn</label>
-                        <input
-                            id="api-key-input"
-                            type="password"
-                            placeholder="Nhập API Key Gemini của bạn"
-                            value={keyInput}
-                            onChange={(e) => setKeyInput(e.target.value)}
-                            className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 px-1">
-                            API Key của bạn sẽ được lưu trữ cục bộ trên trình duyệt này.
-                        </p>
+                    <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-4 space-y-3">
+                        <p className="font-semibold text-sm text-slate-800 dark:text-gray-300">Sử Dụng API Key Của Bạn</p>
+                         {keys.map((key, index) => (
+                             <div key={index} className="flex items-center space-x-2">
+                                <label htmlFor={`api-key-input-${index}`} className="sr-only">API Key {index + 1}</label>
+                                <input
+                                    id={`api-key-input-${index}`}
+                                    type="password"
+                                    placeholder={`API Key #${index + 1}`}
+                                    value={key}
+                                    onChange={(e) => handleKeyChange(index, e.target.value)}
+                                    className="flex-grow bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                                <button
+                                    onClick={() => handleDeleteKey(index)}
+                                    className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-md transition-colors"
+                                    aria-label={`Xóa API Key ${index + 1}`}
+                                >
+                                    <CrossIcon className="w-4 h-4"/>
+                                </button>
+                             </div>
+                         ))}
                         <button
-                            onClick={handleSaveClick}
-                            disabled={!keyInput.trim() || keyInput === currentApiKey && !isUsingDefault}
-                            className="w-full mt-3 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-md text-white text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500 disabled:cursor-not-allowed"
+                            onClick={handleAddKey}
+                            className="w-full flex items-center justify-center gap-2 mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-md text-white text-sm font-semibold transition-colors"
                         >
-                            Lưu và Sử Dụng Key Này
+                            <PlusIcon className="w-4 h-4"/>
+                            Thêm API Key
                         </button>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 px-1">
+                            Các API Key của bạn sẽ được lưu trữ cục bộ trên trình duyệt này.
+                            Nếu có nhiều key, hệ thống sẽ tự động chuyển khi gặp lỗi giới hạn.
+                        </p>
                         {!isUsingDefault && <p className="text-xs text-green-500 dark:text-green-400 mt-2 px-1 text-center">Đang hoạt động</p>}
                     </div>
-
-                    <button
-                        onClick={onClose}
-                        className="w-full px-4 py-2.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded-md text-white text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
-                    >
-                        Đóng
-                    </button>
+                    
+                    <div className="flex space-x-3 pt-4">
+                        <button
+                            onClick={onClose}
+                            className="w-full px-4 py-2.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded-md text-white text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                        >
+                            Đóng
+                        </button>
+                        <button
+                            onClick={handleSaveClick}
+                            className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-md text-white text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2"
+                        >
+                            <SaveIcon className="w-5 h-5"/>
+                            Lưu Thay Đổi
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
