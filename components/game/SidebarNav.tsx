@@ -56,10 +56,43 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                         </button>
                     </div>
                 </nav>
-                <div className="flex-shrink-0 border-t border-slate-300 dark:border-slate-700 mt-4 pt-3 text-center">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Lượt: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{currentTurnTokens.toLocaleString()}</span></p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Tổng: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{totalTokens.toLocaleString()}</span></p>
-                </div>
+                <div className="flex-shrink-0 border-t border-slate-300 dark:border-slate-700 mt-4 pt-3">
+    <div className="text-center space-y-2">
+        <div className="flex justify-between items-center text-xs">
+            <span className="text-slate-500 dark:text-slate-400">Lượt:</span>
+            <span className={`font-mono font-semibold ${
+                currentTurnTokens > 80000 ? 'text-red-400' :
+                currentTurnTokens > 70000 ? 'text-orange-400' :
+                currentTurnTokens > 60000 ? 'text-yellow-400' : 'text-green-400'
+            }`}>
+                {currentTurnTokens.toLocaleString()}
+            </span>
+        </div>
+        
+        <div className="w-full bg-slate-600 rounded-full h-1.5">
+            <div 
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                    currentTurnTokens > 80000 ? 'bg-red-400' :
+                    currentTurnTokens > 70000 ? 'bg-orange-400' :
+                    currentTurnTokens > 60000 ? 'bg-yellow-400' : 'bg-green-400'
+                }`}
+                style={{ width: `${Math.min(100, (currentTurnTokens / 80000) * 100)}%` }}
+            ></div>
+        </div>
+        
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+            Tổng: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
+                {totalTokens.toLocaleString()}
+            </span>
+        </p>
+        
+        {currentTurnTokens > 70000 && (
+            <p className="text-xs text-center px-2 py-1 rounded bg-orange-500/20 text-orange-300">
+                Gần giới hạn 80k
+            </p>
+        )}
+    </div>
+</div>
             </div>
         </>
     );
