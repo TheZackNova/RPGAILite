@@ -24,19 +24,6 @@ import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 
-// Gesture Support Types
-interface TouchPosition {
-    x: number;
-    y: number;
-    timestamp: number;
-}
-
-interface SwipeGesture {
-    direction: 'left' | 'right' | 'up' | 'down' | null;
-    distance: number;
-    velocity: number;
-}
-
 // Helper function for time calculation
 const calculateNewTime = (
     currentTime: { year: number; month: number; day: number; hour: number; },
@@ -160,13 +147,6 @@ export const GameScreen: React.FC<{
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
     const [notification, setNotification] = useState<string | null>(null);
     
-    // Gesture Support State
-    const [touchStart, setTouchStart] = useState<TouchPosition | null>(null);
-    const [touchEnd, setTouchEnd] = useState<TouchPosition | null>(null);
-    const [isGestureActive, setIsGestureActive] = useState(false);
-    const [gestureDirection, setGestureDirection] = useState<string | null>(null);
-    const [isMobile, setIsMobile] = useState(false);
-    
     // Map State
     const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
         const order: string[] = [];
@@ -243,180 +223,6 @@ export const GameScreen: React.FC<{
     
     const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
     const [choices, setChoices] = useState<string[]>(rehydratedChoices);
-
-
-    // Gesture Support Configuration
-    const GESTURE_CONFIG = {
-        MIN_SWIPE_DISTANCE: 50,
-        MAX_SWIPE_TIME: 500,
-        MIN_VELOCITY: 0.3,
-        VERTICAL_THRESHOLD: 100,
-        HORIZONTAL_THRESHOLD: 100
-    };
-
-    // Check if device is mobile
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    // Gesture Detection Functions
-    const calculateSwipeGesture = useCallback((start: TouchPosition, end: TouchPosition): SwipeGesture => {
-        const deltaX = start.x - end.x;
-        const deltaY = start.y - end.y;
-        const deltaTime = end.timestamp - start.timestamp;
-        
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const velocity = distance / deltaTime;
-        
-        let direction: SwipeGesture['direction'] = null;
-        
-        // Determine primary direction
-        if (Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal swipe
-            if (Math.abs(deltaX) > GESTURE_CONFIG.HORIZONTAL_THRESHOLD) {
-                direction = deltaX > 0 ? 'left' : 'right';
-            }
-        } else {
-            // Vertical swipe
-            if (Math.abs(deltaY) > GESTURE_CONFIG.VERTICAL_THRESHOLD) {
-                direction = deltaY > 0 ? 'up' : 'down';
-            }
-        }
-        
-        return { direction, distance, velocity };
-    }, []);
-
-    const handleSwipeGesture = useCallback((gesture: SwipeGesture) => {
-        if (!isMobile || !gesture.direction) return;
-        
-        const { direction, distance, velocity } = gesture;
-        
-        // Only process gestures that meet minimum criteria
-        if (distance < GESTURE_CONFIG.MIN_SWIPE_DISTANCE || velocity < GESTURE_CONFIG.MIN_VELOCITY) {
-            return;
-        }
-
-        console.log(`Gesture detected: ${direction}, distance: ${distance.toFixed(2)}, velocity: ${velocity.toFixed(2)}`);
-
-        switch (direction) {
-            case 'right':
-                // Swipe right to open sidebar (from left edge)
-                if (!isSidebarOpen && touchStart && touchStart.x < 50) {
-                    setIsSidebarOpen(true);
-                    setNotification('📱 Vuốt trái để đóng menu');
-                    setTimeout(() => setNotification(null), 2000);
-                }
-                break;
-                
-            case 'left':
-                // Swipe left to close sidebar or show quick tip
-                if (isSidebarOpen) {
-                    setIsSidebarOpen(false);
-                } else {
-                    setNotification('💡 Vuốt phải từ cạnh màn hình để mở menu');
-                    setTimeout(() => setNotification(null), 2000);
-                }
-                break;
-                
-            case 'up':
-                // Swipe up to show choices modal
-                if (!isChoicesModalOpen && choices.length > 0) {
-                    setIsChoicesModalOpen(true);
-                    setNotification('🎯 Modal lựa chọn đã mở');
-                    setTimeout(() => setNotification(null), 1500);
-                } else if (choices.length === 0) {
-                    setNotification('⏳ Chưa có lựa chọn nào');
-                    setTimeout(() => setNotification(null), 1500);
-                }
-                break;
-                
-            case 'down':
-                // Swipe down to close choices modal or show tip
-                if (isChoicesModalOpen) {
-                    setIsChoicesModalOpen(false);
-                } else {
-                    setNotification('📋 Vuốt lên để xem lựa chọn hành động');
-                    setTimeout(() => setNotification(null), 2000);
-                }
-                break;
-        }
-    }, [isMobile, isSidebarOpen, isChoicesModalOpen, choices.length, touchStart]);
-
-    // Touch Event Handlers
-    const handleTouchStart = useCallback((e: React.TouchEvent) => {
-        if (!isMobile) return;
-        
-        const touch = e.touches[0];
-        const touchPos: TouchPosition = {
-            x: touch.clientX,
-            y: touch.clientY,
-            timestamp: Date.now()
-        };
-        
-        setTouchStart(touchPos);
-        setTouchEnd(null);
-        setIsGestureActive(true);
-        setGestureDirection(null);
-    }, [isMobile]);
-
-    const handleTouchMove = useCallback((e: React.TouchEvent) => {
-        if (!isMobile || !touchStart || !isGestureActive) return;
-        
-        const touch = e.touches[0];
-        const currentPos: TouchPosition = {
-            x: touch.clientX,
-            y: touch.clientY,
-            timestamp: Date.now()
-        };
-        
-        // Calculate current gesture for visual feedback
-        const gesture = calculateSwipeGesture(touchStart, currentPos);
-        setGestureDirection(gesture.direction);
-        
-        // Prevent default scrolling if we detect a horizontal gesture
-        if (gesture.direction === 'left' || gesture.direction === 'right') {
-            if (gesture.distance > 20) { // Small threshold to allow normal scrolling
-                e.preventDefault();
-            }
-        }
-    }, [isMobile, touchStart, isGestureActive, calculateSwipeGesture]);
-
-    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-        if (!isMobile || !touchStart) {
-            setIsGestureActive(false);
-            setGestureDirection(null);
-            return;
-        }
-        
-        const touch = e.changedTouches[0];
-        const touchEndPos: TouchPosition = {
-            x: touch.clientX,
-            y: touch.clientY,
-            timestamp: Date.now()
-        };
-        
-        setTouchEnd(touchEndPos);
-        
-        // Calculate and handle the final gesture
-        const gesture = calculateSwipeGesture(touchStart, touchEndPos);
-        
-        // Check if gesture completed within time limit
-        const gestureTime = touchEndPos.timestamp - touchStart.timestamp;
-        if (gestureTime <= GESTURE_CONFIG.MAX_SWIPE_TIME) {
-            handleSwipeGesture(gesture);
-        }
-        
-        // Reset gesture state
-        setTouchStart(null);
-        setTouchEnd(null);
-        setIsGestureActive(false);
-        setGestureDirection(null);
-    }, [isMobile, touchStart, calculateSwipeGesture, handleSwipeGesture]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
@@ -1108,26 +914,12 @@ export const GameScreen: React.FC<{
         <div 
             className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" 
             style={{maxHeight: '98vh', height: '98vh'}}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
         >
             <GameNotifications 
                 notification={notification} 
                 showSaveSuccess={showSaveSuccess} 
                 showRulesSavedSuccess={showRulesSavedSuccess} 
             />
-            
-            {isMobile && isGestureActive && gestureDirection && (
-                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none">
-                    <div className="bg-black/80 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                        {gestureDirection === 'left' && '← Swipe Left'}
-                        {gestureDirection === 'right' && '→ Swipe Right'}
-                        {gestureDirection === 'up' && '↑ Swipe Up'}
-                        {gestureDirection === 'down' && '↓ Swipe Down'}
-                    </div>
-                </div>
-            )}
             
             <SidebarNav 
                 isOpen={isSidebarOpen} 
