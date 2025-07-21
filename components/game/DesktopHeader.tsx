@@ -22,12 +22,7 @@ interface DesktopHeaderProps {
     currentTurnTokens: number;
     totalTokens: number;
 }
-const getTokenColor = (tokens: number) => {
-    if (tokens > 80000) return 'text-red-500 bg-red-100 dark:bg-red-900/30';
-    if (tokens > 70000) return 'text-orange-500 bg-orange-100 dark:bg-orange-900/30';
-    if (tokens > 60000) return 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30';
-    return 'text-green-500 bg-green-100 dark:bg-green-900/30';
-};
+
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
     onHome, onSave, onMap, onRules, onKnowledge, onMemory, onRestart,
     onPCInfo, onParty, onQuests, hasActiveQuests,
@@ -42,18 +37,11 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <div className="text-xs text-slate-600 dark:text-slate-300 capitalize truncate" title={`Tính cách: ${worldData.customPersonality || worldData.personalityFromList}`}>Tính cách: {worldData.customPersonality || worldData.personalityFromList}</div>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-white">
-                    <div className={`text-xs font-mono px-3 py-2 rounded-md border transition-colors ${getTokenColor(currentTurnTokens)}`}>
-					<div className="flex items-center gap-2">
-					<span>Lượt: {currentTurnTokens.toLocaleString()}</span>
-					<div className="w-px h-4 bg-current opacity-30"></div>
-					<span>Tổng: {totalTokens.toLocaleString()}</span>
-				</div>
-				<div className="mt-1 w-full bg-current opacity-20 rounded-full h-1">
-				<div className="bg-current h-1 rounded-full transition-all duration-300" 
-				style={{ width: `${Math.min(100, (currentTurnTokens / 80000) * 100)}%` }}
-				></div>
-			</div>
-		</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-mono bg-slate-200 dark:bg-slate-800/70 px-2 py-1.5 rounded-md hidden sm:block">
+                        <span>Lượt: {currentTurnTokens.toLocaleString()}</span>
+                        <span className="mx-1.5">|</span>
+                        <span>Tổng: {totalTokens.toLocaleString()}</span>
+                    </div>
                     <button onClick={onSave} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><ArchiveIcon className="w-4 h-4 mr-1.5" /> Lưu Trữ</button>
                     <button onClick={onMap} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><GameIcons.MapPinIcon className="w-4 h-4 mr-1.5" /> Bản Đồ</button>
                     <button onClick={onRules} className="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded shadow-sm border border-purple-500/50 transition-colors"><DocumentAddIcon className="w-4 h-4 mr-1.5" /> Nạp Tri Thức</button>
