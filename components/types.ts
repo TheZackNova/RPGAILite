@@ -29,7 +29,10 @@ export interface Entity {
   skills?: string[]; // For NPCs
   learnedSkills?: string[]; // For PC
   state?: 'dead' | 'broken' | 'destroyed';
-  [key: string]: any; 
+  [key: string]: any;
+  archived?: boolean;           // Đánh dấu entity đã được archive
+    archivedAt?: number;         // Turn number khi archive
+    lastMentioned?: number;      // Turn cuối cùng được nhắc đến
 }
 
 export interface KnownEntities {
@@ -146,6 +149,16 @@ export interface SaveData {
         totalEntriesProcessed: number;
         totalTokensSaved: number;
         compressionCount: number;
+    };
+    cleanupStats?: {
+        totalCleanupsPerformed: number;
+        totalTokensSavedFromCleanup: number;
+        lastCleanupTurn: number;
+        cleanupHistory: Array<{
+            turn: number;
+            tokensSaved: number;
+            itemsRemoved: number;
+        }>;
     };
 }
 

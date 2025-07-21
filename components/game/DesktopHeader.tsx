@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { HomeIcon, ArchiveIcon, BrainIcon, MemoryIcon, RefreshIcon, DocumentAddIcon, ExclamationIcon, UserIcon } from '../Icons.tsx';
 import * as GameIcons from '../GameIcons.tsx';
@@ -15,6 +16,7 @@ interface DesktopHeaderProps {
     onPCInfo: () => void;
     onParty: () => void;
     onQuests: () => void;
+    onManualCleanup: () => void;
     hasActiveQuests: boolean;
     worldData: Partial<FormData>;
     gameTime: { year: number; month: number; day: number; hour: number; };
@@ -30,13 +32,18 @@ const getTokenColor = (tokens: number) => {
 };
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
     onHome, onSave, onMap, onRules, onKnowledge, onMemory, onRestart,
-    onPCInfo, onParty, onQuests, hasActiveQuests,
+    onPCInfo, onParty, onQuests, hasActiveQuests, onManualCleanup,
     worldData, gameTime, turnCount, currentTurnTokens, totalTokens
 }) => {
     return (
         <div className="hidden md:block">
             <div className="flex justify-between items-center bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-3 rounded-t-lg shadow-lg flex-shrink-0 border-b border-slate-300/20 dark:border-slate-600/20">
-                <button onClick={onHome} className="flex items-center text-sm px-3 py-1.5 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded shadow-sm border border-slate-300 dark:border-slate-500 transition-colors text-slate-800 dark:text-white"><HomeIcon className="w-4 h-4 mr-2" /> Home</button>
+                <div className="flex items-center space-x-2">
+                    <button onClick={onHome} className="flex items-center text-sm px-3 py-1.5 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded shadow-sm border border-slate-300 dark:border-slate-500 transition-colors text-slate-800 dark:text-white"><HomeIcon className="w-4 h-4 mr-2" /> Home</button>
+                    <button onClick={onManualCleanup} className="flex items-center text-sm px-3 py-1.5 bg-orange-600 hover:bg-orange-500 rounded shadow-sm border border-orange-500/50 transition-colors text-white">
+                        🧹 Cleanup
+                    </button>
+                </div>
                 <div className="text-center flex-1 min-w-0 mx-4">
                     <div className="text-lg font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider truncate" title={worldData.genre || "Phiêu Lưu Ký"}>{worldData.genre || "Phiêu Lưu Ký"}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-300 capitalize truncate" title={`Tính cách: ${worldData.customPersonality || worldData.personalityFromList}`}>Tính cách: {worldData.customPersonality || worldData.personalityFromList}</div>

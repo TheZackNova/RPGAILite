@@ -1,6 +1,33 @@
+
 import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+    version: '1.19.0',
+    date: '2024-08-16',
+    changes: [
+      { type: 'improvement', text: 'Tối ưu hóa hiệu suất trong GameScreen bằng cách sử dụng `useCallback` cho các hàm xử lý sự kiện, giảm thiểu re-render.' },
+      { type: 'fix', text: 'Sửa lỗi trong custom hook `useDebounce` liên quan đến `useRef` và kiểu dữ liệu Timeout, tăng cường tính ổn định và tương thích.' },
+      { type: 'fix', text: 'Sửa lỗi không thể phân giải module do đường dẫn import tương đối sai trong các component.' },
+    ],
+  },
+  {
+    version: '1.18.1',
+    date: '2024-08-15',
+    changes: [
+      { type: 'fix', text: "Sửa lỗi nghiêm trọng khiến nút 'Dọn Dẹp Thủ Công' chỉ hoạt động vào các lượt chia hết cho 10. Logic đã được tái cấu trúc để đảm bảo việc dọn dẹp thủ công được thực thi ngay lập tức khi nhấn nút." },
+    ],
+  },
+  {
+    version: '1.18.0',
+    date: '2024-08-14',
+    changes: [
+      { type: 'feature', text: 'Tích hợp hệ thống tối ưu hóa trạng thái game (GameStateOptimizer) để tự động dọn dẹp dữ liệu.' },
+      { type: 'improvement', text: 'Quá trình dọn dẹp tự động chạy mỗi 10 lượt, loại bỏ các ký ức cũ, biên niên sử, nhiệm vụ đã hoàn thành, trạng thái hết hạn và các thực thể không hoạt động để tối ưu hóa token.' },
+      { type: 'feature', text: 'Thêm nút "Dọn Dẹp Thủ Công" trong sidebar (di động) để người chơi có thể tự kích hoạt tối ưu hóa.' },
+      { type: 'improvement', text: 'Cập nhật sidebar trên di động để hiển thị thống kê chi tiết về việc nén lịch sử và dọn dẹp dữ liệu.' },
+    ],
+  },
  {
     version: '1.17.0',
     date: '2024-08-13',

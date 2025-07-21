@@ -6,7 +6,6 @@ import { CreateWorld } from './components/CreateWorld.tsx';
 import { GameScreen } from './components/GameScreen.tsx';
 import { ApiSettingsModal } from './components/ApiSettingsModal.tsx';
 import { ChangelogModal } from './components/ChangelogModal.tsx';
-import { CustomizationFooter } from './components/CustomizationFooter.tsx';
 import type { SaveData, Entity, AIContextType, FormData, CustomRule } from './components/types.ts';
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
 
@@ -182,19 +181,7 @@ export default function App() {
   const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => {
       return localStorage.getItem('isUsingDefaultKey') !== 'false'; // Default to true
   });
-  
-  // --- Font State ---
-  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('fontFamily') || 'font-sans');
-  const [fontSize, setFontSize] = useState(() => localStorage.getItem('fontSize') || 'text-base');
 
-  useEffect(() => {
-    localStorage.setItem('fontFamily', fontFamily);
-  }, [fontFamily]);
-
-  useEffect(() => {
-    localStorage.setItem('fontSize', fontSize);
-  }, [fontSize]);
-  
   // --- Memoized AI Instance ---
   const activeKey = useMemo(() => {
     if (isUsingDefaultKey) {
@@ -302,20 +289,28 @@ export default function App() {
                     const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
                     // Ensure new fields have default values if loading an old save
                     const validatedData: SaveData = {
-                        worldData: loadedJson.worldData,
-                        knownEntities: loadedJson.knownEntities,
-                        statuses: loadedJson.statuses || [],
-                        quests: loadedJson.quests || [],
-                        gameHistory: loadedJson.gameHistory,
-                        memories: loadedJson.memories || [],
-                        party: loadedJson.party || (pc ? [pc] : []),
-                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
-                        systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
-                        turnCount: loadedJson.turnCount || 0,
-                        totalTokens: loadedJson.totalTokens || 0,
-                        gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
-                        chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
-                    };
+    worldData: loadedJson.worldData,
+    knownEntities: loadedJson.knownEntities,
+    statuses: loadedJson.statuses || [],
+    quests: loadedJson.quests || [],
+    gameHistory: loadedJson.gameHistory,
+    memories: loadedJson.memories || [],
+    party: loadedJson.party || (pc ? [pc] : []),
+    customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
+    systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
+    turnCount: loadedJson.turnCount || 0,
+    totalTokens: loadedJson.totalTokens || 0,
+    gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
+    chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
+    // Thêm support cho compressed history
+    compressedHistory: loadedJson.compressedHistory || [],
+    lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
+    historyStats: loadedJson.historyStats || {
+        totalEntriesProcessed: 0,
+        totalTokensSaved: 0,
+        compressionCount: 0
+    }
+};
                     delete (validatedData as any).userKnowledge;
 
                     setGameState(validatedData);
@@ -343,8 +338,6 @@ export default function App() {
               return gameState ? <GameScreen 
                 initialGameState={gameState} 
                 onBackToMenu={navigateToMenu} 
-                fontFamily={fontFamily} 
-                fontSize={fontSize}
                 keyRotationNotification={keyRotationNotification}
                 onClearNotification={() => setKeyRotationNotification(null)}
               /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
@@ -378,7 +371,7 @@ export default function App() {
             100% { background-position: 0% 50%; }
         }
       `}</style>
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 md:pb-20 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
+      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
         {renderContent()}
         <ApiSettingsModal 
           isOpen={isApiSettingsModalOpen} 
@@ -392,10 +385,6 @@ export default function App() {
             isOpen={isChangelogModalOpen}
             onClose={() => setIsChangelogModalOpen(false)}
             changelogData={CHANGELOG_DATA}
-        />
-        <CustomizationFooter 
-            fontFamily={fontFamily} setFontFamily={setFontFamily}
-            fontSize={fontSize} setFontSize={setFontSize}
         />
       </div>
     </AIContext.Provider>

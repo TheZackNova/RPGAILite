@@ -3,6 +3,7 @@
 import React from 'react';
 import { HomeIcon, ArchiveIcon, BrainIcon, MemoryIcon, RefreshIcon, DocumentAddIcon, CrossIcon, UserIcon, ExclamationIcon } from '../Icons.tsx';
 import * as GameIcons from '../GameIcons.tsx';
+import type { GameHistoryEntry } from '../types.ts';
 
 interface SidebarNavProps {
     isOpen: boolean;
@@ -20,11 +21,25 @@ interface SidebarNavProps {
     hasActiveQuests: boolean;
     currentTurnTokens: number;
     totalTokens: number;
+    historyStats: {
+        totalEntriesProcessed: number;
+        totalTokensSaved: number;
+        compressionCount: number;
+    };
+    compressedSegments: number;
+    gameHistory: GameHistoryEntry[];
+    cleanupStats: {
+        totalCleanupsPerformed: number;
+        totalTokensSavedFromCleanup: number;
+        lastCleanupTurn: number;
+    };
+    onManualCleanup?: () => void;
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({ 
     isOpen, onClose, onHome, onSave, onMap, onRules, onKnowledge, onMemory, onRestart, 
-    onPCInfo, onParty, onQuests, hasActiveQuests, currentTurnTokens, totalTokens 
+    onPCInfo, onParty, onQuests, hasActiveQuests, currentTurnTokens, totalTokens,
+    historyStats, compressedSegments, gameHistory, cleanupStats, onManualCleanup
 }) => {
     const handleNavigation = (action: () => void) => {
         action();
@@ -56,43 +71,79 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                         </button>
                     </div>
                 </nav>
-                <div className="flex-shrink-0 border-t border-slate-300 dark:border-slate-700 mt-4 pt-3">
-    <div className="text-center space-y-2">
-        <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-500 dark:text-slate-400">Lượt:</span>
-            <span className={`font-mono font-semibold ${
-                currentTurnTokens > 80000 ? 'text-red-400' :
-                currentTurnTokens > 70000 ? 'text-orange-400' :
-                currentTurnTokens > 60000 ? 'text-yellow-400' : 'text-green-400'
-            }`}>
-                {currentTurnTokens.toLocaleString()}
-            </span>
+                <div className="mt-2 pt-2 border-t border-slate-400 dark:border-slate-600">
+    <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+        <div className="flex justify-between">
+            <span>Cleanup:</span>
+            <span className="font-mono text-green-400">{cleanupStats.totalCleanupsPerformed}x</span>
         </div>
         
-        <div className="w-full bg-slate-600 rounded-full h-1.5">
-            <div 
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                    currentTurnTokens > 80000 ? 'bg-red-400' :
-                    currentTurnTokens > 70000 ? 'bg-orange-400' :
-                    currentTurnTokens > 60000 ? 'bg-yellow-400' : 'bg-green-400'
-                }`}
-                style={{ width: `${Math.min(100, (currentTurnTokens / 80000) * 100)}%` }}
-            ></div>
-        </div>
+        {cleanupStats.totalTokensSavedFromCleanup > 0 && (
+            <div className="flex justify-between">
+                <span>Saved:</span>
+                <span className="font-mono text-green-400">
+                    {Math.round(cleanupStats.totalTokensSavedFromCleanup / 1000)}k
+                </span>
+            </div>
+        )}
         
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-            Tổng: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
-                {totalTokens.toLocaleString()}
-            </span>
-        </p>
-        
-        {currentTurnTokens > 70000 && (
-            <p className="text-xs text-center px-2 py-1 rounded bg-orange-500/20 text-orange-300">
-                Gần giới hạn 80k
-            </p>
+        {onManualCleanup && (
+            <button 
+                onClick={onManualCleanup}
+                className="w-full mt-1 px-2 py-1 bg-orange-600 hover:bg-orange-500 text-white text-xs rounded"
+            >
+                🧹 Manual Cleanup
+            </button>
         )}
     </div>
 </div>
+                <div className="flex-shrink-0 text-center space-y-2 mt-auto pt-4 border-t border-slate-300 dark:border-slate-700">
+                    <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-500 dark:text-slate-400">Lượt:</span>
+                        <span className={`font-mono font-semibold ${
+                            currentTurnTokens > 80000 ? 'text-red-400' :
+                            currentTurnTokens > 70000 ? 'text-orange-400' :
+                            currentTurnTokens > 60000 ? 'text-yellow-400' : 'text-green-400'
+                        }`}>
+                            {currentTurnTokens.toLocaleString()}
+                        </span>
+                    </div>
+                    
+                    <div className="w-full bg-slate-600 rounded-full h-1.5">
+                        <div 
+                            className={`h-1.5 rounded-full transition-all duration-500 ${
+                                currentTurnTokens > 80000 ? 'bg-red-400' :
+                                currentTurnTokens > 70000 ? 'bg-orange-400' :
+                                currentTurnTokens > 60000 ? 'bg-yellow-400' : 'bg-green-400'
+                            }`}
+                            style={{ width: `${Math.min(100, (currentTurnTokens / 80000) * 100)}%` }}
+                        ></div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-slate-400 dark:border-slate-600">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                            <div className="flex justify-between">
+                                <span>History:</span>
+                                <span className="font-mono">{gameHistory.length} entries</span>
+                            </div>
+                            
+                            {compressedSegments > 0 && (
+                                <>
+                                    <div className="flex justify-between">
+                                        <span>Compressed:</span>
+                                        <span className="font-mono text-green-400">{compressedSegments} segments</span>
+                                    </div>
+                                    
+                                    <div className="flex justify-between">
+                                        <span>Saved:</span>
+                                        <span className="font-mono text-green-400">
+                                            {Math.round(historyStats.totalTokensSaved / 1000)}k tokens
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
         </>
     );
