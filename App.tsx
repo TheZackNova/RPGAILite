@@ -107,7 +107,7 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 - Phản ứng của môi trường và NPCs
 - Thay đổi trạng thái và hoàn cảnh
 
-**3. NSFW (KHI ĐƯỢC BẬT):**
+**3. NSFW (KHI ĐƯỢỢC BẬT):**
 - Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
 - Mô tả cực kỳ chi tiết, trần trụi
 - Tạo trạng thái liên quan đến tình dục/bạo lực
@@ -171,6 +171,10 @@ export default function App() {
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const [keyRotationNotification, setKeyRotationNotification] = useState<string | null>(null);
 
+  // --- UI Customization State ---
+  const [fontFamily, setFontFamily] = useState('font-sans');
+  const [fontSize, setFontSize] = useState('text-base');
+
   // --- API Key State ---
   const [userApiKeys, setUserApiKeys] = useState<string[]>(() => {
       const savedKeys = localStorage.getItem('userApiKeys');
@@ -182,19 +186,7 @@ export default function App() {
   const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => {
       return localStorage.getItem('isUsingDefaultKey') !== 'false'; // Default to true
   });
-  
-  // --- Font State ---
-  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('fontFamily') || 'font-sans');
-  const [fontSize, setFontSize] = useState(() => localStorage.getItem('fontSize') || 'text-base');
 
-  useEffect(() => {
-    localStorage.setItem('fontFamily', fontFamily);
-  }, [fontFamily]);
-
-  useEffect(() => {
-    localStorage.setItem('fontSize', fontSize);
-  }, [fontSize]);
-  
   // --- Memoized AI Instance ---
   const activeKey = useMemo(() => {
     if (isUsingDefaultKey) {
@@ -315,6 +307,20 @@ export default function App() {
                         totalTokens: loadedJson.totalTokens || 0,
                         gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
                         chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
+                        // Thêm support cho compressed history
+                        compressedHistory: loadedJson.compressedHistory || [],
+                        lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
+                        historyStats: loadedJson.historyStats || {
+                            totalEntriesProcessed: 0,
+                            totalTokensSaved: 0,
+                            compressionCount: 0
+                        },
+                        cleanupStats: loadedJson.cleanupStats || {
+                            totalCleanupsPerformed: 0,
+                            totalTokensSavedFromCleanup: 0,
+                            lastCleanupTurn: 0,
+                            cleanupHistory: []
+                        },
                     };
                     delete (validatedData as any).userKnowledge;
 
@@ -343,7 +349,7 @@ export default function App() {
               return gameState ? <GameScreen 
                 initialGameState={gameState} 
                 onBackToMenu={navigateToMenu} 
-                fontFamily={fontFamily} 
+                fontFamily={fontFamily}
                 fontSize={fontSize}
                 keyRotationNotification={keyRotationNotification}
                 onClearNotification={() => setKeyRotationNotification(null)}
@@ -378,8 +384,9 @@ export default function App() {
             100% { background-position: 0% 50%; }
         }
       `}</style>
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 md:pb-20 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
+      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
         {renderContent()}
+        {view === 'game' && <CustomizationFooter fontFamily={fontFamily} setFontFamily={setFontFamily} fontSize={fontSize} setFontSize={setFontSize} />}
         <ApiSettingsModal 
           isOpen={isApiSettingsModalOpen} 
           onClose={() => setIsApiSettingsModalOpen(false)}
@@ -392,10 +399,6 @@ export default function App() {
             isOpen={isChangelogModalOpen}
             onClose={() => setIsChangelogModalOpen(false)}
             changelogData={CHANGELOG_DATA}
-        />
-        <CustomizationFooter 
-            fontFamily={fontFamily} setFontFamily={setFontFamily}
-            fontSize={fontSize} setFontSize={setFontSize}
         />
       </div>
     </AIContext.Provider>

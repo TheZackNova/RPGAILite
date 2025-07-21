@@ -1,20 +1,12 @@
 
-
-import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
-import type { SaveData, FormData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle } from './types.ts';
+import type { SaveData, FormData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle, CompressedHistorySegment } from './types.ts';
 import { buildEnhancedRagPrompt } from './promptBuilder.ts';
 
 // Modal Imports
-import { ConfirmationModal } from './ConfirmationModal.tsx';
-import { EntityInfoModal } from './EntityInfoModal.tsx';
-import { StatusDetailModal } from './StatusDetailModal.tsx';
-import { MemoryModal } from './MemoryModal.tsx';
-import { QuestDetailModal } from './QuestDetailModal.tsx';
-import { KnowledgeBaseModal } from './KnowledgeBaseModal.tsx';
-import { CustomRulesModal } from './CustomRulesModal.tsx';
-import { MapModal } from './MapModal.tsx';
+import { MemoizedModals } from './MemoizedModals.tsx';
 
 // UI Components
 import { DesktopHeader } from './game/DesktopHeader.tsx';
@@ -23,17 +15,26 @@ import { StoryPanel } from './game/StoryPanel.tsx';
 import { ActionPanel } from './game/ActionPanel.tsx';
 import { SidebarNav } from './game/SidebarNav.tsx';
 import { GameNotifications } from './game/GameNotifications.tsx';
-import { MobileChoicesModal } from './game/MobileChoicesModal.tsx';
 import { MobileInputFooter } from './game/MobileInputFooter.tsx';
-import { InfoPanelModal } from './game/InfoPanelModal.tsx';
-import { PlayerCharacterSheet } from './game/PlayerCharacterSheet.tsx';
 
-// Icon Imports
-import { UserIcon } from './Icons.tsx';
-import * as GameIcons from './GameIcons.tsx';
-import { PartyMemberTab } from './PartyMemberTab.tsx';
-import { QuestLog } from './QuestLog.tsx';
+// Optimization and Management
+import { HistoryManager } from './HistoryManager';
+import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
+import { useDebouncedCallback } from './hooks/useDebounce.ts';
+import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 
+// Gesture Support Types
+interface TouchPosition {
+    x: number;
+    y: number;
+    timestamp: number;
+}
+
+interface SwipeGesture {
+    direction: 'left' | 'right' | 'up' | 'down' | null;
+    distance: number;
+    velocity: number;
+}
 
 // Helper function for time calculation
 const calculateNewTime = (
@@ -133,6 +134,12 @@ export const GameScreen: React.FC<{
     const [currentTurnTokens, setCurrentTurnTokens] = useState<number>(0);
     const [totalTokens, setTotalTokens] = useState<number>(initialGameState.totalTokens || 0);
 
+    // History and Cleanup State
+    const [compressedHistory, setCompressedHistory] = useState<CompressedHistorySegment[]>(initialGameState.compressedHistory || []);
+    const [historyStats, setHistoryStats] = useState(initialGameState.historyStats || { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
+    const [cleanupStats, setCleanupStats] = useState<SaveData['cleanupStats']>(initialGameState.cleanupStats || { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
+
+
     // Modal & Notification States
     const [isHomeModalOpen, setIsHomeModalOpen] = useState(false);
     const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
@@ -151,6 +158,13 @@ export const GameScreen: React.FC<{
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
     const [notification, setNotification] = useState<string | null>(null);
+    
+    // Gesture Support State
+    const [touchStart, setTouchStart] = useState<TouchPosition | null>(null);
+    const [touchEnd, setTouchEnd] = useState<TouchPosition | null>(null);
+    const [isGestureActive, setIsGestureActive] = useState(false);
+    const [gestureDirection, setGestureDirection] = useState<string | null>(null);
+    const [isMobile, setIsMobile] = useState(false);
     
     // Map State
     const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
@@ -184,6 +198,224 @@ export const GameScreen: React.FC<{
 
     const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
     const pcName = pcEntity?.name;
+    
+    // --- Data Rehydration Logic ---
+    const { rehydratedLog, rehydratedChoices } = useMemo(() => {
+        const typedInitialState = initialGameState as any;
+        if (typedInitialState.storyLog?.length > 0) {
+            return { 
+                rehydratedLog: typedInitialState.storyLog, 
+                rehydratedChoices: typedInitialState.choices || [] 
+            };
+        }
+        
+        const log: string[] = [];
+        let lastChoices: string[] = [];
+    
+        initialGameState.gameHistory.forEach(entry => {
+            if (entry.role === 'user') {
+                const fullPrompt = entry.parts[0].text;
+                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
+                const actionText = actionMatch ? actionMatch[1] : null;
+    
+                if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
+                    log.push(`> ${actionText}`);
+                }
+            } else { // 'model' role
+                try {
+                    const jsonResponse = JSON.parse(entry.parts[0].text);
+                    const storyText = jsonResponse.story || '';
+                    const cleanStory = parseStoryAndTags(storyText, false); 
+                    if (cleanStory) {
+                        log.push(cleanStory);
+                    }
+                    lastChoices = jsonResponse.choices || [];
+                } catch (e) {
+                    const cleanText = entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
+                    log.push(cleanText);
+                }
+            }
+        });
+    
+        return { rehydratedLog: log, rehydratedChoices: lastChoices };
+    }, [initialGameState]); 
+    
+    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
+    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
+
+
+    // Gesture Support Configuration
+    const GESTURE_CONFIG = {
+        MIN_SWIPE_DISTANCE: 50,
+        MAX_SWIPE_TIME: 500,
+        MIN_VELOCITY: 0.3,
+        VERTICAL_THRESHOLD: 100,
+        HORIZONTAL_THRESHOLD: 100
+    };
+
+    // Check if device is mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // Gesture Detection Functions
+    const calculateSwipeGesture = useCallback((start: TouchPosition, end: TouchPosition): SwipeGesture => {
+        const deltaX = start.x - end.x;
+        const deltaY = start.y - end.y;
+        const deltaTime = end.timestamp - start.timestamp;
+        
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const velocity = distance / deltaTime;
+        
+        let direction: SwipeGesture['direction'] = null;
+        
+        // Determine primary direction
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            // Horizontal swipe
+            if (Math.abs(deltaX) > GESTURE_CONFIG.HORIZONTAL_THRESHOLD) {
+                direction = deltaX > 0 ? 'left' : 'right';
+            }
+        } else {
+            // Vertical swipe
+            if (Math.abs(deltaY) > GESTURE_CONFIG.VERTICAL_THRESHOLD) {
+                direction = deltaY > 0 ? 'up' : 'down';
+            }
+        }
+        
+        return { direction, distance, velocity };
+    }, []);
+
+    const handleSwipeGesture = useCallback((gesture: SwipeGesture) => {
+        if (!isMobile || !gesture.direction) return;
+        
+        const { direction, distance, velocity } = gesture;
+        
+        // Only process gestures that meet minimum criteria
+        if (distance < GESTURE_CONFIG.MIN_SWIPE_DISTANCE || velocity < GESTURE_CONFIG.MIN_VELOCITY) {
+            return;
+        }
+
+        console.log(`Gesture detected: ${direction}, distance: ${distance.toFixed(2)}, velocity: ${velocity.toFixed(2)}`);
+
+        switch (direction) {
+            case 'right':
+                // Swipe right to open sidebar (from left edge)
+                if (!isSidebarOpen && touchStart && touchStart.x < 50) {
+                    setIsSidebarOpen(true);
+                    setNotification('📱 Vuốt trái để đóng menu');
+                    setTimeout(() => setNotification(null), 2000);
+                }
+                break;
+                
+            case 'left':
+                // Swipe left to close sidebar or show quick tip
+                if (isSidebarOpen) {
+                    setIsSidebarOpen(false);
+                } else {
+                    setNotification('💡 Vuốt phải từ cạnh màn hình để mở menu');
+                    setTimeout(() => setNotification(null), 2000);
+                }
+                break;
+                
+            case 'up':
+                // Swipe up to show choices modal
+                if (!isChoicesModalOpen && choices.length > 0) {
+                    setIsChoicesModalOpen(true);
+                    setNotification('🎯 Modal lựa chọn đã mở');
+                    setTimeout(() => setNotification(null), 1500);
+                } else if (choices.length === 0) {
+                    setNotification('⏳ Chưa có lựa chọn nào');
+                    setTimeout(() => setNotification(null), 1500);
+                }
+                break;
+                
+            case 'down':
+                // Swipe down to close choices modal or show tip
+                if (isChoicesModalOpen) {
+                    setIsChoicesModalOpen(false);
+                } else {
+                    setNotification('📋 Vuốt lên để xem lựa chọn hành động');
+                    setTimeout(() => setNotification(null), 2000);
+                }
+                break;
+        }
+    }, [isMobile, isSidebarOpen, isChoicesModalOpen, choices.length, touchStart]);
+
+    // Touch Event Handlers
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (!isMobile) return;
+        
+        const touch = e.touches[0];
+        const touchPos: TouchPosition = {
+            x: touch.clientX,
+            y: touch.clientY,
+            timestamp: Date.now()
+        };
+        
+        setTouchStart(touchPos);
+        setTouchEnd(null);
+        setIsGestureActive(true);
+        setGestureDirection(null);
+    }, [isMobile]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (!isMobile || !touchStart || !isGestureActive) return;
+        
+        const touch = e.touches[0];
+        const currentPos: TouchPosition = {
+            x: touch.clientX,
+            y: touch.clientY,
+            timestamp: Date.now()
+        };
+        
+        // Calculate current gesture for visual feedback
+        const gesture = calculateSwipeGesture(touchStart, currentPos);
+        setGestureDirection(gesture.direction);
+        
+        // Prevent default scrolling if we detect a horizontal gesture
+        if (gesture.direction === 'left' || gesture.direction === 'right') {
+            if (gesture.distance > 20) { // Small threshold to allow normal scrolling
+                e.preventDefault();
+            }
+        }
+    }, [isMobile, touchStart, isGestureActive, calculateSwipeGesture]);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (!isMobile || !touchStart) {
+            setIsGestureActive(false);
+            setGestureDirection(null);
+            return;
+        }
+        
+        const touch = e.changedTouches[0];
+        const touchEndPos: TouchPosition = {
+            x: touch.clientX,
+            y: touch.clientY,
+            timestamp: Date.now()
+        };
+        
+        setTouchEnd(touchEndPos);
+        
+        // Calculate and handle the final gesture
+        const gesture = calculateSwipeGesture(touchStart, touchEndPos);
+        
+        // Check if gesture completed within time limit
+        const gestureTime = touchEndPos.timestamp - touchStart.timestamp;
+        if (gestureTime <= GESTURE_CONFIG.MAX_SWIPE_TIME) {
+            handleSwipeGesture(gesture);
+        }
+        
+        // Reset gesture state
+        setTouchStart(null);
+        setTouchEnd(null);
+        setIsGestureActive(false);
+        setGestureDirection(null);
+    }, [isMobile, touchStart, calculateSwipeGesture, handleSwipeGesture]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
@@ -196,7 +428,6 @@ export const GameScreen: React.FC<{
             return () => clearTimeout(timer);
         }
     }, [keyRotationNotification, onClearNotification]);
-
 
     const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
         if (!storyText) return '';
@@ -551,50 +782,6 @@ export const GameScreen: React.FC<{
         return finalStory;
     };
     
-    // --- Data Rehydration Logic ---
-    const { rehydratedLog, rehydratedChoices } = useMemo(() => {
-        const typedInitialState = initialGameState as any;
-        if (typedInitialState.storyLog?.length > 0) {
-            return { 
-                rehydratedLog: typedInitialState.storyLog, 
-                rehydratedChoices: typedInitialState.choices || [] 
-            };
-        }
-        
-        const log: string[] = [];
-        let lastChoices: string[] = [];
-    
-        initialGameState.gameHistory.forEach(entry => {
-            if (entry.role === 'user') {
-                const fullPrompt = entry.parts[0].text;
-                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
-                const actionText = actionMatch ? actionMatch[1] : null;
-    
-                if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
-                    log.push(`> ${actionText}`);
-                }
-            } else { // 'model' role
-                try {
-                    const jsonResponse = JSON.parse(entry.parts[0].text);
-                    const storyText = jsonResponse.story || '';
-                    const cleanStory = parseStoryAndTags(storyText, false); 
-                    if (cleanStory) {
-                        log.push(cleanStory);
-                    }
-                    lastChoices = jsonResponse.choices || [];
-                } catch (e) {
-                    const cleanText = entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
-                    log.push(cleanText);
-                }
-            }
-        });
-    
-        return { rehydratedLog: log, rehydratedChoices: lastChoices };
-    }, [initialGameState]); 
-    
-    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
-    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
-
     useEffect(() => {
         if (storyContainerRef.current) {
             storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
@@ -614,6 +801,49 @@ export const GameScreen: React.FC<{
             }
         }
     }, [gameHistory, isAiReady]); 
+
+    // Automatic cleanup and history management effect
+    useEffect(() => {
+        if (turnCount === 0 || (cleanupStats && turnCount <= cleanupStats.lastCleanupTurn)) return;
+
+        const currentState: SaveData = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            lastCompressionTurn: historyStats.compressionCount, // This seems to be used as an indicator, not a turn number
+            historyStats, cleanupStats
+        };
+        
+        // Automatic cleanup logic
+        const optimizerResult = GameStateOptimizer.performCleanup(currentState);
+        if (optimizerResult.shouldRunCleanup) {
+            console.log("Applying auto cleanup...");
+            const { optimizedState, stats } = optimizerResult;
+            setKnownEntities(optimizedState.knownEntities);
+            setStatuses(optimizedState.statuses);
+            setQuests(optimizedState.quests);
+            setMemories(optimizedState.memories);
+            setChronicle(optimizedState.chronicle);
+            setCleanupStats(prev => ({
+                totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+                totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+                lastCleanupTurn: turnCount,
+                cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
+            }));
+        }
+
+        // Automatic history compression logic
+        const historyManagerTargetState = optimizerResult.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
+        const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
+        if (historyResult.shouldCompress && historyResult.compressedSegment) {
+            console.log("Compressing history...");
+            setGameHistory(historyResult.activeHistory);
+            setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
+            setHistoryStats(prev => ({
+                totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
+                totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0), // Assuming tokenCount is a reliable measure of saved tokens for now
+                compressionCount: prev.compressionCount + 1,
+            }));
+        }
+    }, [turnCount]);
     
     const responseSchema = {
       type: Type.OBJECT,
@@ -722,13 +952,12 @@ export const GameScreen: React.FC<{
         let nsfwInstructionPart = isNsfwRequest && worldData.allowNsfw ? `\nLƯU Ý ĐẶC BIỆT: ...` : '';
         
         const currentGameState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
         };
         const userPrompt = buildEnhancedRagPrompt(originalAction, currentGameState, ruleChangeContext, nsfwInstructionPart);
     
         const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
         const updatedHistory = [...gameHistory, newUserEntry];
-        setGameHistory(updatedHistory);
     
         try {
             const response = await ai.models.generateContent({
@@ -740,8 +969,8 @@ export const GameScreen: React.FC<{
             setTotalTokens(prev => prev + turnTokens);
 
             const responseText = response.text.trim();
+            setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
             parseApiResponse(responseText);
-            setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
             setTurnCount(prev => prev + 1); 
         } catch (error: any) {
             console.error("Error continuing story:", error);
@@ -757,6 +986,10 @@ export const GameScreen: React.FC<{
             setIsLoading(false);
         }
     };
+
+    const debouncedHandleAction = useDebouncedCallback((action: string) => {
+        handleAction(action);
+    }, 300);
     
     const handleEntityClick = (entityName: string) => setActiveEntity(knownEntities[entityName] || null);
     const handleUseItem = (itemName: string) => { setActiveEntity(null); setTimeout(() => handleAction(`Sử dụng vật phẩm: ${itemName}`), 100); };
@@ -788,12 +1021,12 @@ export const GameScreen: React.FC<{
         setShowSaveSuccess(true);
         setTimeout(() => setShowSaveSuccess(false), 3000);
     
-        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle };
+        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats };
         const jsonString = JSON.stringify(currentGameState, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = `AI-RolePlay-${worldData.characterName.replace(/\s+/g, '_') || 'NhanVat'}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        link.download = `AI-RolePlay-${worldData.characterName?.replace(/\s+/g, '_') || 'NhanVat'}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
         link.href = url;
         document.body.appendChild(link);
         link.click();
@@ -825,15 +1058,83 @@ export const GameScreen: React.FC<{
         previousRulesRef.current = initialGameState.customRules;
         setGameHistory([]);
     };
+
+    const handleManualCleanup = useCallback(() => {
+        console.log('Triggering manual cleanup...');
+        const currentState: SaveData = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            lastCompressionTurn: historyStats.compressionCount, 
+            historyStats, cleanupStats
+        };
+        const result = GameStateOptimizer.forceCleanup(currentState, true); // aggressive mode
+        
+        setKnownEntities(result.optimizedState.knownEntities);
+        setStatuses(result.optimizedState.statuses);
+        setQuests(result.optimizedState.quests);
+        setMemories(result.optimizedState.memories);
+        setChronicle(result.optimizedState.chronicle);
+
+        setCleanupStats(prev => ({
+            ...prev!,
+            totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+            totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + result.stats.totalTokensSaved,
+            lastCleanupTurn: turnCount,
+        }));
+
+        setNotification(`🧹 Cleanup complete! Saved ~${Math.round(result.stats.totalTokensSaved / 1000)}k tokens.`);
+        setTimeout(() => setNotification(null), 3000);
+    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats]);
+
     
     const hasActiveQuests = quests.some(q => q.status === 'active');
     const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
     const displayParty = party.filter(p => p.name !== pcName);
     const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
+
+    // --- Memoized Modal Props ---
+    const modalCloseHandlers = useMemo(() => ({
+        home: () => setIsHomeModalOpen(false),
+        restart: () => setIsRestartModalOpen(false),
+        memory: () => setIsMemoryModalOpen(false),
+        knowledge: () => setIsKnowledgeModalOpen(false),
+        customRules: () => setIsCustomRulesModalOpen(false),
+        map: () => setIsMapModalOpen(false),
+        pcInfo: () => setIsPcInfoModalOpen(false),
+        party: () => setIsPartyModalOpen(false),
+        questLog: () => setIsQuestLogModalOpen(false),
+        choices: () => setIsChoicesModalOpen(false),
+    }), []);
+
+    const entityComputations = useMemo(() => ({
+        pcEntity,
+        pcStatuses,
+        displayParty,
+    }), [pcEntity, pcStatuses, displayParty]);
     
     return (
-        <div className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" style={{maxHeight: '98vh', height: '98vh'}}>
-            <GameNotifications notification={notification} showSaveSuccess={showSaveSuccess} showRulesSavedSuccess={showRulesSavedSuccess} />
+        <div 
+            className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" 
+            style={{maxHeight: '98vh', height: '98vh'}}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
+            <GameNotifications 
+                notification={notification} 
+                showSaveSuccess={showSaveSuccess} 
+                showRulesSavedSuccess={showRulesSavedSuccess} 
+            />
+            
+            {isMobile && isGestureActive && gestureDirection && (
+                <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[200] pointer-events-none">
+                    <div className="bg-black/80 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                        {gestureDirection === 'left' && '← Swipe Left'}
+                        {gestureDirection === 'right' && '→ Swipe Right'}
+                        {gestureDirection === 'up' && '↑ Swipe Up'}
+                        {gestureDirection === 'down' && '↓ Swipe Down'}
+                    </div>
+                </div>
+            )}
             
             <SidebarNav 
                 isOpen={isSidebarOpen} 
@@ -848,9 +1149,14 @@ export const GameScreen: React.FC<{
                 onPCInfo={() => setIsPcInfoModalOpen(true)}
                 onParty={() => setIsPartyModalOpen(true)}
                 onQuests={() => setIsQuestLogModalOpen(true)}
+                onManualCleanup={handleManualCleanup}
                 hasActiveQuests={hasActiveQuests}
                 currentTurnTokens={currentTurnTokens}
                 totalTokens={totalTokens}
+                historyStats={historyStats}
+                compressedSegments={compressedHistory.length}
+                gameHistory={gameHistory}
+                cleanupStats={cleanupStats!}
             />
 
             <MobileHeader onOpenSidebar={() => setIsSidebarOpen(true)} worldData={worldData} />
@@ -866,6 +1172,7 @@ export const GameScreen: React.FC<{
                 onPCInfo={() => setIsPcInfoModalOpen(true)}
                 onParty={() => setIsPartyModalOpen(true)}
                 onQuests={() => setIsQuestLogModalOpen(true)}
+                onManualCleanup={handleManualCleanup}
                 worldData={worldData}
                 gameTime={gameTime}
                 turnCount={turnCount}
@@ -877,25 +1184,30 @@ export const GameScreen: React.FC<{
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden p-4 md:p-0">
                 <StoryPanel 
                     storyContainerRef={storyContainerRef}
-                    storyLog={storyLog}
-                    fontFamily={fontFamily}
-                    fontSize={fontSize}
-                    onEntityClick={handleEntityClick}
-                    knownEntities={knownEntities}
                     isLoading={isLoading}
                     isAiReady={isAiReady}
-                />
+                    storyLength={storyLog.length}
+                >
+                    {storyLog.map((line, index) => (
+                        <OptimizedInteractiveText
+                            key={`${index}-${line.substring(0, 10)}`}
+                            text={line}
+                            onEntityClick={handleEntityClick}
+                            knownEntities={knownEntities}
+                        />
+                    ))}
+                </StoryPanel>
                 <ActionPanel
                     isAiReady={isAiReady}
                     apiKeyError={apiKeyError}
                     isLoading={isLoading}
                     choices={choices}
                     handleAction={handleAction}
+                    debouncedHandleAction={debouncedHandleAction}
                     customAction={customAction}
                     setCustomAction={setCustomAction}
                     handleSuggestAction={handleSuggestAction}
                     isCustomActionLocked={isCustomActionLocked}
-                    fontSize={fontSize}
                 />
             </div>
             
@@ -904,31 +1216,51 @@ export const GameScreen: React.FC<{
                 customAction={customAction}
                 setCustomAction={setCustomAction}
                 handleAction={handleAction}
+                debouncedHandleAction={debouncedHandleAction}
                 isLoading={isLoading}
                 isAiReady={isAiReady}
                 isCustomActionLocked={isCustomActionLocked}
             />
 
-            {/* MODALS */}
-            <ConfirmationModal isOpen={isHomeModalOpen} onClose={() => setIsHomeModalOpen(false)} onConfirm={onBackToMenu} title="Về Trang Chủ?" message="Bạn có chắc muốn thoát? Mọi tiến trình chưa lưu sẽ bị mất." />
-            <ConfirmationModal isOpen={isRestartModalOpen} onClose={() => setIsRestartModalOpen(false)} onConfirm={handleRestartGame} title="Bắt Đầu Lại?" message="Bạn có chắc muốn bắt đầu lại cuộc phiêu lưu? Toàn bộ tiến trình hiện tại sẽ được khởi tạo lại từ đầu với cùng thiết lập thế giới." />
-            <EntityInfoModal entity={activeEntity} onClose={() => setActiveEntity(null)} onUseItem={handleUseItem} onLearnItem={handleLearnItem} onEquipItem={handleEquipItem} onUnequipItem={handleUnequipItem} statuses={statuses} onStatusClick={handleStatusClick} />
-            <StatusDetailModal status={activeStatus} onClose={() => setActiveStatus(null)} />
-            <QuestDetailModal quest={activeQuest} onClose={() => setActiveQuest(null)} />
-            <MemoryModal isOpen={isMemoryModalOpen} onClose={() => setIsMemoryModalOpen(false)} memories={memories} onTogglePin={handleToggleMemoryPin} />
-            <KnowledgeBaseModal isOpen={isKnowledgeModalOpen} onClose={() => setIsKnowledgeModalOpen(false)} pc={pcEntity} knownEntities={knownEntities} onEntityClick={handleEntityClick} turnCount={turnCount} />
-            <CustomRulesModal isOpen={isCustomRulesModalOpen} onClose={() => setIsCustomRulesModalOpen(false)} onSave={handleSaveRules} currentRules={customRules} />
-            <MapModal isOpen={isMapModalOpen} onClose={() => setIsMapModalOpen(false)} locations={Object.values(knownEntities).filter(e => e.type === 'location')} currentLocationName={pcEntity?.location || ''} discoveryOrder={locationDiscoveryOrder} />
-            <InfoPanelModal isOpen={isPcInfoModalOpen} onClose={() => setIsPcInfoModalOpen(false)} title="Thông Tin Nhân Vật" icon={<UserIcon className="w-6 h-6" />}>
-                <PlayerCharacterSheet pc={pcEntity} statuses={pcStatuses} knownEntities={knownEntities} onStatusClick={handleStatusClick} onEntityClick={handleEntityClick}/>
-            </InfoPanelModal>
-            <InfoPanelModal isOpen={isPartyModalOpen} onClose={() => setIsPartyModalOpen(false)} title="Tổ Đội" icon={<GameIcons.NpcIcon className="w-6 h-6" />}>
-                <PartyMemberTab party={displayParty} onMemberClick={handleEntityClick}/>
-            </InfoPanelModal>
-            <InfoPanelModal isOpen={isQuestLogModalOpen} onClose={() => setIsQuestLogModalOpen(false)} title="Nhật Ký Nhiệm Vụ" icon={<GameIcons.ScrollIcon className="w-6 h-6" />}>
-                <QuestLog quests={quests} onQuestClick={handleQuestClick} />
-            </InfoPanelModal>
-            <MobileChoicesModal isOpen={isChoicesModalOpen} onClose={() => setIsChoicesModalOpen(false)} choices={choices} onAction={handleAction} />
+            <MemoizedModals
+                isHomeModalOpen={isHomeModalOpen}
+                isRestartModalOpen={isRestartModalOpen}
+                isMemoryModalOpen={isMemoryModalOpen}
+                isKnowledgeModalOpen={isKnowledgeModalOpen}
+                isCustomRulesModalOpen={isCustomRulesModalOpen}
+                isMapModalOpen={isMapModalOpen}
+                isPcInfoModalOpen={isPcInfoModalOpen}
+                isPartyModalOpen={isPartyModalOpen}
+                isQuestLogModalOpen={isQuestLogModalOpen}
+                isChoicesModalOpen={isChoicesModalOpen}
+                activeEntity={activeEntity}
+                activeStatus={activeStatus}
+                activeQuest={activeQuest}
+                onBackToMenu={onBackToMenu}
+                handleRestartGame={handleRestartGame}
+                setActiveEntity={setActiveEntity}
+                handleUseItem={handleUseItem}
+                handleLearnItem={handleLearnItem}
+                handleEquipItem={handleEquipItem}
+                handleUnequipItem={handleUnequipItem}
+                setActiveStatus={setActiveStatus}
+                handleStatusClick={handleStatusClick}
+                setActiveQuest={setActiveQuest}
+                handleToggleMemoryPin={handleToggleMemoryPin}
+                handleEntityClick={handleEntityClick}
+                handleSaveRules={handleSaveRules}
+                handleAction={handleAction}
+                modalCloseHandlers={modalCloseHandlers}
+                memories={memories}
+                knownEntities={knownEntities}
+                statuses={statuses}
+                quests={quests}
+                customRules={customRules}
+                choices={choices}
+                turnCount={turnCount}
+                locationDiscoveryOrder={locationDiscoveryOrder}
+                entityComputations={entityComputations}
+            />
         </div>
     );
 };

@@ -8,11 +8,11 @@ interface ActionPanelProps {
     isLoading: boolean;
     choices: string[];
     handleAction: (action: string) => void;
+    debouncedHandleAction: (action: string) => void;
     customAction: string;
     setCustomAction: (action: string) => void;
     handleSuggestAction: () => void;
     isCustomActionLocked: boolean;
-    fontSize: string;
 }
 
 export const ActionPanel: React.FC<ActionPanelProps> = ({
@@ -21,11 +21,11 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
     isLoading,
     choices,
     handleAction,
+    debouncedHandleAction,
     customAction,
     setCustomAction,
     handleSuggestAction,
     isCustomActionLocked,
-    fontSize
 }) => {
     return (
         <div className="hidden md:flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-4 rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden h-full">
@@ -45,7 +45,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                             <button 
                                 key={index}
                                 onClick={() => handleAction(choice)}
-                                className={`w-full h-full text-left p-3 bg-slate-200 dark:bg-slate-700 hover:bg-purple-600 dark:hover:bg-purple-600 text-slate-800 dark:text-gray-200 hover:text-white rounded-md transition-colors duration-200 shadow-sm border border-slate-300 dark:border-slate-600 ${fontSize}`}
+                                className={`w-full h-full text-left p-3 bg-slate-200 dark:bg-slate-700 hover:bg-purple-600 dark:hover:bg-purple-600 text-slate-800 dark:text-gray-200 hover:text-white rounded-md transition-colors duration-200 shadow-sm border border-slate-300 dark:border-slate-600`}
                             >
                                 {choice.match(/^\d+\.\s/) ? choice : `${index + 1}. ${choice}`}
                             </button>
@@ -60,7 +60,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                         type="text"
                         value={customAction}
                         onChange={(e) => setCustomAction(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAction(customAction)}
+                        onKeyPress={(e) => e.key === 'Enter' && debouncedHandleAction(customAction)}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ." : "Ví dụ: nhặt hòn đá lên..."}
                         className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 disabled:bg-slate-500"

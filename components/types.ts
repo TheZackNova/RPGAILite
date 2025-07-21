@@ -29,7 +29,10 @@ export interface Entity {
   skills?: string[]; // For NPCs
   learnedSkills?: string[]; // For PC
   state?: 'dead' | 'broken' | 'destroyed';
-  [key: string]: any; 
+  [key: string]: any;
+  archived?: boolean;           // Đánh dấu entity đã được archive
+    archivedAt?: number;         // Turn number khi archive
+    lastMentioned?: number;      // Turn cuối cùng được nhắc đến
 }
 
 export interface KnownEntities {
@@ -110,10 +113,17 @@ export interface ChangelogEntry {
   date: string;
   changes: ChangeItem[];
 }
-
+export interface CompressedHistorySegment {
+    turnRange: string;
+    summary: string;
+    keyActions: string[];
+    importantEvents: string[];
+    tokenCount: number;
+    compressedAt: number;
+}
 // --- Save Game Data Structure ---
 export interface SaveData {
-    worldData: Omit<FormData, 'customRules'>; // World data from creation doesn't need to store rules again
+    worldData: Omit<FormData, 'customRules'>;
     knownEntities: KnownEntities;
     statuses: Status[];
     quests: Quest[];
@@ -131,6 +141,25 @@ export interface SaveData {
         hour: number;
     };
     chronicle: Chronicle;
+    
+    // Thêm fields mới cho sliding window
+    compressedHistory?: CompressedHistorySegment[];
+    lastCompressionTurn?: number;
+    historyStats?: {
+        totalEntriesProcessed: number;
+        totalTokensSaved: number;
+        compressionCount: number;
+    };
+    cleanupStats?: {
+        totalCleanupsPerformed: number;
+        totalTokensSavedFromCleanup: number;
+        lastCleanupTurn: number;
+        cleanupHistory: Array<{
+            turn: number;
+            tokensSaved: number;
+            itemsRemoved: number;
+        }>;
+    };
 }
 
 export interface AIContextType {

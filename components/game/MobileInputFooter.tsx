@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import * as GameIcons from '../GameIcons.tsx';
 
@@ -7,13 +8,14 @@ interface MobileInputFooterProps {
     customAction: string;
     setCustomAction: (action: string) => void;
     handleAction: (action: string) => void;
+    debouncedHandleAction: (action: string) => void;
     isLoading: boolean;
     isAiReady: boolean;
     isCustomActionLocked: boolean;
 }
 
 export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
-    onChoicesClick, customAction, setCustomAction, handleAction, isLoading, isAiReady, isCustomActionLocked
+    onChoicesClick, customAction, setCustomAction, handleAction, debouncedHandleAction, isLoading, isAiReady, isCustomActionLocked
 }) => {
     return (
         <>
@@ -29,7 +31,7 @@ export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
                         type="text"
                         value={customAction}
                         onChange={(e) => setCustomAction(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAction(customAction)}
+                        onKeyPress={(e) => e.key === 'Enter' && debouncedHandleAction(customAction)}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa." : "Nhập hành động..."}
                         className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500"
