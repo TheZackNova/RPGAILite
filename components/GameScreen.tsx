@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -194,7 +195,7 @@ export const GameScreen: React.FC<{
     const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
     const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
 
-    const storyContainerRef = useRef<HTMLDivElement>(null);
+    
 
     const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
     const pcName = pcEntity?.name;
@@ -782,11 +783,7 @@ export const GameScreen: React.FC<{
         return finalStory;
     };
     
-    useEffect(() => {
-        if (storyContainerRef.current) {
-            storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
-        }
-    }, [storyLog]);
+
     
     useEffect(() => {
         if (gameHistory.length === 0 && isAiReady) {
@@ -795,10 +792,6 @@ export const GameScreen: React.FC<{
         } else if (!isAiReady) {
             setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
             setIsLoading(false);
-        } else {
-            if (storyContainerRef.current) {
-                storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
-            }
         }
     }, [gameHistory, isAiReady]); 
 
@@ -1182,21 +1175,13 @@ export const GameScreen: React.FC<{
             />
 
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden p-4 md:p-0">
-                <StoryPanel 
-                    storyContainerRef={storyContainerRef}
+                <StoryPanel
+                    storyLog={storyLog}
                     isLoading={isLoading}
                     isAiReady={isAiReady}
-                    storyLength={storyLog.length}
-                >
-                    {storyLog.map((line, index) => (
-                        <OptimizedInteractiveText
-                            key={`${index}-${line.substring(0, 10)}`}
-                            text={line}
-                            onEntityClick={handleEntityClick}
-                            knownEntities={knownEntities}
-                        />
-                    ))}
-                </StoryPanel>
+                    knownEntities={knownEntities}
+                    onEntityClick={handleEntityClick}
+                />
                 <ActionPanel
                     isAiReady={isAiReady}
                     apiKeyError={apiKeyError}

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.20.0',
+    date: '2024-08-18',
+    changes: [
+      { type: 'feature', text: 'Thêm tính năng "Tóm Tắt Hành Trình" (Story So Far), cho phép người chơi xem lại tóm tắt các sự kiện quan trọng đã diễn ra trong cuộc phiêu lưu của mình. Truy cập từ sidebar.' },
+      { type: 'improvement', text: 'Tối ưu hóa hệ thống RAG Nâng cao (Enhanced RAG System) để giảm token sử dụng khoảng 15% bằng cách lược bỏ các chi tiết không cần thiết trong mô tả thực thể và lịch sử gần đây, giúp AI phản hồi nhanh hơn.' },
+      { type: 'fix', text: 'Sửa lỗi hiển thị trên Bản Đồ Thế Giới khiến một số địa điểm bị chồng chéo khi có nhiều địa điểm được khám phá trong một hàng.' },
+    ],
+  },
+  {
     version: '1.19.1',
     date: '2024-08-17',
     changes: [
