@@ -2,6 +2,24 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
  {
+    version: '1.17.0',
+    date: '2024-08-13',
+    changes: [
+      { type: 'improvement', text: 'Tái cấu trúc mã nguồn (refactor) toàn bộ GameScreen, chia thành các component nhỏ hơn để dễ quản lý, bảo trì và mở rộng.' },
+      { type: 'improvement', text: 'Cấu trúc thư mục được tổ chức lại với thư mục con `components/game` cho các thành phần của màn hình chơi game.' },
+      { type: 'fix', text: 'Cải thiện hiệu suất render ban đầu của màn hình game nhờ việc chia nhỏ component.' },
+    ],
+  },
+ {
+    version: '1.16.0',
+    date: '2024-08-12',
+    changes: [
+      { type: 'feature', text: 'Nâng cấp cốt lõi hệ thống AI: Thay thế bộ xây dựng prompt cũ bằng "Hệ thống RAG Nâng cao" (Enhanced RAG System) hoàn toàn mới.' },
+      { type: 'improvement', text: 'Hệ thống RAG mới sử dụng phương pháp phân bổ token động, chấm điểm độ liên quan của thực thể và đồ thị quan hệ để tạo ra ngữ cảnh thông minh và phù hợp hơn cho AI, giúp cải thiện chất lượng phản hồi.' },
+      { type: 'fix', text: 'Sửa lỗi chính tả trong hệ thống RAG mới, giải quyết các vấn đề về tương thích kiểu dữ liệu (type errors).' },
+    ],
+  },
+ {
     version: '1.15.0',
     date: '2024-08-11',
     changes: [

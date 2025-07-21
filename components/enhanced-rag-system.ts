@@ -3,7 +3,7 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
 // Enhanced Token Management
 const TOKEN_CONFIG = {
-    MAX_TOKENS_PER_TURN: 70000,
+    MAX_TOKENS_PER_TURN: 200000,
     TOKEN_BUFFER: 5000,
     CHARS_PER_TOKEN: 0.75, // Vietnamese approximation
     
