@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
 import type { SaveData, FormData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle } from './types.ts';
 import { buildEnhancedRagPrompt } from './promptBuilder.ts';
+import { HistoryManager, type CompressedHistorySegment } from './HistoryManager';
 
 // Modal Imports
 import { ConfirmationModal } from './ConfirmationModal.tsx';
@@ -175,7 +176,19 @@ export const GameScreen: React.FC<{
         });
         return order;
     });
-
+const [compressedHistory, setCompressedHistory] = useState<CompressedHistorySegment[]>(
+    initialGameState.compressedHistory || []
+);
+const [lastCompressionTurn, setLastCompressionTurn] = useState(
+    initialGameState.lastCompressionTurn || 0
+);
+const [historyStats, setHistoryStats] = useState(
+    initialGameState.historyStats || {
+        totalEntriesProcessed: 0,
+        totalTokensSaved: 0,
+        compressionCount: 0
+    }
+);
     // Rule change tracking
     const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
     const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
@@ -742,13 +755,63 @@ export const GameScreen: React.FC<{
         const userPrompt = buildEnhancedRagPrompt(originalAction, currentGameState, ruleChangeContext, nsfwInstructionPart);
     
         const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
+		const tempHistory = [...gameHistory, newUserEntry];
+		const historyResult = HistoryManager.manageHistory(tempHistory, turnCount + 1);
+		// Cập nhật history với sliding window
+setGameHistory(historyResult.activeHistory);
+
+// Nếu có compression, lưu compressed segment
+if (historyResult.shouldCompress && historyResult.compressedSegment) {
+    setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
+    setLastCompressionTurn(turnCount + 1);
+    
+    // Cập nhật stats
+    setHistoryStats(prev => ({
+        totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
+        totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment?.tokenCount || 0),
+        compressionCount: prev.compressionCount + 1
+    }));
+    
+    console.log(`📦 History compressed at turn ${turnCount + 1}:`, {
+        saved: historyResult.stats.savedEntries + ' entries',
+        newSize: historyResult.stats.newSize + ' entries',
+        compression: historyResult.compressedSegment.summary
+    });
+}
+
+// Sử dụng managed history cho API call
+const managedHistory = historyResult.activeHistory;
+
         const updatedHistory = [...gameHistory, newUserEntry];
         setGameHistory(updatedHistory);
     
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash', 
-                contents: updatedHistory,
+    model: 'gemini-2.5-flash', 
+    contents: managedHistory,  // ← SỬ DỤNG MANAGED HISTORY
+    config: { 
+        systemInstruction: systemInstruction, 
+        responseMimeType: "application/json", 
+        responseSchema: responseSchema,
+    }
+});
+
+// Sau API response, thêm model response vào managed history
+const responseText = response.text.trim();
+parseApiResponse(responseText);
+const modelEntry: GameHistoryEntry = { role: 'model', parts: [{ text: responseText }] };
+
+// Cập nhật history với model response (cũng áp dụng sliding window)
+const finalHistoryResult = HistoryManager.manageHistory([...managedHistory, modelEntry], turnCount + 1);
+setGameHistory(finalHistoryResult.activeHistory);
+
+// Nếu có compression lần 2, cũng lưu
+if (finalHistoryResult.shouldCompress && finalHistoryResult.compressedSegment) {
+    setCompressedHistory(prev => [...prev, finalHistoryResult.compressedSegment!]);
+    setLastCompressionTurn(turnCount + 1);
+}
+
+setTurnCount(prev => prev + 1);
                 config: { 
                     systemInstruction: systemInstruction, 
                     responseMimeType: "application/json", 
