@@ -671,29 +671,44 @@ export const GameScreen: React.FC<{
             setGameHistory(initialHistory);
 
             try {
-                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash', contents: initialHistory,
-                    config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema }
-                });
-                const turnTokens = response.usageMetadata?.totalTokenCount || 0;
-                setCurrentTurnTokens(turnTokens);
-                setTotalTokens(prev => prev + turnTokens);
-
-                const responseText = response.text.trim();
-                parseApiResponse(responseText);
-                setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
-            } catch (error: any) {
-                if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
-                    rotateKey();
-                    setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
-                    setChoices(rehydratedChoices);
-                } else {
-                    console.error("Error generating initial story:", error);
-                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
-                }
-            } finally {
-                setIsLoading(false);
-            }
+                const response = await ai.models.generateContent({
+                   model: 'gemini-2.5-flash', 
+                   contents: initialHistory,
+                   config: { 
+                       systemInstruction: systemInstruction, 
+                       responseMimeType: "application/json", 
+                       responseSchema: responseSchema 
+                   }
+               });
+               
+               const turnTokens = response.usageMetadata?.totalTokenCount || 0;
+               setCurrentTurnTokens(turnTokens);
+               setTotalTokens(prev => prev + turnTokens);
+           
+               // **TOKEN MONITORING CHO INITIAL STORY**
+               if (turnTokens > 80000) {
+                   console.warn(`⚠️ Initial story token vượt giới hạn: ${turnTokens.toLocaleString()}/80,000`);
+                   setNotification(`🚨 Cảnh báo: Câu chuyện khởi tạo sử dụng ${turnTokens.toLocaleString()} tokens (vượt 80k)`);
+                   setTimeout(() => setNotification(null), 8000);
+               } else if (turnTokens > 70000) {
+                   console.log(`⚠️ Initial story token gần giới hạn: ${turnTokens.toLocaleString()}/80,000`);
+               }
+           
+               const responseText = response.text.trim();
+               parseApiResponse(responseText);
+               setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
+           } catch (error: any) {
+               if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
+                   rotateKey();
+                   setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+                   setChoices(rehydratedChoices);
+               } else {
+                   console.error("Error generating initial story:", error);
+                   setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+               }
+           } finally {
+               setIsLoading(false);
+           }
     };
         
     const handleAction = async (action: string) => {
@@ -732,13 +747,32 @@ export const GameScreen: React.FC<{
     
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash', contents: updatedHistory,
-                config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema, }
+                model: 'gemini-2.5-flash', 
+                contents: updatedHistory,
+                config: { 
+                    systemInstruction: systemInstruction, 
+                    responseMimeType: "application/json", 
+                    responseSchema: responseSchema,
+                }
             });
+            
             const turnTokens = response.usageMetadata?.totalTokenCount || 0;
             setCurrentTurnTokens(turnTokens);
             setTotalTokens(prev => prev + turnTokens);
-
+        
+            // **THÊM TOKEN MONITORING VÀ CẢNH BÁO**
+            if (turnTokens > 80000) {
+                console.warn(`⚠️ Token vượt giới hạn: ${turnTokens.toLocaleString()}/80,000`);
+                setNotification(`🚨 Cảnh báo: Lượt này sử dụng ${turnTokens.toLocaleString()} tokens (vượt 80k)`);
+                setTimeout(() => setNotification(null), 8000);
+            } else if (turnTokens > 70000) {
+                console.log(`⚠️ Token gần giới hạn: ${turnTokens.toLocaleString()}/80,000`);
+                setNotification(`⚠️ Thông báo: Token sử dụng cao (${turnTokens.toLocaleString()}/80k)`);
+                setTimeout(() => setNotification(null), 5000);
+            } else if (turnTokens > 60000) {
+                console.log(`✅ Token ở mức an toàn: ${turnTokens.toLocaleString()}/80,000`);
+            }
+        
             const responseText = response.text.trim();
             parseApiResponse(responseText);
             setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
@@ -746,7 +780,7 @@ export const GameScreen: React.FC<{
         } catch (error: any) {
             console.error("Error continuing story:", error);
             setStoryLog(prev => prev.slice(0, -1));
-
+        
             if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
                 rotateKey();
                 setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);

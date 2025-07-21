@@ -1,18 +1,18 @@
 import type { SaveData, Entity, Status, Quest, GameHistoryEntry, CustomRule, KnownEntities } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
-// Enhanced Token Management
+// Enhanced Token Management with Stricter Controls
 const TOKEN_CONFIG = {
-    MAX_TOKENS_PER_TURN: 70000,
-    TOKEN_BUFFER: 5000,
-    CHARS_PER_TOKEN: 0.75, // Vietnamese approximation
+    MAX_TOKENS_PER_TURN: 75000,  // Giảm từ 70k xuống 75k để có buffer an toàn
+    TOKEN_BUFFER: 8000,          // Tăng buffer từ 5k lên 8k
+    CHARS_PER_TOKEN: 0.8,        // Tăng từ 0.75 lên 0.8 để ước tính chặt chẽ hơn
     
-    // Dynamic allocation based on context importance
+    // Tái phân bổ để ưu tiên nội dung quan trọng
     ALLOCATION: {
-        CRITICAL: 0.40,      // Action context + immediately relevant entities
-        IMPORTANT: 0.30,     // Related entities + active quests + recent history
-        CONTEXTUAL: 0.20,    // World context + chronicle + memories
-        SUPPLEMENTAL: 0.10   // Additional context + rules
+        CRITICAL: 0.45,      // Tăng từ 0.40 - Ưu tiên action context
+        IMPORTANT: 0.25,     // Giảm từ 0.30 - Giảm entities liên quan
+        CONTEXTUAL: 0.20,    // Giữ nguyên - World context
+        SUPPLEMENTAL: 0.10   // Giữ nguyên - Custom rules
     }
 };
 
@@ -472,6 +472,33 @@ export class EnhancedRAGSystem {
         return `Thời gian: Năm ${time.year} Tháng ${time.month} Ngày ${time.day}, ${time.hour} giờ (Lượt ${turnCount})`;
     }
 
+    // UPDATED: Aggressive truncation for token control
+    private aggressiveTruncation(text: string, maxTokens: number): string {
+        const estimatedTokens = this.estimateTokens(text);
+        
+        if (estimatedTokens <= maxTokens) {
+            return text;
+        }
+        
+        // Aggressive character limit
+        const charLimit = Math.floor(maxTokens / TOKEN_CONFIG.CHARS_PER_TOKEN * 0.9); // 90% safety margin
+        
+        if (text.length <= charLimit) {
+            return text;
+        }
+        
+        // Priority truncation - keep first and last parts
+        const keepStart = Math.floor(charLimit * 0.6);
+        const keepEnd = Math.floor(charLimit * 0.3);
+        
+        if (keepStart + keepEnd < text.length) {
+            return text.substring(0, keepStart) + "\n...[nội dung đã được rút gọn]...\n" + text.substring(text.length - keepEnd);
+        }
+        
+        return text.substring(0, charLimit) + '...';
+    }
+
+    // UPDATED: Reduced entity details to save tokens
     private formatEntityWithContext(
         entity: Entity,
         statuses: Status[],
@@ -480,38 +507,33 @@ export class EnhancedRAGSystem {
     ): string {
         let text = `• ${entity.name} (${entity.type})`;
         
-        if (reasons.length > 0) {
-            text += ` [${reasons.join(', ')}]`;
-        }
-        
         const details: string[] = [];
         
-        // Priority information based on entity type
+        // Chỉ giữ thông tin quan trọng nhất
         if (entity.type === 'npc' || entity.type === 'companion') {
             if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
-            if (entity.personalityMbti && MBTI_PERSONALITIES[entity.personalityMbti]) {
-                details.push(`MBTI: ${entity.personalityMbti} - ${MBTI_PERSONALITIES[entity.personalityMbti].description}`);
-            }
+            // Bỏ MBTI description để tiết kiệm token
+            if (entity.personalityMbti) details.push(`MBTI: ${entity.personalityMbti}`);
             if (entity.motivation) details.push(`Động cơ: ${entity.motivation}`);
-            if (entity.skills?.length) details.push(`Kỹ năng: ${entity.skills.slice(0, 5).join(', ')}`);
+            // Giảm skills từ 5 xuống 3
+            if (entity.skills?.length) details.push(`Kỹ năng: ${entity.skills.slice(0, 3).join(', ')}`);
         }
         
         if (entity.location) details.push(`Vị trí: ${entity.location}`);
         if (entity.realm) details.push(`Cảnh giới: ${entity.realm}`);
         
-        // Status effects
+        // Status effects - chỉ tên, không mô tả
         const entityStatuses = statuses.filter(s => s.owner === entity.name);
         if (entityStatuses.length > 0) {
-            details.push(`Trạng thái: ${entityStatuses.map(s => s.name).join(', ')}`);
+            details.push(`Trạng thái: ${entityStatuses.map(s => s.name).slice(0, 2).join(', ')}`); // Tối đa 2 status
         }
         
-        // Add description if space allows
+        // Mô tả ngắn hơn
         if (entity.description) {
-            const currentLength = this.estimateTokens(text + details.join('; '));
-            const remainingTokens = maxTokens - currentLength;
+            const remainingTokens = Math.max(0, maxTokens - this.estimateTokens(text + details.join('; ')));
             
-            if (remainingTokens > 50) {
-                const truncatedDesc = this.truncateWithTokenLimit(entity.description, remainingTokens);
+            if (remainingTokens > 30) { // Giảm threshold từ 50 xuống 30
+                const truncatedDesc = this.aggressiveTruncation(entity.description, remainingTokens);
                 details.push(`Mô tả: ${truncatedDesc}`);
             }
         }
@@ -525,7 +547,7 @@ export class EnhancedRAGSystem {
         const description = entity.description ? ` - ${entity.description}` : '';
         
         const fullText = base + reasonText + description;
-        return this.truncateWithTokenLimit(fullText, maxTokens);
+        return this.aggressiveTruncation(fullText, maxTokens);
     }
 
     private buildQuestContext(quests: Quest[], maxTokens: number): string {
@@ -548,39 +570,45 @@ export class EnhancedRAGSystem {
         return context + "\n";
     }
 
+    // UPDATED: More aggressive history context reduction
     private buildSmartHistoryContext(history: GameHistoryEntry[], maxTokens: number): string {
         let context = "**Diễn biến gần đây:**\n";
         let usedTokens = this.estimateTokens(context);
         
-        // Extract and summarize recent events
         const recentEvents: string[] = [];
-        const lookback = Math.min(2, history.length); // CHANGE: Reduced from 6 to 2
+        const lookback = Math.min(1, history.length); // Giảm từ 2 xuống 1
         
         for (let i = history.length - lookback; i < history.length; i++) {
             const entry = history[i];
             if (entry.role === 'user') {
                 const actionMatch = entry.parts[0].text.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
                 if (actionMatch) {
-                    recentEvents.push(`> ${actionMatch[1]}`);
+                    // Truncate action nếu quá dài
+                    const action = actionMatch[1];
+                    const shortAction = action.length > 100 ? action.substring(0, 100) + '...' : action;
+                    recentEvents.push(`> ${shortAction}`);
                 }
             } else {
                 try {
                     const parsed = JSON.parse(entry.parts[0].text);
                     if (parsed.story) {
-                        // Extract key events from story
                         const summary = this.summarizeStory(parsed.story);
-                        if (summary) recentEvents.push(summary);
+                        if (summary) {
+                            // Truncate summary
+                            const shortSummary = summary.length > 150 ? summary.substring(0, 150) + '...' : summary;
+                            recentEvents.push(shortSummary);
+                        }
                     }
                 } catch (e) {
-                    // Not JSON, skip
+                    // Skip
                 }
             }
         }
         
-        // Add events until token limit
+        // Add events với limit chặt chẽ hơn
         recentEvents.forEach(event => {
             const eventTokens = this.estimateTokens(event + '\n');
-            if (usedTokens + eventTokens <= maxTokens) {
+            if (usedTokens + eventTokens <= maxTokens * 0.8) { // Chỉ dùng 80% token budget
                 context += event + '\n';
                 usedTokens += eventTokens;
             }
@@ -612,7 +640,7 @@ export class EnhancedRAGSystem {
         // World info
         if (gameState.worldData.worldDetail) {
             const worldTokens = Math.floor(maxTokens * 0.3);
-            const worldInfo = this.truncateWithTokenLimit(gameState.worldData.worldDetail, worldTokens);
+            const worldInfo = this.aggressiveTruncation(gameState.worldData.worldDetail, worldTokens);
             context += `Thế giới: ${worldInfo}\n\n`;
             usedTokens += this.estimateTokens(worldInfo);
         }
@@ -629,7 +657,7 @@ export class EnhancedRAGSystem {
         
         if (pinnedMemories.length > 0 && memoryTokens > 100) {
             context += "**Ký ức quan trọng:**\n";
-            pinnedMemories.slice(0, 5).forEach(mem => {
+            pinnedMemories.slice(0, 3).forEach(mem => { // Giảm từ 5 xuống 3
                 const memText = `- ${mem.text}\n`;
                 const memTokens = this.estimateTokens(memText);
                 
@@ -643,13 +671,14 @@ export class EnhancedRAGSystem {
         return context;
     }
 
+    // UPDATED: Reduced chronicle entries
     private buildChronicleContext(chronicle: any, maxTokens: number): string {
         const memories: ScoredMemory[] = [];
         
-        // Score chronicle entries by importance
-        chronicle.memoir.slice(-7).forEach((m: string) => memories.push({ memory: m, score: 100, type: 'memoir' })); // CHANGE: Increased from 1 to 7
-        chronicle.chapter.slice(-3).forEach((c: string) => memories.push({ memory: c, score: 70, type: 'chapter' }));
-        chronicle.turn.slice(-2).forEach((t: string) => memories.push({ memory: t, score: 40, type: 'turn' })); // CHANGE: Reduced from 3 to 2
+        // Giảm số lượng entries để tiết kiệm token
+        chronicle.memoir.slice(-5).forEach((m: string) => memories.push({ memory: m, score: 100, type: 'memoir' })); // Giảm từ 7 xuống 5
+        chronicle.chapter.slice(-2).forEach((c: string) => memories.push({ memory: c, score: 70, type: 'chapter' })); // Giảm từ 3 xuống 2
+        chronicle.turn.slice(-1).forEach((t: string) => memories.push({ memory: t, score: 40, type: 'turn' })); // Giảm từ 2 xuống 1
         
         // Sort by score and build context
         memories.sort((a, b) => b.score - a.score);
@@ -793,41 +822,60 @@ export class EnhancedRAGSystem {
         return text.substring(0, breakPoint) + '...';
     }
 
-    private enforceTokenLimit(prompt: string): string {
+    // ADDED: Emergency truncation method
+    private emergencyTruncation(prompt: string): string {
         const totalTokens = this.estimateTokens(prompt);
-        const limit = TOKEN_CONFIG.MAX_TOKENS_PER_TURN - TOKEN_CONFIG.TOKEN_BUFFER;
+        const hardLimit = 78000; // Emergency limit dưới 80k
         
-        if (totalTokens <= limit) {
-            console.log(`Prompt tokens: ${totalTokens}/${limit}`);
+        if (totalTokens <= hardLimit) {
             return prompt;
         }
         
-        console.warn(`Prompt exceeds limit: ${totalTokens}/${limit}. Truncating...`);
+        console.warn(`🚨 EMERGENCY TRUNCATION: ${totalTokens} -> ${hardLimit}`);
         
-        // Truncate from the middle sections first
-        const sections = prompt.split(/\n===[^=]+===\n/);
+        // Keep only critical sections
+        const lines = prompt.split('\n');
+        const criticalMarkers = ['=== TRI THỨC QUAN TRỌNG ===', '--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---'];
         
-        // Keep critical sections (first and last)
-        const critical = sections[0] + sections[sections.length - 1];
-        const criticalTokens = this.estimateTokens(critical);
+        let emergencyPrompt = '';
+        let inCriticalSection = false;
         
-        if (criticalTokens >= limit) {
-            // Even critical sections are too large
-            return this.truncateWithTokenLimit(prompt, limit);
+        for (const line of lines) {
+            if (criticalMarkers.some(marker => line.includes(marker))) {
+                inCriticalSection = true;
+            }
+            
+            if (inCriticalSection) {
+                emergencyPrompt += line + '\n';
+                
+                if (this.estimateTokens(emergencyPrompt) > hardLimit) {
+                    break;
+                }
+            }
         }
         
-        // Rebuild with truncated middle sections
-        let rebuiltPrompt = sections[0];
-        const remainingTokens = limit - criticalTokens;
-        const tokensPerSection = Math.floor(remainingTokens / (sections.length - 2));
+        return emergencyPrompt;
+    }
+
+    // UPDATED: Enhanced token limit enforcement with hard limit
+    private enforceTokenLimit(prompt: string): string {
+        const totalTokens = this.estimateTokens(prompt);
+        const softLimit = TOKEN_CONFIG.MAX_TOKENS_PER_TURN - TOKEN_CONFIG.TOKEN_BUFFER;
+        const hardLimit = 78000; // Dưới 80k
         
-        for (let i = 1; i < sections.length - 1; i++) {
-            rebuiltPrompt += this.truncateWithTokenLimit(sections[i], tokensPerSection);
+        if (totalTokens <= softLimit) {
+            console.log(`✅ Prompt tokens: ${totalTokens}/${softLimit} (Safe)`);
+            return prompt;
         }
         
-        rebuiltPrompt += sections[sections.length - 1];
+        if (totalTokens <= hardLimit) {
+            console.warn(`⚠️ Prompt near limit: ${totalTokens}/${hardLimit}`);
+            return prompt;
+        }
         
-        return rebuiltPrompt;
+        // Emergency truncation
+        console.error(`🚨 Prompt exceeds hard limit: ${totalTokens}/${hardLimit}. Emergency truncation!`);
+        return this.emergencyTruncation(prompt);
     }
 
     private buildFallbackPrompt(action: string, gameState: SaveData): string {
