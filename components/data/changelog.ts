@@ -1,7 +1,26 @@
 
+
 import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+    version: '1.25.0',
+    date: '2024-08-23',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi logic trong quản lý trạng thái `lastCompressionTurn` gây ra các lỗi không mong muốn trong quá trình nén lịch sử và lưu game.' },
+      { type: 'improvement', text: 'Tái cấu trúc và tối ưu hóa hiệu suất cốt lõi của màn hình game (`GameScreen.tsx`). Giảm thiểu đáng kể việc render lại không cần thiết để giao diện mượt mà và phản hồi nhanh hơn.' },
+      { type: 'fix', text: 'Đảm bảo `lastCompressionTurn` được khởi tạo đúng cách khi bắt đầu một game mới để ngăn ngừa lỗi.' },
+    ],
+  },
+  {
+    version: '1.24.0',
+    date: '2024-08-22',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi hiển thị khiến cửa sổ thông tin (ví dụ: thông tin địa điểm) có thể bị che khuất bởi các giao diện khác như Bản đồ hoặc Sidebar bằng cách chuẩn hóa lại thứ tự hiển thị của tất cả các modal.' },
+      { type: 'improvement', text: 'Tối ưu hóa hiệu suất màn hình game bằng cách giảm các lần render lại không cần thiết và tái tạo hàm, giúp cải thiện độ phản hồi của giao diện.' },
+      { type: 'improvement', text: 'Dọn dẹp mã nguồn, loại bỏ các tệp tin không được sử dụng.' },
+    ],
+  },
   {
     version: '1.23.0',
     date: '2024-08-21',
