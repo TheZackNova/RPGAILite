@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { Entity, KnownEntities, Status } from '../types.ts';
 import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusTextColor, getStatusFontWeight } from '../utils.ts';
