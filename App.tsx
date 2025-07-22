@@ -245,6 +245,7 @@ export default function App() {
       setView('menu');
   };
   
+  // *** SAFE startNewGame function ***
   const startNewGame = (data: FormData) => {
       const pcEntity: Entity = {
           name: data.characterName || 'Vô Danh',
@@ -257,29 +258,46 @@ export default function App() {
       
       const { customRules, ...worldData } = data;
 
+      // *** SAFE game state initialization ***
       setGameState({
-        worldData: worldData,
-        knownEntities: { [pcEntity.name]: pcEntity },
-        statuses: [],
-        quests: [],
-        gameHistory: [],
-        memories: [],
-        party: [pcEntity],
-        customRules: customRules || [],
-        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
-        turnCount: 0,
-        totalTokens: 0,
-        gameTime: { year: 1, month: 1, day: 1, hour: 8 },
-        chronicle: {
-            memoir: [],
-            chapter: [],
-            turn: [],
-        },
+          worldData: worldData,
+          knownEntities: { [pcEntity.name]: pcEntity },
+          statuses: [],
+          quests: [],
+          gameHistory: [],
+          memories: [],
+          party: [pcEntity],
+          customRules: Array.isArray(customRules) ? customRules : [],
+          systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+          turnCount: 0,
+          totalTokens: 0,
+          gameTime: { year: 1, month: 1, day: 1, hour: 8 },
+          chronicle: {
+              memoir: [],
+              chapter: [],
+              turn: [],
+          },
+          // *** Thêm các fields mới với safe defaults ***
+          compressedHistory: [],
+          lastCompressionTurn: 0,
+          historyStats: {
+              totalEntriesProcessed: 0,
+              totalTokensSaved: 0,
+              compressionCount: 0
+          },
+          cleanupStats: {
+              totalCleanupsPerformed: 0,
+              totalTokensSavedFromCleanup: 0,
+              lastCleanupTurn: 0,
+              cleanupHistory: []
+          },
+          choices: [],
+          storyLog: []
       });
       setView('game');
-  }
+  };
 
-  // *** UPDATED handleLoadGameFromFile WITH SAVE FIX ***
+  // *** SAFE handleLoadGameFromFile WITH ENHANCED VALIDATION ***
   const handleLoadGameFromFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -300,26 +318,28 @@ export default function App() {
                 });
                 
                 // Basic validation
-                if (loadedJson.worldData && loadedJson.knownEntities && loadedJson.gameHistory) {
-                    const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
+                if (loadedJson.worldData && loadedJson.knownEntities) {
+                    const pc = Object.values(loadedJson.knownEntities || {}).find((e: any) => e?.type === 'pc');
                     
-                    // *** ENHANCED validatedData với choices và storyLog ***
+                    // *** SAFE validatedData với tất cả arrays được đảm bảo ***
                     const validatedData: SaveData = {
                         worldData: loadedJson.worldData,
-                        knownEntities: loadedJson.knownEntities,
-                        statuses: loadedJson.statuses || [],
-                        quests: loadedJson.quests || [],
-                        gameHistory: loadedJson.gameHistory,
-                        memories: loadedJson.memories || [],
-                        party: loadedJson.party || (pc ? [pc] : []),
-                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
+                        knownEntities: loadedJson.knownEntities || {},
+                        statuses: Array.isArray(loadedJson.statuses) ? loadedJson.statuses : [],
+                        quests: Array.isArray(loadedJson.quests) ? loadedJson.quests : [],
+                        gameHistory: Array.isArray(loadedJson.gameHistory) ? loadedJson.gameHistory : [],
+                        memories: Array.isArray(loadedJson.memories) ? loadedJson.memories : [],
+                        party: Array.isArray(loadedJson.party) ? loadedJson.party : (pc ? [pc] : []),
+                        customRules: Array.isArray(loadedJson.customRules) ? loadedJson.customRules : 
+                                    (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
                         systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
                         turnCount: loadedJson.turnCount || 0,
                         totalTokens: loadedJson.totalTokens || 0,
                         gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
                         chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
-                        // Support cho compressed history
-                        compressedHistory: loadedJson.compressedHistory || [],
+                        
+                        // Support cho compressed history với safe checks
+                        compressedHistory: Array.isArray(loadedJson.compressedHistory) ? loadedJson.compressedHistory : [],
                         lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
                         historyStats: loadedJson.historyStats || {
                             totalEntriesProcessed: 0,
@@ -333,10 +353,25 @@ export default function App() {
                             cleanupHistory: []
                         },
                         
-                        // *** THÊM SUPPORT CHO CHOICES VÀ STORYLOG ***
-                        choices: loadedJson.choices || [],          // Lưu choices từ save file
-                        storyLog: loadedJson.storyLog || []         // Lưu storyLog từ save file
+                        // *** SAFE SUPPORT CHO CHOICES VÀ STORYLOG ***
+                        choices: Array.isArray(loadedJson.choices) ? loadedJson.choices : [],
+                        storyLog: Array.isArray(loadedJson.storyLog) ? loadedJson.storyLog : []
                     };
+                    
+                    // *** ADDITIONAL SAFETY CHECKS ***
+                    
+                    // Ensure chronicle has all required arrays
+                    if (!validatedData.chronicle.memoir) validatedData.chronicle.memoir = [];
+                    if (!validatedData.chronicle.chapter) validatedData.chronicle.chapter = [];
+                    if (!validatedData.chronicle.turn) validatedData.chronicle.turn = [];
+                    
+                    // Ensure cleanupStats has required array
+                    if (!validatedData.cleanupStats?.cleanupHistory) {
+                        validatedData.cleanupStats = {
+                            ...validatedData.cleanupStats,
+                            cleanupHistory: []
+                        };
+                    }
                     
                     // Cleanup legacy field
                     delete (validatedData as any).userKnowledge;
@@ -344,7 +379,9 @@ export default function App() {
                     console.log("Save loaded successfully:", {
                         choicesLoaded: validatedData.choices?.length || 0,
                         storyLogLoaded: validatedData.storyLog?.length || 0,
-                        turnCount: validatedData.turnCount
+                        turnCount: validatedData.turnCount,
+                        gameHistoryEntries: validatedData.gameHistory?.length || 0,
+                        entitiesCount: Object.keys(validatedData.knownEntities || {}).length
                     });
 
                     setGameState(validatedData);
@@ -355,7 +392,7 @@ export default function App() {
                         hasKnownEntities: !!loadedJson.knownEntities,
                         hasGameHistory: !!loadedJson.gameHistory
                     });
-                    alert('Tệp lưu không hợp lệ. Thiếu dữ liệu cần thiết (worldData, knownEntities, gameHistory).');
+                    alert('Tệp lưu không hợp lệ. Thiếu dữ liệu cần thiết (worldData, knownEntities).');
                 }
             }
         } catch (error) {
