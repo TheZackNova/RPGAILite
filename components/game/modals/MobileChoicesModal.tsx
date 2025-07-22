@@ -13,16 +13,18 @@ export const MobileChoicesModal: React.FC<{
     return (
         <div className="md:hidden fixed inset-0 bg-black/60 z-[70] flex items-end" onClick={onClose}>
             <div
-                className="w-full bg-white/95 dark:bg-[#1f2238]/95 backdrop-blur-sm p-4 pt-3 rounded-t-2xl shadow-2xl transition-transform transform translate-y-0"
-                style={{ animation: 'slideUp 0.3s ease-out' }}
+                className="w-full bg-white/95 dark:bg-[#1f2238]/95 backdrop-blur-sm p-4 pt-3 rounded-t-2xl shadow-2xl transition-transform transform translate-y-0 animate-[slideUp_0.3s_ease-out]"
                 onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modal-title"
             >
                 <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-600 rounded-full mx-auto mb-3"></div>
-                <h3 className="text-lg font-semibold mb-3 text-cyan-600 dark:text-cyan-400 text-center">Lựa chọn hành động</h3>
+                <h3 id="modal-title" className="text-lg font-semibold mb-3 text-cyan-600 dark:text-cyan-400 text-center">Lựa chọn hành động</h3>
                  <div className="max-h-[50vh] overflow-y-auto pr-2 space-y-2">
-                    {choices.map((choice, index) => (
+                    {choices.filter(choice => choice.trim()).map((choice, index) => (
                         <button
-                            key={index}
+                            key={`mobile-choice-${choice.substring(0, 20)}-${index}`}
                             onClick={() => {
                                 onAction(choice);
                                 onClose();
@@ -35,12 +37,6 @@ export const MobileChoicesModal: React.FC<{
                 </div>
                 <button onClick={onClose} className="w-full mt-4 py-2.5 bg-slate-600 text-white rounded-md font-semibold">Đóng</button>
             </div>
-            <style>{`
-                @keyframes slideUp {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
-                }
-            `}</style>
         </div>
     );
 };

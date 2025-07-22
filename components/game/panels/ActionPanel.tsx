@@ -44,7 +44,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {choices.map((choice, index) => (
                             <button 
-                                key={index}
+                                key={`choice-${choice.substring(0, 20)}-${index}`}
                                 onClick={() => handleAction(choice)}
                                 className={`w-full h-full text-left p-3 bg-slate-200 dark:bg-slate-700 hover:bg-purple-600 dark:hover:bg-purple-600 text-slate-800 dark:text-gray-200 hover:text-white rounded-md transition-colors duration-200 shadow-sm border border-slate-300 dark:border-slate-600`}
                             >
@@ -61,7 +61,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                         type="text"
                         value={customAction}
                         onChange={(e) => setCustomAction(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && debouncedHandleAction(customAction)}
+                        onKeyPress={(e) => e.key === 'Enter' && customAction.trim() && debouncedHandleAction(customAction.trim())}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ." : "Ví dụ: nhặt hòn đá lên..."}
                         className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 disabled:bg-slate-500"
@@ -75,8 +75,8 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                         <SparklesIcon className="w-5 h-5" />
                     </button>
                     <button 
-                        onClick={() => handleAction(customAction)}
-                        disabled={isLoading || !isAiReady || isCustomActionLocked}
+                        onClick={() => customAction.trim() && handleAction(customAction.trim())}
+                        disabled={isLoading || !isAiReady || isCustomActionLocked || !customAction.trim()}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
                         aria-label="Gửi hành động"
                     >

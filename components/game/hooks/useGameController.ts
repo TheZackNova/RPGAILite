@@ -11,22 +11,48 @@ const calculateNewTime = (
     currentTime: { year: number; month: number; day: number; hour: number; },
     elapsed: { years: number; months: number; days: number; hours: number; }
 ): { year: number; month: number; day: number; hour: number; } => {
-    let { year, month, day, hour } = currentTime;
-    hour += elapsed.hours;
+    // Validate input values and provide defaults
+    const safeCurrentTime = {
+        year: Number(currentTime?.year) || 1,
+        month: Number(currentTime?.month) || 1,
+        day: Number(currentTime?.day) || 1,
+        hour: Number(currentTime?.hour) || 8
+    };
+    
+    const safeElapsed = {
+        years: Number(elapsed?.years) || 0,
+        months: Number(elapsed?.months) || 0,
+        days: Number(elapsed?.days) || 0,
+        hours: Number(elapsed?.hours) || 0
+    };
+    
+    let { year, month, day, hour } = safeCurrentTime;
+    
+    hour += safeElapsed.hours;
     day += Math.floor(hour / 24);
     hour = hour % 24;
-    day += elapsed.days;
+    day += safeElapsed.days;
+    
     if (day > 30) {
         month += Math.floor((day - 1) / 30);
         day = ((day - 1) % 30) + 1;
     }
-    month += elapsed.months;
+    
+    month += safeElapsed.months;
     if (month > 12) {
         year += Math.floor((month - 1) / 12);
         month = ((month - 1) % 12) + 1;
     }
-    year += elapsed.years;
-    return { year, month, day, hour };
+    
+    year += safeElapsed.years;
+    
+    // Final validation to ensure no NaN values
+    return {
+        year: Number.isFinite(year) ? Math.max(1, Math.floor(year)) : 1,
+        month: Number.isFinite(month) ? Math.max(1, Math.min(12, Math.floor(month))) : 1,
+        day: Number.isFinite(day) ? Math.max(1, Math.min(30, Math.floor(day))) : 1,
+        hour: Number.isFinite(hour) ? Math.max(0, Math.min(23, Math.floor(hour))) : 8
+    };
 };
 
 const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, owner: string): Status[] => {
@@ -79,7 +105,10 @@ export const useGameController = (
             } else {
                 try {
                     const jsonResponse = JSON.parse(entry.parts[0].text);
-                    if (jsonResponse.story) log.push(parseStoryAndTags(jsonResponse.story, false));
+                    if (jsonResponse.story) {
+                        // Simple tag removal for rehydration (no side effects)
+                        log.push(jsonResponse.story.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim());
+                    }
                 } catch (e) {
                      log.push(entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim());
                 }
@@ -105,9 +134,14 @@ export const useGameController = (
     }, [initialGameState.choices, initialGameState.gameHistory]);
 
     useEffect(() => {
-        setters.setStoryLog(rehydratedLog);
-        setters.setChoices(rehydratedChoices);
-    }, [rehydratedLog, rehydratedChoices, setters]);
+        // Only set rehydrated data if current state is empty (initial load)
+        if (gameState.storyLog.length === 0 && rehydratedLog.length > 0) {
+            setters.setStoryLog(rehydratedLog);
+        }
+        if (gameState.choices.length === 0 && rehydratedChoices.length > 0) {
+            setters.setChoices(rehydratedChoices);
+        }
+    }, [gameState.storyLog.length, gameState.choices.length, rehydratedLog, rehydratedChoices, setters.setStoryLog, setters.setChoices]);
 
     const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
         if (!storyText) return '';
@@ -212,7 +246,10 @@ export const useGameController = (
             const turnTokens = response.usageMetadata?.totalTokenCount || 0;
             setters.setCurrentTurnTokens(turnTokens);
             setters.setTotalTokens(prev => prev + turnTokens);
-            const responseText = response.text.trim();
+            const responseText = response.text?.trim() || '';
+            if (!responseText) {
+                throw new Error('AI response was empty');
+            }
             parseApiResponse(responseText);
             setters.setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
         } catch (error) {
@@ -253,10 +290,42 @@ export const useGameController = (
             const turnTokens = response.usageMetadata?.totalTokenCount || 0;
             setters.setCurrentTurnTokens(turnTokens);
             setters.setTotalTokens(prev => prev + turnTokens);
-            const responseText = response.text.trim();
+            const responseText = response.text?.trim() || '';
+            if (!responseText) {
+                throw new Error('AI response was empty');
+            }
             setters.setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
             parseApiResponse(responseText);
-            setters.setTurnCount(prev => prev + 1); 
+            setters.setTurnCount(prev => prev + 1);
+            
+            // Auto cleanup check
+            const newTurnCount = gameState.turnCount + 1;
+            const cleanupResult = GameStateOptimizer.performCleanup({...gameState, turnCount: newTurnCount});
+            if (cleanupResult.shouldRunCleanup) {
+                setters.setKnownEntities(cleanupResult.optimizedState.knownEntities);
+                setters.setMemories(cleanupResult.optimizedState.memories);
+                setters.setChronicle(cleanupResult.optimizedState.chronicle);
+                setters.setQuests(cleanupResult.optimizedState.quests);
+                setters.setStatuses(cleanupResult.optimizedState.statuses);
+                
+                const updatedCleanupStats = {
+                    totalCleanupsPerformed: (gameState.cleanupStats?.totalCleanupsPerformed || 0) + 1,
+                    totalTokensSavedFromCleanup: (gameState.cleanupStats?.totalTokensSavedFromCleanup || 0) + cleanupResult.stats.totalTokensSaved,
+                    lastCleanupTurn: newTurnCount,
+                    cleanupHistory: [
+                        ...(gameState.cleanupStats?.cleanupHistory || []),
+                        {
+                            turn: newTurnCount,
+                            tokensSaved: cleanupResult.stats.totalTokensSaved,
+                            itemsRemoved: cleanupResult.stats.memoriesRemoved + cleanupResult.stats.chronicleEntriesRemoved + cleanupResult.stats.questsArchived + cleanupResult.stats.statusesRemoved + cleanupResult.stats.entitiesArchived
+                        }
+                    ].slice(-10)
+                };
+                setters.setCleanupStats(updatedCleanupStats);
+                
+                modalSetters.setNotification(`Tự động dọn dẹp! Tiết kiệm ${Math.round(cleanupResult.stats.totalTokensSaved / 1000)}k tokens.`);
+                setTimeout(() => modalSetters.setNotification(null), 3000);
+            } 
         } catch (error: any) {
             console.error("Error continuing story:", error);
             setters.setStoryLog(prev => prev.slice(0, -1));
@@ -388,5 +457,7 @@ export const useGameController = (
         handleSuggestAction,
         handleSaveRules,
         handleManualCleanup,
+        isAiReady,
+        apiKeyError,
     };
 };

@@ -47,21 +47,21 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 </div>
                 <div className="text-center flex-1 min-w-0 mx-4">
                     <div className="text-lg font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider truncate" title={worldData.genre || "Phiêu Lưu Ký"}>{worldData.genre || "Phiêu Lưu Ký"}</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-300 capitalize truncate" title={`Tính cách: ${worldData.customPersonality || worldData.personalityFromList}`}>Tính cách: {worldData.customPersonality || worldData.personalityFromList}</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 capitalize truncate" title={`Tính cách: ${worldData.customPersonality || worldData.personalityFromList || 'Chưa xác định'}`}>Tính cách: {worldData.customPersonality || worldData.personalityFromList || 'Chưa xác định'}</div>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-white">
                     <div className={`text-xs font-mono px-3 py-2 rounded-md border transition-colors ${getTokenColor(currentTurnTokens)}`}>
-					<div className="flex items-center gap-2">
-					<span>Lượt: {currentTurnTokens.toLocaleString()}</span>
-					<div className="w-px h-4 bg-current opacity-30"></div>
-					<span>Tổng: {totalTokens.toLocaleString()}</span>
-				</div>
-				<div className="mt-1 w-full bg-current opacity-20 rounded-full h-1">
-				<div className="bg-current h-1 rounded-full transition-all duration-300" 
-				style={{ width: `${Math.min(100, (currentTurnTokens / 80000) * 100)}%` }}
-				></div>
-			</div>
-		</div>
+                        <div className="flex items-center gap-2">
+                            <span>Lượt: {currentTurnTokens.toLocaleString()}</span>
+                            <div className="w-px h-4 bg-current opacity-30"></div>
+                            <span>Tổng: {totalTokens.toLocaleString()}</span>
+                        </div>
+                        <div className="mt-1 w-full bg-current opacity-20 rounded-full h-1">
+                            <div className="bg-current h-1 rounded-full transition-all duration-300" 
+                                style={{ width: `${Math.min(100, (currentTurnTokens / 80000) * 100)}%` }}
+                            ></div>
+                        </div>
+                    </div>
                     <button onClick={onSave} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><ArchiveIcon className="w-4 h-4 mr-1.5" /> Lưu Trữ</button>
                     <button onClick={onMap} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><GameIcons.MapPinIcon className="w-4 h-4 mr-1.5" /> Bản Đồ</button>
                     <button onClick={onRules} className="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded shadow-sm border border-purple-500/50 transition-colors"><DocumentAddIcon className="w-4 h-4 mr-1.5" /> Nạp Tri Thức</button>
@@ -72,7 +72,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             </div>
             <div className="flex justify-center items-center gap-3 bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-2 rounded-b-lg shadow-lg flex-shrink-0 border-x border-b border-slate-300/20 dark:border-slate-600/20">
                 <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700/50 px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 whitespace-nowrap">
-                    Thời Gian: Năm {gameTime.year} Tháng {gameTime.month} Ngày {gameTime.day}, {gameTime.hour} giờ
+                    Thời Gian: Năm {Number.isFinite(gameTime.year) ? gameTime.year : 1} Tháng {Number.isFinite(gameTime.month) ? gameTime.month : 1} Ngày {Number.isFinite(gameTime.day) ? gameTime.day : 1}, {Number.isFinite(gameTime.hour) ? gameTime.hour : 8} giờ
                 </div>
                 <button onClick={onPCInfo} className="flex items-center text-sm px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-md shadow-sm border border-slate-300 dark:border-slate-600 transition-colors text-slate-800 dark:text-white">
                     <UserIcon className="w-5 h-5 mr-2" /> Thông tin

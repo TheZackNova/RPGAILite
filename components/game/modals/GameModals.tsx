@@ -47,7 +47,18 @@ interface GameModalsProps {
     handleEntityClick: (entityName: string) => void;
     handleSaveRules: (rules: CustomRule[]) => void;
     handleAction: (action: string) => void;
-    modalCloseHandlers: any;
+    modalCloseHandlers: {
+        closeHomeModal: () => void;
+        closeRestartModal: () => void;
+        closeMemoryModal: () => void;
+        closeKnowledgeModal: () => void;
+        closeRulesModal: () => void;
+        closeMapModal: () => void;
+        closePcInfoModal: () => void;
+        closePartyModal: () => void;
+        closeQuestLogModal: () => void;
+        closeChoicesModal: () => void;
+    };
     memories: Memory[];
     knownEntities: KnownEntities;
     statuses: Status[];

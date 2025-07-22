@@ -1,6 +1,12 @@
 // components/game/panels/StoryPanel.tsx
 import React, { memo, useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { SpinnerIcon } from '../../Icons.tsx';
+
+const ArrowDownIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 16l-6-6 1.4-1.4L12 13.2l4.6-4.6L18 10l-6 6z"/>
+    </svg>
+);
 import { OptimizedInteractiveText } from '../../OptimizedInteractiveText.tsx';
 import { useOptimizedScroll } from '../../hooks/useOptimizedScroll.ts';
 import type { KnownEntities } from '../../types.ts';
@@ -86,10 +92,18 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     const [itemHeights, setItemHeights] = useState<Map<string, number>>(new Map());
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const virtualItems = useMemo<VirtualItem[]>(() => storyLog.map((line, index) => ({
-        id: `story-${index}-${line.substring(0, 10)}`, index, content: line, estimatedHeight: estimateTextHeight(line),
-        actualHeight: itemHeights.get(`story-${index}-${line.substring(0, 10)}`)
-    })), [storyLog, itemHeights]);
+    const virtualItems = useMemo<VirtualItem[]>(() => storyLog.map((line, index) => {
+        // Create a more stable hash of the content for consistent keys
+        const contentHash = line.split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a;
+        }, 0);
+        const id = `story-${contentHash}-${index}`;
+        return {
+            id, index, content: line, estimatedHeight: estimateTextHeight(line),
+            actualHeight: itemHeights.get(id)
+        };
+    }), [storyLog, itemHeights]);
 
     const itemPositions = useMemo(() => {
         const positions: Array<{ start: number; height: number }> = [];
@@ -134,19 +148,28 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     const { scrollElementRef, onScroll, scrollToBottom } = useOptimizedScroll(handleScroll, 16);
 
     useEffect(() => {
-        const updateHeight = () => containerRef.current && setVirtualState(prev => ({ ...prev, containerHeight: containerRef.current!.getBoundingClientRect().height }));
+        const updateHeight = () => {
+            if (containerRef.current) {
+                setVirtualState(prev => ({ ...prev, containerHeight: containerRef.current!.getBoundingClientRect().height }));
+            }
+        };
         updateHeight();
         window.addEventListener('resize', updateHeight);
         return () => window.removeEventListener('resize', updateHeight);
     }, []);
 
-    useEffect(() => {
-        if (virtualState.shouldAutoScroll && storyLog.length > 0) setTimeout(scrollToBottom, 100);
-    }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
+    // Auto-scroll removed - users can now manually control scrolling
 
     const offsetY = visibleRange.startIndex > 0 ? itemPositions[visibleRange.startIndex].start : 0;
 
-    useEffect(() => () => { if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current) }, []);
+    useEffect(() => {
+        return () => {
+            if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
+                scrollTimeoutRef.current = null;
+            }
+        };
+    }, []);
 
     return (
         <div ref={containerRef} className={`md:col-span-1 flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden ${className}`}>
@@ -188,6 +211,16 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                         <SpinnerIcon className="w-5 h-5 text-pink-600 dark:text-pink-400" />
                         <span className="text-sm text-pink-700 dark:text-pink-300">Đang tạo câu chuyện...</span>
                     </div>
+                )}
+                {!isLoading && storyLog.length > 0 && !virtualState.shouldAutoScroll && (
+                    <button
+                        onClick={scrollToBottom}
+                        className="absolute bottom-4 right-4 bg-pink-500 hover:bg-pink-600 dark:bg-pink-600 dark:hover:bg-pink-500 text-white p-2 rounded-full shadow-lg transition-colors duration-200 z-10"
+                        title="Cuộn xuống cuối"
+                        aria-label="Cuộn xuống cuối câu chuyện"
+                    >
+                        <ArrowDownIcon className="w-5 h-5" />
+                    </button>
                 )}
             </div>
         </div>

@@ -22,7 +22,7 @@ export const GameNotifications: React.FC<{
                 </div>
             )}
             {showRulesSavedSuccess && (
-                <div className="absolute top-20 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+                <div className={`absolute right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse ${showSaveSuccess ? 'top-36' : 'top-20'}`}>
                     Lưu luật lệ thành công! Sẽ có hiệu lực ở lượt sau.
                 </div>
             )}

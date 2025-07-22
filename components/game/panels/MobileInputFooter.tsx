@@ -32,14 +32,14 @@ export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
                         type="text"
                         value={customAction}
                         onChange={(e) => setCustomAction(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && debouncedHandleAction(customAction)}
+                        onKeyPress={(e) => e.key === 'Enter' && customAction.trim() && debouncedHandleAction(customAction.trim())}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa." : "Nhập hành động..."}
                         className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500"
                     />
                     <button 
-                        onClick={() => handleAction(customAction)}
-                        disabled={isLoading || !isAiReady || isCustomActionLocked}
+                        onClick={() => customAction.trim() && handleAction(customAction.trim())}
+                        disabled={isLoading || !isAiReady || isCustomActionLocked || !customAction.trim()}
                         className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
                     >
                         Gửi

@@ -1,7 +1,7 @@
 
 
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { HomeIcon, ArchiveIcon, BrainIcon, MemoryIcon, RefreshIcon, DocumentAddIcon, CrossIcon, UserIcon, ExclamationIcon } from '../../Icons.tsx';
 import * as GameIcons from '../../GameIcons.tsx';
 import type { GameHistoryEntry } from '../../types.ts';
@@ -42,10 +42,10 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
     onPCInfo, onParty, onQuests, hasActiveQuests, currentTurnTokens, totalTokens,
     historyStats, compressedSegments, gameHistory, cleanupStats, onManualCleanup
 }) => {
-    const handleNavigation = (action: () => void) => {
+    const handleNavigation = useCallback((action: () => void) => {
         action();
         onClose();
-    };
+    }, [onClose]);
 
     return (
         <>
@@ -53,7 +53,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             <div className={`fixed top-0 left-0 bottom-0 w-64 bg-slate-100 dark:bg-[#1f2238] shadow-2xl z-[90] p-4 flex flex-col transform transition-transform md:hidden ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
                     <h3 className="text-lg font-bold text-purple-600 dark:text-purple-400">Menu</h3>
-                    <button onClick={onClose}><CrossIcon className="w-6 h-6"/></button>
+                    <button onClick={onClose} aria-label="Đóng menu"><CrossIcon className="w-6 h-6"/></button>
                 </div>
                 <nav className="flex-grow overflow-y-auto pr-2 flex flex-col space-y-3">
                     <button onClick={() => handleNavigation(onHome)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><HomeIcon className="w-5 h-5 mr-3" /> Home</button>

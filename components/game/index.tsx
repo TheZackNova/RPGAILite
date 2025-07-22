@@ -122,13 +122,13 @@ export const GameScreen: React.FC<{
                 <StoryPanel
                     storyLog={gameState.storyLog}
                     isLoading={controller.isLoading}
-                    isAiReady={true} // Assuming this context is handled by controller
+                    isAiReady={controller.isAiReady}
                     knownEntities={gameState.knownEntities}
                     onEntityClick={handleEntityClick}
                 />
                 <ActionPanel
-                    isAiReady={true}
-                    apiKeyError={null}
+                    isAiReady={controller.isAiReady}
+                    apiKeyError={controller.apiKeyError}
                     isLoading={controller.isLoading}
                     choices={gameState.choices}
                     handleAction={controller.handleAction}
@@ -147,7 +147,7 @@ export const GameScreen: React.FC<{
                 handleAction={controller.handleAction}
                 debouncedHandleAction={debouncedHandleAction}
                 isLoading={controller.isLoading}
-                isAiReady={true}
+                isAiReady={controller.isAiReady}
                 isCustomActionLocked={isCustomActionLocked}
             />
 

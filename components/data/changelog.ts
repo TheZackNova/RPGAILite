@@ -3,6 +3,22 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.24.0',
+    date: '2025-01-22',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi nghiêm trọng khiến story text và player choices được generate nhưng không render trên màn hình game.' },
+      { type: 'fix', text: 'Khắc phục lỗi flashing content - nội dung hiển thị thoáng rồi biến mất do state management không ổn định.' },
+      { type: 'fix', text: 'Sửa lỗi React "Expected static flag was missing" do React keys không ổn định trong virtual scrolling.' },
+      { type: 'improvement', text: 'Loại bỏ hành vi auto-scroll và thêm nút scroll thủ công để cải thiện trải nghiệm người dùng.' },
+      { type: 'fix', text: 'Sửa lỗi "Cannot read properties of undefined (reading \'trim\')" khi chọn action.' },
+      { type: 'fix', text: 'Khắc phục lỗi hiển thị thời gian "NaN" do parsing error trong calculateNewTime function.' },
+      { type: 'improvement', text: 'Triển khai hệ thống auto cleanup thiếu và cải thiện manual cleanup functionality.' },
+      { type: 'improvement', text: 'Tối ưu hóa code structure: Loại bỏ các file TypeScript/TSX duplicate và redundant trong repository.' },
+      { type: 'improvement', text: 'Cải thiện accessibility và error handling across tất cả game components.' },
+      { type: 'fix', text: 'Sửa các vấn đề về memory leaks, unsafe property access, và duplicate keys trong UI components.' },
+    ],
+  },
+  {
     version: '1.23.0',
     date: '2024-08-21',
     changes: [

@@ -54,9 +54,9 @@ export const useGameState = (initialGameState: SaveData) => {
         worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder, currentTurnTokens
     }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder, currentTurnTokens]);
     
-    const setters = {
+    const setters = useMemo(() => ({
         setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setTurnCount, setMemories, setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime, setCurrentTurnTokens, setTotalTokens, setCompressedHistory, setHistoryStats, setCleanupStats, setStoryLog, setChoices, setLocationDiscoveryOrder
-    };
+    }), [setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setTurnCount, setMemories, setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime, setCurrentTurnTokens, setTotalTokens, setCompressedHistory, setHistoryStats, setCleanupStats, setStoryLog, setChoices, setLocationDiscoveryOrder]);
 
     return { gameState, setters };
 };
