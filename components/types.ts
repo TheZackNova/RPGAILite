@@ -142,6 +142,10 @@ export interface SaveData {
     };
     chronicle: Chronicle;
     
+    // Explicit state saving
+    storyLog?: string[];
+    choices?: string[];
+
     // Thêm fields mới cho sliding window
     compressedHistory?: CompressedHistorySegment[];
     lastCompressionTurn?: number;
