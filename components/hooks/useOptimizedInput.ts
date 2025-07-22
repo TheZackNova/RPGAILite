@@ -21,7 +21,7 @@ export function useOptimizedInput(
         if (onDebouncedChange && debouncedValue !== initialValue) {
             onDebouncedChange(debouncedValue);
         }
-    }, [debouncedValue, onDebouncedChange, initialValue]);
+    }, [debouncedValue, initialValue]); // Remove onDebouncedChange from deps to prevent infinite rerenders
 
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setValue(e.target.value);

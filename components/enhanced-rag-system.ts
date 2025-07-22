@@ -3,7 +3,7 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
 // Enhanced Token Management
 const TOKEN_CONFIG = {
-    MAX_TOKENS_PER_TURN: 200000,
+    MAX_TOKENS_PER_TURN: 80000,
     TOKEN_BUFFER: 5000,
     CHARS_PER_TOKEN: 0.75, // Vietnamese approximation
     
@@ -111,7 +111,8 @@ export class EnhancedRAGSystem {
             isSocial: false,
             isItemUse: false,
             isSkillUse: false,
-            isExploration: false
+            isExploration: false,
+            isNsfw: false
         };
 
         // Movement patterns
@@ -142,6 +143,12 @@ export class EnhancedRAGSystem {
         if (/thi triển|sử dụng.*pháp|công pháp|kỹ năng/.test(lowerAction)) {
             intent.isSkillUse = true;
             intent.type = 'skill_use';
+        }
+
+        // NSFW patterns
+        if (/yêu|ôm|hôn|vuốt ve|cởi|khỏa thân|quan hệ|làm tình|sex|nsfw|18\+|ân ái|gần gũi|thân mật|cưỡng hiếp/.test(lowerAction)) {
+            intent.isNsfw = true;
+            intent.type = 'nsfw';
         }
 
         // Extract potential entity targets
@@ -433,6 +440,7 @@ export class EnhancedRAGSystem {
             'item_interaction': { 'item': 30, 'skill': 10 },
             'movement': { 'location': 30, 'npc': 10 },
             'skill_use': { 'skill': 40, 'item': 10 },
+            'nsfw': { 'npc': 40, 'companion': 35, 'item': 15, 'location': 20 },
             'general': { 'npc': 10, 'item': 10, 'location': 10 }
         };
         
@@ -849,7 +857,7 @@ YÊU CẦU: Tiếp tục câu chuyện.`;
 
 // Type definitions for the enhanced system
 interface ActionIntent {
-    type: 'movement' | 'combat' | 'social' | 'item_interaction' | 'skill_use' | 'exploration' | 'general';
+    type: 'movement' | 'combat' | 'social' | 'item_interaction' | 'skill_use' | 'exploration' | 'nsfw' | 'general';
     targets: string[];
     keywords: string[];
     isMovement: boolean;
@@ -858,6 +866,7 @@ interface ActionIntent {
     isItemUse: boolean;
     isSkillUse: boolean;
     isExploration: boolean;
+    isNsfw: boolean;
 }
 
 interface TokenBudget {

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'r
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../../../App.tsx';
 import type { SaveData, Entity, Status, CustomRule, GameHistoryEntry } from '../../types.ts';
-import { buildEnhancedRagPrompt } from '../../promptBuilder.ts';
+import { buildEnhancedRagPrompt } from '../../enhanced-rag-system.ts';
 import { HistoryManager } from '../../HistoryManager';
 import { GameStateOptimizer } from '../../GameStateOptimizer';
 

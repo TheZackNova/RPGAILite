@@ -1,6 +1,6 @@
 
 import { useEffect, useCallback, useState } from 'react';
-import { throttle } from '../untils/debounce.ts';
+import { throttle } from '../utils/debounce.ts';
 
 /**
  * Optimized window resize hook

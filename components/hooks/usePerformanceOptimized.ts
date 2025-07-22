@@ -1,6 +1,6 @@
 
 import { useCallback, useRef, useMemo } from 'react';
-import { debounce } from '../untils/debounce.ts';
+import { debounce } from '../utils/debounce.ts';
 
 /**
  * Performance optimization utilities
@@ -24,7 +24,7 @@ export function usePerformanceOptimized() {
                 timestamp: new Date().toISOString()
             });
         }, 1000);
-    }, [renderTime]);
+    }, []); // Remove renderTime dependency to prevent recreation
 
     // Memory usage checker
     const checkMemoryUsage = useCallback(() => {

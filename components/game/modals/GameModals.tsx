@@ -94,7 +94,14 @@ export const GameModals = memo<GameModalsProps>(({
             <MemoryModal isOpen={isMemoryModalOpen} onClose={modalCloseHandlers.closeMemoryModal} memories={memories} onTogglePin={handleToggleMemoryPin} />
             <KnowledgeBaseModal isOpen={isKnowledgeModalOpen} onClose={modalCloseHandlers.closeKnowledgeModal} pc={entityComputations.pcEntity} knownEntities={knownEntities} onEntityClick={handleEntityClick} turnCount={turnCount} />
             <CustomRulesModal isOpen={isCustomRulesModalOpen} onClose={modalCloseHandlers.closeRulesModal} onSave={handleSaveRules} currentRules={customRules} />
-            <MapModal isOpen={isMapModalOpen} onClose={modalCloseHandlers.closeMapModal} locations={Object.values(knownEntities).filter((e): e is Entity => e.type === 'location')} currentLocationName={entityComputations.pcEntity?.location || ''} discoveryOrder={locationDiscoveryOrder} />
+            <MapModal 
+                isOpen={isMapModalOpen} 
+                onClose={modalCloseHandlers.closeMapModal} 
+                locations={Object.values(knownEntities).filter((e): e is Entity => e.type === 'location')} 
+                currentLocationName={entityComputations.pcEntity?.location || ''} 
+                discoveryOrder={locationDiscoveryOrder}
+                onTravelTo={handleAction}
+            />
             <MemoizedInfoPanelModal isOpen={isPcInfoModalOpen} onClose={modalCloseHandlers.closePcInfoModal} title="Thông Tin Nhân Vật" icon={<UserIcon className="w-6 h-6" />}>
                 <MemoizedPlayerCharacterSheet pc={entityComputations.pcEntity} statuses={entityComputations.pcStatuses} knownEntities={knownEntities} onStatusClick={handleStatusClick} onEntityClick={handleEntityClick} />
             </MemoizedInfoPanelModal>

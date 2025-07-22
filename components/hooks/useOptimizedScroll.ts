@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { throttle } from '../untils/debounce.ts';
+import { throttle } from '../utils/debounce.ts';
 
 /**
  * Optimized scroll hook với throttling
@@ -22,9 +22,7 @@ export function useOptimizedScroll(
                 clientHeight: target.clientHeight
             };
             
-            if (onScroll) {
-                onScroll(scrollData);
-            }
+            onScroll?.(scrollData);
         }, throttleMs),
         [onScroll, throttleMs]
     );
