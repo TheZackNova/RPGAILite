@@ -10,7 +10,7 @@ export const ConfirmationModal: React.FC<{
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[95] p-4" onClick={onClose}>
             <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-md text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-200 dark:border-slate-600">
                     <h3 className="text-lg font-semibold">{title}</h3>

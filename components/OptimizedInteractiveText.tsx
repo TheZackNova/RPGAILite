@@ -1,4 +1,3 @@
-
 // components/OptimizedInteractiveText.tsx
 import React, { useMemo, memo, useCallback } from 'react';
 import type { KnownEntities, EntityType, Entity } from './types.ts';
@@ -112,6 +111,9 @@ export const OptimizedInteractiveText: React.FC<{
     knownEntities: KnownEntities;
 }> = memo(({ text, onEntityClick, knownEntities }) => {
     
+    const isPlayerAction = useMemo(() => text.startsWith('> '), [text]);
+    const contentToParse = isPlayerAction ? text.substring(2) : text;
+    
     // Memoize entity names sorted by length (longest first for better matching)
     const sortedEntityNames = useMemo(() => {
         return Object.keys(knownEntities).sort((a, b) => b.length - a.length);
@@ -136,7 +138,7 @@ export const OptimizedInteractiveText: React.FC<{
     // Memoize processed text parts
     const processedParts = useMemo((): ProcessedTextPart[] => {
         
-        const parts = text.split(splitRegex);
+        const parts = contentToParse.split(splitRegex);
 
         return parts
             .map((part, index): ProcessedTextPart => {
@@ -164,12 +166,27 @@ export const OptimizedInteractiveText: React.FC<{
                 };
             })
             .filter(part => part.text); // Remove empty parts
-    }, [text, splitRegex, knownEntities]);
+    }, [contentToParse, splitRegex, knownEntities]);
 
     // Memoize the callback to prevent unnecessary re-renders
     const memoizedOnEntityClick = useCallback((entityName: string) => {
         onEntityClick(entityName);
     }, [onEntityClick]);
+
+    if (isPlayerAction) {
+        return (
+            <div className="text-purple-700 dark:text-purple-300 italic leading-relaxed whitespace-pre-wrap">
+                <span className="font-bold select-none not-italic mr-2 text-purple-500 dark:text-purple-400">&gt;</span>
+                {processedParts.map((part) => (
+                    <InteractiveTextPart
+                        key={part.index}
+                        part={part}
+                        onEntityClick={memoizedOnEntityClick}
+                    />
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="text-slate-900 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
