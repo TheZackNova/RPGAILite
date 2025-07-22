@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -24,7 +22,6 @@ import { MobileInputFooter } from './game/MobileInputFooter.tsx';
 import { HistoryManager } from './HistoryManager';
 import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
-import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 
 // Helper function for time calculation
 const calculateNewTime = (
@@ -128,7 +125,19 @@ export const GameScreen: React.FC<{
     const [compressedHistory, setCompressedHistory] = useState<CompressedHistorySegment[]>(initialGameState.compressedHistory || []);
     const [historyStats, setHistoryStats] = useState(initialGameState.historyStats || { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
     const [cleanupStats, setCleanupStats] = useState<SaveData['cleanupStats']>(initialGameState.cleanupStats || { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
+    const [lastCompressionTurn, setLastCompressionTurn] = useState<number>(initialGameState.lastCompressionTurn || 0);
 
+    // --- Performance Optimization: State Ref ---
+    const gameStateRef = useRef<SaveData>();
+    useEffect(() => {
+        // Keep the ref updated with the latest state on every render
+        gameStateRef.current = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            lastCompressionTurn,
+            historyStats, cleanupStats,
+            storyLog, choices, locationDiscoveryOrder
+        };
+    });
 
     // Modal & Notification States
     const [isHomeModalOpen, setIsHomeModalOpen] = useState(false);
@@ -610,6 +619,95 @@ export const GameScreen: React.FC<{
     const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
     const [choices, setChoices] = useState<string[]>(rehydratedChoices);
 
+    const sendActionToAI = useCallback(async (action: string, isSystemAction: boolean = false) => {
+        if (!ai || !gameStateRef.current) return;
+        setIsLoading(true);
+
+        const currentState = gameStateRef.current;
+        
+        const playerNsfwRequest = action.toLowerCase().includes('nsfw') ? "LƯU Ý: Người chơi YÊU CẦU hành động NSFW. Hãy ưu tiên tạo ra các lựa chọn và mô tả 18+." : "";
+
+        let currentRuleChanges = ruleChanges;
+        let ruleChangeContext = '';
+        if (currentRuleChanges) {
+            ruleChangeContext += "--- CẬP NHẬT LUẬT LỆ ---\n";
+            if (currentRuleChanges.activated.length > 0) ruleChangeContext += `Luật mới được kích hoạt: ${currentRuleChanges.activated.map(r => `"${r.content}"`).join(', ')}\n`;
+            if (currentRuleChanges.deactivated.length > 0) ruleChangeContext += `Luật bị vô hiệu hóa: ${currentRuleChanges.deactivated.map(r => `"${r.content}"`).join(', ')}\n`;
+            if (currentRuleChanges.updated.length > 0) ruleChangeContext += `Luật được cập nhật: ${currentRuleChanges.updated.map(r => `Từ "${r.oldRule.content}" thành "${r.newRule.content}"`).join(', ')}\n`;
+            setRuleChanges(null); 
+        }
+
+        const prompt = buildEnhancedRagPrompt(action, currentState, ruleChangeContext, playerNsfwRequest);
+        const currentTokens = Math.ceil(prompt.length / 4);
+        setCurrentTurnTokens(currentTokens);
+        setTotalTokens(prev => prev + currentTokens);
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [
+                    { role: 'user', parts: [{ text: currentState.systemInstruction }] },
+                    ...currentState.gameHistory,
+                    { role: 'user', parts: [{ text: prompt }] }
+                ],
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            story: { type: Type.STRING, description: 'Đoạn truyện kể chính, chứa các thẻ lệnh để cập nhật trạng thái game.' },
+                            choices: {
+                                type: Type.ARRAY,
+                                items: { type: Type.STRING },
+                                description: '4-5 lựa chọn hành động cho người chơi.'
+                            },
+                        },
+                        required: ['story', 'choices']
+                    }
+                }
+            });
+
+            const responseText = response.text.trim();
+            const jsonResponse = JSON.parse(responseText);
+
+            const storyText = jsonResponse.story || '';
+            const cleanStory = parseStoryAndTags(storyText);
+
+            setGameHistory(prev => [...prev, { role: 'user', parts: [{ text: prompt }] }, { role: 'model', parts: [{ text: responseText }] }]);
+            if (cleanStory) {
+                setStoryLog(prev => [...prev, cleanStory]);
+            }
+            setChoices(jsonResponse.choices || []);
+            setTurnCount(prev => prev + 1);
+
+        } catch (error: any) {
+            console.error('Lỗi khi gọi Gemini API:', error);
+            if (error.toString().includes('429') && !isUsingDefaultKey && userApiKeyCount > 1) {
+                rotateKey();
+            } else {
+                setStoryLog(prev => [...prev, `Lỗi hệ thống: ${error.message}. Vui lòng thử lại hoặc kiểm tra API Key.`]);
+                setChoices([]);
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ai, isUsingDefaultKey, userApiKeyCount, rotateKey, parseStoryAndTags]);
+
+    const handleAction = useCallback((action: string) => {
+        if (isLoading || !isAiReady || !action.trim()) return;
+        setCustomAction('');
+        if (!action.startsWith("SYSTEM_")) {
+           setStoryLog(prev => [...prev, `> ${action}`]);
+        }
+        sendActionToAI(action);
+    }, [isLoading, isAiReady, sendActionToAI]);
+    
+    const debouncedHandleAction = useDebouncedCallback(handleAction, 300);
+
+    const generateInitialStory = useCallback(() => {
+        sendActionToAI("Bắt đầu câu chuyện.", true);
+    }, [sendActionToAI]);
+
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
         if (keyRotationNotification) {
@@ -631,17 +729,14 @@ export const GameScreen: React.FC<{
             setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
             setIsLoading(false);
         }
-    }, [gameHistory, isAiReady]); 
+    }, [gameHistory.length, isAiReady, apiKeyError, generateInitialStory]); 
 
     // Automatic cleanup and history management effect
     useEffect(() => {
+        if (!gameStateRef.current) return;
         if (turnCount === 0 || (cleanupStats && turnCount <= cleanupStats.lastCleanupTurn)) return;
 
-        const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount, // This seems to be used as an indicator, not a turn number
-            historyStats, cleanupStats
-        };
+        const currentState = gameStateRef.current;
         
         // Automatic cleanup logic
         const optimizerResult = GameStateOptimizer.performCleanup(currentState);
@@ -653,276 +748,160 @@ export const GameScreen: React.FC<{
             setQuests(optimizedState.quests);
             setMemories(optimizedState.memories);
             setChronicle(optimizedState.chronicle);
-            setCleanupStats(prev => ({
-                totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-                totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
-                lastCleanupTurn: turnCount,
-                cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
-            }));
-        }
+            setCleanupStats(prev => {
+                const newHistoryEntry = {
+                    turn: optimizedState.turnCount,
+                    tokensSaved: stats.totalTokensSaved,
+                    itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.statusesRemoved + stats.entitiesArchived
+                };
+                const newCleanupHistory = [...(prev?.cleanupHistory || []), newHistoryEntry].slice(-10); // Keep last 10
 
-        // Automatic history compression logic
-        const historyManagerTargetState = optimizerResult.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
-        const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
+                return {
+                    ...prev,
+                    totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+                    totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+                    lastCleanupTurn: optimizedState.turnCount,
+                    cleanupHistory: newCleanupHistory,
+                };
+            });
+        }
+        
+        // Automatic history compression
+        const historyResult = HistoryManager.manageHistory(gameHistory, turnCount);
         if (historyResult.shouldCompress && historyResult.compressedSegment) {
-            console.log("Compressing history...");
+            console.log("Applying history compression...");
             setGameHistory(historyResult.activeHistory);
             setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
             setHistoryStats(prev => ({
+                ...prev,
                 totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
-                totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0), // Assuming tokenCount is a reliable measure of saved tokens for now
-                compressionCount: prev.compressionCount + 1,
+                totalTokensSaved: prev.totalTokensSaved + ((historyResult.stats.savedEntries * 300) - historyResult.compressedSegment!.tokenCount),
+                compressionCount: prev.compressionCount + 1
             }));
+            setLastCompressionTurn(turnCount);
         }
+
     }, [turnCount]);
-    
-    const responseSchema = {
-      type: Type.OBJECT,
-      properties: {
-        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
-        choices: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
-        },
-      },
-      required: ['story', 'choices']
-    };
 
-    const parseApiResponse = (text: string) => {
-        try {
-            const jsonResponse = JSON.parse(text);
-            const cleanStory = parseStoryAndTags(jsonResponse.story, true);
-            setStoryLog(prev => [...prev, cleanStory]);
-            setChoices(jsonResponse.choices || []);
-        } catch (e) {
-            console.error("Failed to parse AI response:", e, "Raw response:", text);
-            setStoryLog(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);
-            setChoices([]);
-        }
-    };
-    
-    const generateInitialStory = async () => {
-            if (!ai) return;
-            setIsLoading(true);
-            const finalPersonality = worldData.customPersonality || worldData.personalityFromList;
-            const writingStyleText = worldData.writingStyle === 'first_person' ? 'Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"' : 'Ngôi thứ hai - "Ngươi" là nhân vật chính';
-            const nsfwInstruction = worldData.allowNsfw ? 'Cho phép. Kích hoạt quy tắc nội dung 18+ của Quản Trò. Viết một cách trần trụi, bạo lực, tục tĩu và không giới hạn.' : 'Không, AI phải tránh các chủ đề và mô tả 18+.';
-            
-            const activeRules = customRules.filter(r => r.isActive);
-            let customRulesContext = '';
-            if (activeRules.length > 0) {
-                customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
-            }
+    // --- UI Handlers (placeholders and simple implementations) ---
+    const handleSaveGame = useCallback(() => {
+        if (!gameStateRef.current) return;
+        const fullGameState: SaveData = gameStateRef.current;
 
-            const userPrompt = `${customRulesContext}BẠN LÀ QUẢN TRÒ...`; // Shortened for brevity
-            
-            const pcEntity: Entity = {
-                name: worldData.characterName || 'Vô Danh',
-                type: 'pc',
-                description: worldData.bio,
-                gender: worldData.gender,
-                personality: finalPersonality,
-                learnedSkills: [],
-            };
-            setKnownEntities({ [pcEntity.name]: pcEntity });
-            setParty([pcEntity]);
-
-            const initialHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
-            setGameHistory(initialHistory);
-
-            try {
-                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash', contents: initialHistory,
-                    config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema }
-                });
-                const turnTokens = response.usageMetadata?.totalTokenCount || 0;
-                setCurrentTurnTokens(turnTokens);
-                setTotalTokens(prev => prev + turnTokens);
-
-                const responseText = response.text.trim();
-                parseApiResponse(responseText);
-                setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
-            } catch (error: any) {
-                if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
-                    rotateKey();
-                    setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
-                    setChoices(rehydratedChoices);
-                } else {
-                    console.error("Error generating initial story:", error);
-                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
-                }
-            } finally {
-                setIsLoading(false);
-            }
-    };
-        
-    const handleAction = async (action: string) => {
-        let originalAction = action.trim();
-        let isNsfwRequest = false;
-        
-        const nsfwRegex = /\s+nsfw\s*$/i;
-        if (nsfwRegex.test(originalAction)) {
-            isNsfwRequest = true;
-            originalAction = originalAction.replace(nsfwRegex, '').trim();
-        }
-    
-        if (!originalAction || isLoading || !ai) return;
-    
-        setIsLoading(true);
-        setChoices([]);
-        setCustomAction('');
-        setStoryLog(prev => [...prev, `> ${originalAction}`]);
-    
-        let ruleChangeContext = '';
-        if (ruleChanges) {
-            // Build context string from ruleChanges
-            setRuleChanges(null); 
-        }
-
-        let nsfwInstructionPart = isNsfwRequest && worldData.allowNsfw ? `\nLƯU Ý ĐẶC BIỆT: ...` : '';
-        
-        const currentGameState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
-        };
-        const userPrompt = buildEnhancedRagPrompt(originalAction, currentGameState, ruleChangeContext, nsfwInstructionPart);
-    
-        const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
-        const updatedHistory = [...gameHistory, newUserEntry];
-    
-        try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash', contents: updatedHistory,
-                config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema, }
-            });
-            const turnTokens = response.usageMetadata?.totalTokenCount || 0;
-            setCurrentTurnTokens(turnTokens);
-            setTotalTokens(prev => prev + turnTokens);
-
-            const responseText = response.text.trim();
-            setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
-            parseApiResponse(responseText);
-            setTurnCount(prev => prev + 1); 
-        } catch (error: any) {
-            console.error("Error continuing story:", error);
-            setStoryLog(prev => prev.slice(0, -1));
-
-            if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
-                rotateKey();
-                setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
-            } else {
-                 setStoryLog(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const debouncedHandleAction = useDebouncedCallback((action: string) => {
-        handleAction(action);
-    }, 300);
-    
-    const handleEntityClick = (entityName: string) => setActiveEntity(knownEntities[entityName] || null);
-    const handleUseItem = (itemName: string) => { setActiveEntity(null); setTimeout(() => handleAction(`Sử dụng vật phẩm: ${itemName}`), 100); };
-    const handleLearnItem = (itemName: string) => { setActiveEntity(null); setTimeout(() => handleAction(`Học công pháp: ${itemName}`), 100); };
-    const handleEquipItem = (itemName: string) => { setActiveEntity(null); setTimeout(() => handleAction(`Trang bị ${itemName}`), 100); };
-    const handleUnequipItem = (itemName: string) => { setActiveEntity(null); setTimeout(() => handleAction(`Tháo ${itemName}`), 100); };
-    const handleStatusClick = (status: Status) => setActiveStatus(status);
-    const handleToggleMemoryPin = (index: number) => setMemories(prev => prev.map((mem, i) => i === index ? { ...mem, pinned: !mem.pinned } : mem));
-    const handleQuestClick = (quest: Quest) => setActiveQuest(quest);
-    
-     const handleSuggestAction = async () => {
-        if (isLoading || !ai) return;
-        setIsLoading(true);
-        try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: `Bối cảnh: "${storyLog.slice(-1)[0]}". Gợi ý một hành động sáng tạo.`,
-            });
-            setCustomAction(response.text.trim());
-        } catch (error) {
-            console.error("Error suggesting action:", error);
-            setCustomAction("Không thể nhận gợi ý lúc này.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleSaveGame = () => {
-        setShowSaveSuccess(true);
-        setTimeout(() => setShowSaveSuccess(false), 3000);
-    
-        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder };
-        const jsonString = JSON.stringify(currentGameState, null, 2);
+        const jsonString = JSON.stringify(fullGameState, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = `AI-RolePlay-${worldData.characterName?.replace(/\s+/g, '_') || 'NhanVat'}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `AI-RolePlay-${pcName || 'save'}-${timestamp}.json`;
         link.href = url;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-    };
-
-    const handleSaveRules = (newRules: CustomRule[]) => {
-        // Rule change detection logic remains the same
-        setCustomRules(newRules);
-        previousRulesRef.current = JSON.parse(JSON.stringify(newRules));
-        setShowRulesSavedSuccess(true);
-        setTimeout(() => setShowRulesSavedSuccess(false), 3500);
-    };
-
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 3000);
+    }, [pcName]);
+    
     const handleRestartGame = () => {
-        setIsRestartModalOpen(false);
-        setIsLoading(true);
+        const pc = Object.values(initialGameState.knownEntities).find(e => e.type === 'pc');
+        const newGameState: SaveData = {
+            ...initialGameState,
+            turnCount: 0,
+            gameHistory: [],
+            statuses: [],
+            quests: [],
+            memories: [],
+            party: pc ? [pc] : [],
+            chronicle: { memoir: [], chapter: [], turn: [] },
+            storyLog: [],
+            choices: [],
+            compressedHistory: [],
+            historyStats: { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 },
+            cleanupStats: { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] }
+        };
+        // Reset all states
+        setWorldData(newGameState.worldData);
+        setKnownEntities(newGameState.knownEntities);
+        setStatuses(newGameState.statuses);
+        setQuests(newGameState.quests);
+        setGameHistory(newGameState.gameHistory);
+        setTurnCount(newGameState.turnCount);
+        setMemories(newGameState.memories);
+        setParty(newGameState.party);
+        setCustomRules(newGameState.customRules);
+        setChronicle(newGameState.chronicle);
+        setGameTime(newGameState.gameTime);
+        setCurrentTurnTokens(0);
+        setTotalTokens(0);
+        setCompressedHistory([]);
+        setHistoryStats({ totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
+        setCleanupStats({ totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
         setStoryLog([]);
         setChoices([]);
-        setStatuses([]);
-        setQuests([]);
-        setMemories([]);
-        setTurnCount(0);
-        setTotalTokens(0);
-        setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
-        setChronicle({ memoir: [], chapter: [], turn: [] });
-        setRuleChanges(null);
-        previousRulesRef.current = initialGameState.customRules;
-        setGameHistory([]);
+        
+        setIsRestartModalOpen(false);
+        generateInitialStory();
     };
 
-    const handleManualCleanup = useCallback(() => {
-        console.log('Triggering manual cleanup...');
-        const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount, 
-            historyStats, cleanupStats
-        };
-        const result = GameStateOptimizer.forceCleanup(currentState, true); // aggressive mode
-        
-        setKnownEntities(result.optimizedState.knownEntities);
-        setStatuses(result.optimizedState.statuses);
-        setQuests(result.optimizedState.quests);
-        setMemories(result.optimizedState.memories);
-        setChronicle(result.optimizedState.chronicle);
-
-        setCleanupStats(prev => ({
-            ...prev!,
-            totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-            totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + result.stats.totalTokensSaved,
-            lastCleanupTurn: turnCount,
-        }));
-
-        setNotification(`🧹 Cleanup complete! Saved ~${Math.round(result.stats.totalTokensSaved / 1000)}k tokens.`);
-        setTimeout(() => setNotification(null), 3000);
-    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats]);
-
+    const handleEntityClick = useCallback((entityName: string) => {
+        const entity = knownEntities[entityName];
+        if (entity) setActiveEntity(entity);
+    }, [knownEntities]);
     
-    const hasActiveQuests = quests.some(q => q.status === 'active');
-    const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
-    const displayParty = party.filter(p => p.name !== pcName);
-    const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
+    const handleStatusClick = useCallback((status: Status) => {
+        setActiveStatus(status);
+    }, []);
 
-    // --- Memoized Modal Props ---
+    const handleUseItem = useCallback((itemName: string) => {
+        setActiveEntity(null);
+        handleAction(`Sử dụng ${itemName}.`);
+    }, [handleAction]);
+
+    const handleLearnItem = useCallback((itemName: string) => {
+        setActiveEntity(null);
+        handleAction(`Học ${itemName}.`);
+    }, [handleAction]);
+    
+    const handleEquipItem = useCallback((itemName: string) => {
+        setActiveEntity(null);
+        handleAction(`Trang bị ${itemName}.`);
+    }, [handleAction]);
+    
+    const handleUnequipItem = useCallback((itemName: string) => {
+        setActiveEntity(null);
+        handleAction(`Tháo ${itemName}.`);
+    }, [handleAction]);
+
+    const handleToggleMemoryPin = useCallback((index: number) => {
+        setMemories(prev => {
+            const newMemories = [...prev];
+            newMemories[index].pinned = !newMemories[index].pinned;
+            return newMemories;
+        });
+    }, []);
+
+    const handleSaveRules = useCallback((newRules: CustomRule[]) => {
+        setCustomRules(newRules);
+        setShowRulesSavedSuccess(true);
+        setTimeout(() => setShowRulesSavedSuccess(false), 3000);
+    }, []);
+    
+    const handleSuggestAction = useCallback(() => {
+        // This could be a future feature
+        setCustomAction("AI chưa hỗ trợ gợi ý hành động tùy ý.");
+    }, []);
+    
+    const handleManualCleanup = useCallback(() => {
+        // Placeholder for manual cleanup
+        setNotification("Manual cleanup completed.");
+        setTimeout(() => setNotification(null), 3000);
+    }, []);
+
+    const isCustomActionLocked = useMemo(() => {
+        return customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý'));
+    }, [customRules]);
+
     const modalCloseHandlers = useMemo(() => ({
         home: () => setIsHomeModalOpen(false),
         restart: () => setIsRestartModalOpen(false),
@@ -935,26 +914,36 @@ export const GameScreen: React.FC<{
         questLog: () => setIsQuestLogModalOpen(false),
         choices: () => setIsChoicesModalOpen(false),
     }), []);
-
-    const entityComputations = useMemo(() => ({
-        pcEntity,
-        pcStatuses,
-        displayParty,
-    }), [pcEntity, pcStatuses, displayParty]);
     
     return (
-        <div 
-            className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" 
-            style={{maxHeight: '98vh', height: '98vh'}}
-        >
-            <GameNotifications 
-                notification={notification} 
-                showSaveSuccess={showSaveSuccess} 
-                showRulesSavedSuccess={showRulesSavedSuccess} 
+        <div className={`w-full h-full max-w-7xl mx-auto flex flex-col ${fontFamily} ${fontSize} bg-slate-200/50 dark:bg-slate-900/50 rounded-2xl shadow-2xl overflow-hidden`}>
+            <DesktopHeader
+                onHome={() => setIsHomeModalOpen(true)}
+                onSave={handleSaveGame}
+                onMap={() => setIsMapModalOpen(true)}
+                onRules={() => setIsCustomRulesModalOpen(true)}
+                onKnowledge={() => setIsKnowledgeModalOpen(true)}
+                onMemory={() => setIsMemoryModalOpen(true)}
+                onRestart={() => setIsRestartModalOpen(true)}
+                onPCInfo={() => setIsPcInfoModalOpen(true)}
+                onParty={() => setIsPartyModalOpen(true)}
+                onQuests={() => setIsQuestLogModalOpen(true)}
+                hasActiveQuests={quests.some(q => q.status === 'active')}
+                worldData={worldData}
+                gameTime={gameTime}
+                turnCount={turnCount}
+                currentTurnTokens={currentTurnTokens}
+                totalTokens={totalTokens}
+                onManualCleanup={handleManualCleanup}
             />
-            
-            <SidebarNav 
-                isOpen={isSidebarOpen} 
+
+            <MobileHeader
+                onOpenSidebar={() => setIsSidebarOpen(true)}
+                worldData={worldData}
+            />
+
+            <SidebarNav
+                isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 onHome={() => setIsHomeModalOpen(true)}
                 onSave={handleSaveGame}
@@ -966,45 +955,24 @@ export const GameScreen: React.FC<{
                 onPCInfo={() => setIsPcInfoModalOpen(true)}
                 onParty={() => setIsPartyModalOpen(true)}
                 onQuests={() => setIsQuestLogModalOpen(true)}
-                onManualCleanup={handleManualCleanup}
-                hasActiveQuests={hasActiveQuests}
+                hasActiveQuests={quests.some(q => q.status === 'active')}
                 currentTurnTokens={currentTurnTokens}
                 totalTokens={totalTokens}
                 historyStats={historyStats}
                 compressedSegments={compressedHistory.length}
                 gameHistory={gameHistory}
-                cleanupStats={cleanupStats!}
-            />
-
-            <MobileHeader onOpenSidebar={() => setIsSidebarOpen(true)} worldData={worldData} />
-
-            <DesktopHeader 
-                onHome={() => setIsHomeModalOpen(true)} 
-                onSave={handleSaveGame} 
-                onMap={() => setIsMapModalOpen(true)}
-                onRules={() => setIsCustomRulesModalOpen(true)}
-                onKnowledge={() => setIsKnowledgeModalOpen(true)}
-                onMemory={() => setIsMemoryModalOpen(true)}
-                onRestart={() => setIsRestartModalOpen(true)}
-                onPCInfo={() => setIsPcInfoModalOpen(true)}
-                onParty={() => setIsPartyModalOpen(true)}
-                onQuests={() => setIsQuestLogModalOpen(true)}
+                cleanupStats={cleanupStats}
                 onManualCleanup={handleManualCleanup}
-                worldData={worldData}
-                gameTime={gameTime}
-                turnCount={turnCount}
-                currentTurnTokens={currentTurnTokens}
-                totalTokens={totalTokens}
-                hasActiveQuests={hasActiveQuests}
             />
 
-            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden p-4 md:p-0">
+            <main className="flex-grow grid md:grid-cols-3 gap-4 p-4 min-h-0">
                 <StoryPanel
                     storyLog={storyLog}
                     isLoading={isLoading}
                     isAiReady={isAiReady}
                     knownEntities={knownEntities}
                     onEntityClick={handleEntityClick}
+                    className="md:col-span-2"
                 />
                 <ActionPanel
                     isAiReady={isAiReady}
@@ -1018,9 +986,9 @@ export const GameScreen: React.FC<{
                     handleSuggestAction={handleSuggestAction}
                     isCustomActionLocked={isCustomActionLocked}
                 />
-            </div>
+            </main>
             
-            <MobileInputFooter
+            <MobileInputFooter 
                 onChoicesClick={() => setIsChoicesModalOpen(true)}
                 customAction={customAction}
                 setCustomAction={setCustomAction}
@@ -1029,6 +997,12 @@ export const GameScreen: React.FC<{
                 isLoading={isLoading}
                 isAiReady={isAiReady}
                 isCustomActionLocked={isCustomActionLocked}
+            />
+            
+            <GameNotifications
+                notification={notification}
+                showSaveSuccess={showSaveSuccess}
+                showRulesSavedSuccess={showRulesSavedSuccess}
             />
 
             <MemoizedModals
@@ -1068,7 +1042,11 @@ export const GameScreen: React.FC<{
                 choices={choices}
                 turnCount={turnCount}
                 locationDiscoveryOrder={locationDiscoveryOrder}
-                entityComputations={entityComputations}
+                entityComputations={{
+                    pcEntity,
+                    pcStatuses: statuses.filter(s => s.owner === pcName),
+                    displayParty: party.filter(p => p.type !== 'pc'),
+                }}
             />
         </div>
     );

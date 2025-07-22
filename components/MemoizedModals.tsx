@@ -97,7 +97,7 @@ export const MemoizedInfoPanelModal = memo<{
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[65] p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[80] p-4" onClick={onClose}>
             <div 
                 className="bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl w-full max-w-lg text-slate-900 dark:text-white flex flex-col" 
                 onClick={e => e.stopPropagation()}
@@ -432,6 +432,7 @@ export const MemoizedModals = memo<MemoizedModalsProps>(({
                 locations={Object.values(knownEntities).filter((e): e is Entity => e.type === 'location')}
                 currentLocationName={entityComputations.pcEntity?.location || ''}
                 discoveryOrder={locationDiscoveryOrder}
+                onLocationClick={handleEntityClick}
             />
 
             {/* Info Panel Modals */}

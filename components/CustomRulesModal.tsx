@@ -99,7 +99,7 @@ export const CustomRulesModal: React.FC<{
 
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[70] p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[75] p-4" onClick={onClose}>
             <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-3xl h-full max-h-[85vh] flex flex-col text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
                 <input
                     type="file"
