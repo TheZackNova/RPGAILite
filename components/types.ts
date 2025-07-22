@@ -1,3 +1,5 @@
+
+
 import type { GoogleGenAI } from "@google/genai";
 
 export type EntityType = 'pc' | 'npc' | 'location' | 'faction' | 'item' | 'skill' | 'status_effect' | 'companion' | 'concept';
@@ -29,8 +31,8 @@ export interface Entity {
   state?: 'dead' | 'broken' | 'destroyed';
   [key: string]: any;
   archived?: boolean;           // Đánh dấu entity đã được archive
-  archivedAt?: number;         // Turn number khi archive
-  lastMentioned?: number;      // Turn cuối cùng được nhắc đến
+    archivedAt?: number;         // Turn number khi archive
+    lastMentioned?: number;      // Turn cuối cùng được nhắc đến
 }
 
 export interface KnownEntities {
@@ -60,7 +62,7 @@ export interface FormData {
 }
 
 export interface Status {
-    name: string;
+    name:string;
     description: string;
     type: 'buff' | 'debuff' | 'neutral' | 'injury';
     source: string;
@@ -111,7 +113,6 @@ export interface ChangelogEntry {
   date: string;
   changes: ChangeItem[];
 }
-
 export interface CompressedHistorySegment {
     turnRange: string;
     summary: string;
@@ -120,7 +121,6 @@ export interface CompressedHistorySegment {
     tokenCount: number;
     compressedAt: number;
 }
-
 // --- Save Game Data Structure ---
 export interface SaveData {
     worldData: Omit<FormData, 'customRules'>;
@@ -160,10 +160,6 @@ export interface SaveData {
             itemsRemoved: number;
         }>;
     };
-    
-    // *** THÊM 2 FIELDS MỚI ĐỂ LƯU CHOICES VÀ STORY LOG ***
-    choices?: string[];           // Lưu choices của lượt hiện tại
-    storyLog?: string[];         // Lưu toàn bộ story log
 }
 
 export interface AIContextType {
