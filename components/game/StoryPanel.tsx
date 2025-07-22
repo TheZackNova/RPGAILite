@@ -301,7 +301,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                 ) : (
                     <div
                         ref={scrollElementRef}
-                        className="h-full overflow-y-auto pr-2 p-4 md:pb-4 pb-32"
+                        className="h-full overflow-y-auto pr-2 p-4 md:pb-4 pb-40"
                         onScroll={onScroll}
                         style={{ height: virtualState.containerHeight }}
                     >
