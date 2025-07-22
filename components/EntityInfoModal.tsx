@@ -68,6 +68,7 @@ export const EntityInfoModal: React.FC<{
                             {entity.gender && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Giới tính:</strong> {entity.gender}</p>}
                             {entity.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tuổi:</strong> {entity.age}</p>}
                             {entity.appearance && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Dung mạo:</strong> {entity.appearance}</p>}
+                            {entity.fame && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong> {entity.fame}</p>}
                             {entity.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Vị trí:</strong> {entity.location}</p>}
                             {entity.personality && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Bề ngoài):</strong> {entity.personality}</p>}
                             {entity.motivation && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Động cơ:</strong> {entity.motivation}</p>}
@@ -77,45 +78,54 @@ export const EntityInfoModal: React.FC<{
                                     <span className="italic">{`"${MBTI_PERSONALITIES[entity.personalityMbti].description}"`}</span>
                                 </p>
                             )}
-                             {entity.relationship && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Quan hệ:</strong> {entity.relationship}</p>}
                         </>
                     )}
 
                     {/* Realm can apply to characters and skills */}
                     {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : 'Cảnh giới:'}</strong> {entity.realm}</p>}
 
-                    {/* Skills for NPCs/Companions */}
-                    {(entity.type === 'npc' || entity.type === 'companion') && Array.isArray(entity.skills) && entity.skills.length > 0 && (
-                        <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60">
-                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Kỹ năng:</strong>
-                            <ul className="list-disc list-inside pl-2 mt-1">
-                                {entity.skills.map((skillName: string) => (
-                                    <li key={skillName} className="text-sm">
-                                        {skillName}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
+                    {/* NPC and Companion specific info */}
+                    {(entity.type === 'npc' || entity.type === 'companion') && (
+                        <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-3">
+                            {entity.relationship && (
+                                <div>
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Quan hệ:</strong>
+                                    <p className="pl-2 mt-1 text-sm">{entity.relationship}</p>
+                                </div>
+                            )}
 
-                    {/* Statuses for NPCs/Companions */}
-                    {npcStatuses.length > 0 && (
-                        <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60">
-                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                                {npcStatuses.map(status => (
-                                    <button
-                                        key={status.name}
-                                        onClick={() => onStatusClick(status)}
-                                        className={`px-2 py-1 border rounded-md transition-colors duration-200 flex items-center gap-1.5 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')}`}
-                                    >
-                                        <span className="w-4 h-4">{getIconForStatus(status)}</span>
-                                        <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
-                                            {status.name}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
+                            {Array.isArray(entity.skills) && entity.skills.length > 0 && (
+                                <div>
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Kỹ năng:</strong>
+                                    <ul className="list-disc list-inside pl-2 mt-1">
+                                        {entity.skills.map((skillName: string) => (
+                                            <li key={skillName} className="text-sm">
+                                                {skillName}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {npcStatuses.length > 0 && (
+                                <div>
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                        {npcStatuses.map(status => (
+                                            <button
+                                                key={status.name}
+                                                onClick={() => onStatusClick(status)}
+                                                className={`px-2 py-1 border rounded-md transition-colors duration-200 flex items-center gap-1.5 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')}`}
+                                            >
+                                                <span className="w-4 h-4">{getIconForStatus(status)}</span>
+                                                <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
+                                                    {status.name}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     

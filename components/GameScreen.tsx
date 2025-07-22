@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -149,6 +151,23 @@ export const GameScreen: React.FC<{
     
     // Map State
     const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
+        // Priority 1: Use directly saved order if it exists
+        if (Array.isArray(initialGameState.locationDiscoveryOrder)) {
+            const savedOrder = [...initialGameState.locationDiscoveryOrder];
+            const seen = new Set(savedOrder);
+            const allKnownLocations = Object.values(initialGameState.knownEntities)
+                .filter(e => e.type === 'location')
+                .map(e => e.name);
+
+            allKnownLocations.forEach(locName => {
+                if (!seen.has(locName)) {
+                    savedOrder.push(locName);
+                }
+            });
+            return savedOrder;
+        }
+
+        // Priority 2: Fallback for older saves - rehydrate from history
         const order: string[] = [];
         const seen = new Set<string>();
         initialGameState.gameHistory.forEach(entry => {
@@ -168,6 +187,19 @@ export const GameScreen: React.FC<{
                 } catch (e) { /* Ignore non-json responses */ }
             }
         });
+        
+        // Final fallback: Ensure all known locations are at least present, even if order is arbitrary
+        const knownLocations = Object.values(initialGameState.knownEntities)
+            .filter(e => e.type === 'location')
+            .map(e => e.name);
+            
+        knownLocations.forEach(locName => {
+            if (!seen.has(locName)) {
+                order.push(locName);
+                seen.add(locName);
+            }
+        });
+
         return order;
     });
 
@@ -180,63 +212,7 @@ export const GameScreen: React.FC<{
     const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
     const pcName = pcEntity?.name;
     
-    // --- Data Rehydration Logic ---
-    const { rehydratedLog, rehydratedChoices } = useMemo(() => {
-        const typedInitialState = initialGameState as any;
-        if (typedInitialState.storyLog?.length > 0) {
-            return { 
-                rehydratedLog: typedInitialState.storyLog, 
-                rehydratedChoices: typedInitialState.choices || [] 
-            };
-        }
-        
-        const log: string[] = [];
-        let lastChoices: string[] = [];
-    
-        initialGameState.gameHistory.forEach(entry => {
-            if (entry.role === 'user') {
-                const fullPrompt = entry.parts[0].text;
-                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
-                const actionText = actionMatch ? actionMatch[1] : null;
-    
-                if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
-                    log.push(`> ${actionText}`);
-                }
-            } else { // 'model' role
-                try {
-                    const jsonResponse = JSON.parse(entry.parts[0].text);
-                    const storyText = jsonResponse.story || '';
-                    const cleanStory = parseStoryAndTags(storyText, false); 
-                    if (cleanStory) {
-                        log.push(cleanStory);
-                    }
-                    lastChoices = jsonResponse.choices || [];
-                } catch (e) {
-                    const cleanText = entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
-                    log.push(cleanText);
-                }
-            }
-        });
-    
-        return { rehydratedLog: log, rehydratedChoices: lastChoices };
-    }, [initialGameState]); 
-    
-    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
-    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
-
-    // --- Handle Key Rotation Notification ---
-    useEffect(() => {
-        if (keyRotationNotification) {
-            setNotification(keyRotationNotification);
-            const timer = setTimeout(() => {
-                setNotification(null);
-                onClearNotification();
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [keyRotationNotification, onClearNotification]);
-
-    const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
+    const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
         if (!storyText) return '';
     
         const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
@@ -587,8 +563,64 @@ export const GameScreen: React.FC<{
              console.warn("Unprocessed Tags:", unprocessedTags);
         }
         return finalStory;
-    };
+    }, []);
     
+    // --- Data Rehydration Logic ---
+    const { rehydratedLog, rehydratedChoices } = useMemo(() => {
+        // Priority 1: Use directly saved log and choices if they exist (new save format)
+        if (Array.isArray(initialGameState.storyLog) && Array.isArray(initialGameState.choices)) {
+            return {
+                rehydratedLog: initialGameState.storyLog,
+                rehydratedChoices: initialGameState.choices,
+            };
+        }
+    
+        // Priority 2: Fallback for older saves - rehydrate from history
+        const log: string[] = [];
+        let lastChoices: string[] = [];
+    
+        (initialGameState.gameHistory || []).forEach(entry => {
+            if (entry.role === 'user') {
+                const fullPrompt = entry.parts[0].text;
+                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
+                const actionText = actionMatch ? actionMatch[1] : null;
+    
+                if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
+                    log.push(`> ${actionText}`);
+                }
+            } else { // 'model' role
+                try {
+                    const jsonResponse = JSON.parse(entry.parts[0].text);
+                    const storyText = jsonResponse.story || '';
+                    const cleanStory = parseStoryAndTags(storyText, false); 
+                    if (cleanStory) {
+                        log.push(cleanStory);
+                    }
+                    lastChoices = jsonResponse.choices || [];
+                } catch (e) {
+                    const cleanText = entry.parts[0].text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
+                    log.push(cleanText);
+                }
+            }
+        });
+    
+        return { rehydratedLog: log, rehydratedChoices: lastChoices };
+    }, [initialGameState, parseStoryAndTags]); 
+    
+    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
+    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
+
+    // --- Handle Key Rotation Notification ---
+    useEffect(() => {
+        if (keyRotationNotification) {
+            setNotification(keyRotationNotification);
+            const timer = setTimeout(() => {
+                setNotification(null);
+                onClearNotification();
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [keyRotationNotification, onClearNotification]);
 
     
     useEffect(() => {
@@ -820,7 +852,7 @@ export const GameScreen: React.FC<{
         setShowSaveSuccess(true);
         setTimeout(() => setShowSaveSuccess(false), 3000);
     
-        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, Choices, storyLog };
+        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder };
         const jsonString = JSON.stringify(currentGameState, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
