@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -150,6 +151,23 @@ export const GameScreen: React.FC<{
     
     // Map State
     const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
+        // Priority 1: Use directly saved order if it exists
+        if (Array.isArray(initialGameState.locationDiscoveryOrder)) {
+            const savedOrder = [...initialGameState.locationDiscoveryOrder];
+            const seen = new Set(savedOrder);
+            const allKnownLocations = Object.values(initialGameState.knownEntities)
+                .filter(e => e.type === 'location')
+                .map(e => e.name);
+
+            allKnownLocations.forEach(locName => {
+                if (!seen.has(locName)) {
+                    savedOrder.push(locName);
+                }
+            });
+            return savedOrder;
+        }
+
+        // Priority 2: Fallback for older saves - rehydrate from history
         const order: string[] = [];
         const seen = new Set<string>();
         initialGameState.gameHistory.forEach(entry => {
@@ -169,6 +187,19 @@ export const GameScreen: React.FC<{
                 } catch (e) { /* Ignore non-json responses */ }
             }
         });
+        
+        // Final fallback: Ensure all known locations are at least present, even if order is arbitrary
+        const knownLocations = Object.values(initialGameState.knownEntities)
+            .filter(e => e.type === 'location')
+            .map(e => e.name);
+            
+        knownLocations.forEach(locName => {
+            if (!seen.has(locName)) {
+                order.push(locName);
+                seen.add(locName);
+            }
+        });
+
         return order;
     });
 
@@ -821,7 +852,7 @@ export const GameScreen: React.FC<{
         setShowSaveSuccess(true);
         setTimeout(() => setShowSaveSuccess(false), 3000);
     
-        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices };
+        const currentGameState: SaveData = { worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder };
         const jsonString = JSON.stringify(currentGameState, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
