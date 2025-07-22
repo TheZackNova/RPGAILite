@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
@@ -280,6 +281,7 @@ export default function App() {
             chapter: [],
             turn: [],
         },
+        lastCompressionTurn: 0,
       });
       setView('game');
   }
