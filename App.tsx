@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
@@ -8,49 +11,6 @@ import { ChangelogModal } from './components/ChangelogModal.tsx';
 import { CustomizationFooter } from './components/CustomizationFooter.tsx';
 import type { SaveData, Entity, AIContextType, FormData, CustomRule } from './components/types.ts';
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
-
-// --- Error Boundary Component ---
-class ErrorBoundary extends React.Component<
-    { children: React.ReactNode },
-    { hasError: boolean; error?: Error }
-> {
-    constructor(props: { children: React.ReactNode }) {
-        super(props);
-        this.state = { hasError: false };
-    }
-
-    static getDerivedStateFromError(error: Error) {
-        return { hasError: true, error };
-    }
-
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        console.error('GameScreen Error:', error, errorInfo);
-    }
-
-    render() {
-        if (this.state.hasError) {
-            return (
-                <div className="flex flex-col items-center justify-center h-screen p-8 text-center">
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Có lỗi xảy ra khi tải game</h2>
-                    <p className="text-gray-600 mb-4">
-                        Lỗi: {this.state.error?.message || 'Unknown error'}
-                    </p>
-                    <button 
-                        onClick={() => {
-                            this.setState({ hasError: false });
-                            window.location.reload();
-                        }}
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                        Tải lại trang
-                    </button>
-                </div>
-            );
-        }
-
-        return this.props.children;
-    }
-}
 
 // --- Constants ---
 export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MASTER) AI. Nhiệm vụ của bạn là điều khiển một trò chơi nhập vai phiêu lưu văn bản, tuân thủ NGHIÊM NGẶT các quy tắc sau:
@@ -81,51 +41,106 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 2. **CHRONICLE_TURN (BẮT BUỘC MỖI LƯỢT):**
    \`[CHRONICLE_TURN: text="Tóm tắt ngắn gọn sự kiện chính của lượt này"]\`
 
-3. **LORE_ENTITY (KHI CẦN):** Mỗi khi đề cập đến nhân vật, vật phẩm, địa điểm:
-   \`[LORE_ENTITY: name="Tên", type="pc/npc/item/location/skill", description="Mô tả", ...các thuộc tính khác]\`
+3. **VỊ TRÍ VÀ DI CHUYỂN:**
+   - Khi nhân vật di chuyển: \`[ENTITY_UPDATE: name="TênPC", location="Địa điểm mới"]\`
+   - Khi khám phá địa điểm mới: \`[LORE_LOCATION: name="Tên địa điểm", description="Mô tả chi tiết"]\`
 
-4. **APPLY_STATUS/REMOVE_STATUS (KHI CẦN):**
-   \`[APPLY_STATUS: name="Tên trạng thái", owner="pc/npc_name", type="buff/debuff/neutral", description="Mô tả", duration="X turns"]\`
+**B. CHỦ ĐỘNG TẠO TRẠNG THÁI:**
 
-5. **ADD_MEMORY (KHI CẦN):**
-   \`[ADD_MEMORY: text="Sự kiện quan trọng cần nhớ"]\`
+Bạn PHẢI chủ động áp dụng trạng thái trong các tình huống sau:
+- **Sau chiến đấu:** Vết thương, mệt mỏi, đau đớn
+- **Môi trường khắc nghiệt:** Lạnh, nóng, ẩm ướt, độc hại
+- **Hoạt động lâu dài:** Mệt mỏi, đói khát
+- **Tương tác xã hội:** Stress, hứng thú, tức giận
+- **Sử dụng kỹ năng:** Buff tạm thời, debuff từ overuse
 
-6. **UPDATE_QUEST (KHI CẦN):**
-   \`[UPDATE_QUEST: title="Tên nhiệm vụ", status="active/completed/failed", objectives=["Mục tiêu 1:false", "Mục tiêu 2:true"]]\`
+**Ví dụ trạng thái cần tạo:**
+\`[STATUS_APPLIED_SELF: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\`
 
---- QUY TẮC VIẾT TRUYỆN ---
+\`[STATUS_APPLIED_SELF: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
 
-**B. PHONG CÁCH VIẾT:**
-- Sử dụng ngôi kể được chỉ định (ngôi 1 hoặc ngôi 2)
-- Mô tả chi tiết, sống động như tiểu thuyết
-- Dialogue tự nhiên với "..." 
-- Tạo tension và emotion
-- Không viết quá dài (tối đa 200-300 từ mỗi lượt)
+**C. TẠO VÀ CẬP NHẬT THỰC THỂ:**
 
-**C. QUY TẮC GAME:**
-- Thế giới phản ứng với mọi hành động
-- NPCs có mục đích và personality riêng
-- Hậu quả thực tế cho các quyết định
-- Difficulty scaling theo setting
-- Tạo plot hooks liên tục
+1. **NPCs mới:**
+\`[LORE_NPC: name="Tên NPC", description="Mô tả chi tiết", gender="Nam/Nữ", age="25", appearance="Dung mạo", motivation="Động cơ", location="Vị trí", personalityMbti="ENTJ", skills="Kỹ năng 1,Kỹ năng 2"]\`
 
-**D. QUY TẮC NSFW (NẾU ĐƯỢC BẬT):**
-- Viết táo bạo, không che đậy
-- Mô tả chi tiết sensual scenes
-- Tạo ít nhất 2 lựa chọn 18+ mỗi lượt khi phù hợp
-- Đánh dấu choices NSFW bằng "(NSFW)"
+2. **Vật phẩm mới:**
+\`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, durability=100]\`
 
---- CHECKLIST CHẤT LƯỢNG ---
-**TRƯỚC KHI TRẢ LỜI, KIỂM TRA:**
+3. **Kỹ năng mới:**
+\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", realm="Cảnh giới nếu có"]\`
 
-1. **✓ TAGS:** Có đủ [TIME_ELAPSED] và [CHRONICLE_TURN]?
-2. **✓ LORE:** Có update entities khi cần thiết?  
-3. **✓ WORLD:** Thế giới có phản ứng và sống động?
-4. **✓ PLOT:** Có tạo tension/intrigue mới?
-5. **✓ CHARACTER:** NPCs có personality rõ ràng?
-6. **✓ CONSEQUENCE:** Hành động có hậu quả hợp lý?
-7. **✓ DIFFICULTY:** Phù hợp với setting?
-8. **✓ LENGTH:** Không quá dài hay quá ngắn?
+**D. NHIỆM VỤ VÀ QUEST:**
+
+Chủ động tạo quest mới và cập nhật quest hiện tại:
+\`[QUEST_ASSIGNED: title="Tên nhiệm vụ", description="Mô tả", objectives="Mục tiêu 1;Mục tiêu 2", giver="Người giao", reward="Phần thưởng", isMainQuest=false]\`
+
+--- QUY TẮC TƯƠNG TÁC ---
+
+**1. LỰAN CHỌN HÀNH ĐỘNG:**
+- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu
+- Tận dụng kỹ năng và vật phẩm của nhân vật
+- Có lựa chọn rủi ro cao/thưởng cao
+
+**2. KẾT QUẢ HÀNH ĐỘNG:**
+- KHÔNG đảm bảo thành công
+- Sử dụng RNG ẩn để quyết định kết quả
+- Hậu quả logic dựa trên kỹ năng và hoàn cảnh
+
+**3. CHIẾN ĐẤU:**
+- Theo từng lượt, không giải quyết nhanh
+- Kẻ địch cũng có hành động và trạng thái
+- Mô tả chi tiết và tạo tension
+
+**4. THẾ GIỚI PHẢN ỨNG:**
+- NPCs phản ứng với hành động của PC
+- Môi trường thay đổi theo thời gian
+- Sự kiện ngẫu nhiên và tình huống bất ngờ
+
+--- ĐỊNH DẠNG VĂN BẢN ---
+
+**1. LỜI KỂ:**
+- 150-250 từ, chi tiết và sống động
+- Sử dụng \`...\` cho suy nghĩ nội tâm
+- \`**⭐...⭐**\` cho thông báo quan trọng
+
+**2. MÔ TẢ HÀNH ĐỘNG:**
+- Mô tả hậu quả rõ ràng
+- Phản ứng của môi trường và NPCs
+- Thay đổi trạng thái và hoàn cảnh
+
+**3. NSFW (KHI ĐƯỢỢC BẬT):**
+- Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
+- Mô tả cực kỳ chi tiết, trần trụi
+- Tạo trạng thái liên quan đến tình dục/bạo lực
+
+--- LƯU Ý QUAN TRỌNG ---
+
+**BẮT BUỘC PHẢI LÀM:**
+1. Sử dụng \`[TIME_ELAPSED]\` và \`[CHRONICLE_TURN]\` mỗi lượt
+2. Tạo trạng thái phù hợp với tình huống
+3. Cập nhật vị trí khi di chuyển
+4. Tạo NPCs, vật phẩm, địa điểm mới khi cần
+5. Phản hồi với thế giới sống động
+
+**KHÔNG ĐƯỢC:**
+1. Bỏ qua việc sử dụng thẻ lệnh
+2. Để trống thuộc tính \`description\` khi tạo thực thể
+3. Giải quyết chiến đấu trong một lượt
+4. Làm cho thế giới tĩnh lặng, chờ đợi
+
+**KIỂM TRA CUỐI LƯỢT (MANDATORY CHECKLIST):**
+
+Trước khi hoàn thành phản hồi, hãy tự kiểm tra theo thứ tự:
+
+1. **✓ BẮT BUỘC - TIME_ELAPSED:** Đã sử dụng với giá trị phù hợp?
+2. **✓ BẮT BUỘC - CHRONICLE_TURN:** Đã tóm tắt sự kiện chính?
+3. **✓ STATUS CHECK:** Có tình huống nào cần tạo status không? (Rule 80/20)
+4. **✓ LOCATION CHECK:** PC có di chuyển không? Có địa điểm mới nào không?
+5. **✓ ENTITY CHECK:** Có NPCs, items, skills mới nào cần tạo không?
+6. **✓ INTERACTION CHECK:** Có NPCs nào cần cập nhật relationship không?
+7. **✓ QUEST CHECK:** Có objectives nào hoàn thành không? Cần quest mới không?
+8. **✓ WORLD REACTION:** Thế giới có phản ứng sống động với hành động PC không?
 9. **✓ CHOICE QUALITY:** 4-5 lựa chọn có đa dạng và meaningful không?
 10. **✓ NSFW COMPLIANCE:** Nếu NSFW ON, có đủ 2+ lựa chọn 18+ không?
 
@@ -141,7 +156,6 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 
 **FINAL REMINDER:**
 "Bạn là người kể chuyện CHỦ ĐỘNG và sáng tạo. Thế giới phải SỐNG và PHẢN ỨNG với mọi hành động. Không bao giờ để game trở nên tĩnh lặng hay nhàm chán!"`;
-
 // --- AI Context for dependency injection ---
 export const AIContext = createContext<AIContextType>({
     ai: null,
@@ -195,49 +209,40 @@ export default function App() {
           apiKeyError: "API Key chưa được thiết lập. Vui lòng vào phần Thiết Lập API Key."
         };
       }
-
       try {
-        const aiInstance = new GoogleGenAI(activeKey);
-        return {
-          ai: aiInstance,
-          isAiReady: true,
-          apiKeyError: null
-        };
-      } catch (error) {
-        return {
-          ai: null,
-          isAiReady: false,
-          apiKeyError: "API Key không hợp lệ. Vui lòng kiểm tra lại."
-        };
+        const genAI = new GoogleGenAI({ apiKey: activeKey });
+        return { ai: genAI, isAiReady: true, apiKeyError: null };
+      } catch (e: any) {
+        console.error("Failed to initialize GoogleGenAI:", e);
+        return { ai: null, isAiReady: false, apiKeyError: `Lỗi khởi tạo AI: ${e.message}` };
       }
   }, [activeKey]);
-
-  // --- API Key Management ---
-  const handleSaveApiKeys = (keys: string[]) => {
-      setUserApiKeys(keys);
-      localStorage.setItem('userApiKeys', JSON.stringify(keys));
-      
-      // Reset to first key if current index is out of bounds
-      if (activeUserApiKeyIndex >= keys.length) {
-          setActiveUserApiKeyIndex(0);
-          localStorage.setItem('activeUserApiKeyIndex', '0');
-      }
+  
+  // --- Key Management ---
+  const handleSaveApiKeys = (newKeys: string[]) => {
+      const filteredKeys = newKeys.filter(k => k.trim() !== '');
+      setUserApiKeys(filteredKeys);
+      setActiveUserApiKeyIndex(0);
+      setIsUsingDefaultKey(false);
+      localStorage.setItem('userApiKeys', JSON.stringify(filteredKeys));
+      localStorage.setItem('activeUserApiKeyIndex', '0');
+      localStorage.setItem('isUsingDefaultKey', 'false');
   };
-
+  
   const handleUseDefaultKey = () => {
       setIsUsingDefaultKey(true);
       localStorage.setItem('isUsingDefaultKey', 'true');
   };
 
   const handleRotateKey = () => {
-    if (userApiKeys.length <= 1) return;
-    
+    if (isUsingDefaultKey || userApiKeys.length <= 1) return;
     const nextIndex = (activeUserApiKeyIndex + 1) % userApiKeys.length;
     setActiveUserApiKeyIndex(nextIndex);
     localStorage.setItem('activeUserApiKeyIndex', nextIndex.toString());
-    setKeyRotationNotification(`Đã tự động chuyển sang API Key #${nextIndex + 1}.`);
+    setKeyRotationNotification(`Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key #${nextIndex + 1}.`);
     // Notification will be cleared in GameScreen after being displayed
   };
+
 
   const navigateToCreateWorld = () => setView('create-world');
   const navigateToMenu = () => {
@@ -245,7 +250,6 @@ export default function App() {
       setView('menu');
   };
   
-  // *** SAFE startNewGame function ***
   const startNewGame = (data: FormData) => {
       const pcEntity: Entity = {
           name: data.characterName || 'Vô Danh',
@@ -258,46 +262,28 @@ export default function App() {
       
       const { customRules, ...worldData } = data;
 
-      // *** SAFE game state initialization ***
       setGameState({
-          worldData: worldData,
-          knownEntities: { [pcEntity.name]: pcEntity },
-          statuses: [],
-          quests: [],
-          gameHistory: [],
-          memories: [],
-          party: [pcEntity],
-          customRules: Array.isArray(customRules) ? customRules : [],
-          systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
-          turnCount: 0,
-          totalTokens: 0,
-          gameTime: { year: 1, month: 1, day: 1, hour: 8 },
-          chronicle: {
-              memoir: [],
-              chapter: [],
-              turn: [],
-          },
-          // *** Thêm các fields mới với safe defaults ***
-          compressedHistory: [],
-          lastCompressionTurn: 0,
-          historyStats: {
-              totalEntriesProcessed: 0,
-              totalTokensSaved: 0,
-              compressionCount: 0
-          },
-          cleanupStats: {
-              totalCleanupsPerformed: 0,
-              totalTokensSavedFromCleanup: 0,
-              lastCleanupTurn: 0,
-              cleanupHistory: []
-          },
-          choices: [],
-          storyLog: []
+        worldData: worldData,
+        knownEntities: { [pcEntity.name]: pcEntity },
+        statuses: [],
+        quests: [],
+        gameHistory: [],
+        memories: [],
+        party: [pcEntity],
+        customRules: customRules || [],
+        systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+        turnCount: 0,
+        totalTokens: 0,
+        gameTime: { year: 1, month: 1, day: 1, hour: 8 },
+        chronicle: {
+            memoir: [],
+            chapter: [],
+            turn: [],
+        },
       });
       setView('game');
-  };
+  }
 
-  // *** SAFE handleLoadGameFromFile WITH ENHANCED VALIDATION ***
   const handleLoadGameFromFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -305,41 +291,29 @@ export default function App() {
             const text = e.target?.result;
             if (typeof text === 'string') {
                 const loadedJson = JSON.parse(text);
-                
-                // *** ENHANCED VALIDATION với logging ***
-                console.log("Loading save file with:", {
-                    hasWorldData: !!loadedJson.worldData,
-                    hasKnownEntities: !!loadedJson.knownEntities,
-                    hasGameHistory: !!loadedJson.gameHistory,
-                    hasChoices: !!loadedJson.choices,
-                    hasStoryLog: !!loadedJson.storyLog,
-                    choicesCount: loadedJson.choices?.length || 0,
-                    storyLogCount: loadedJson.storyLog?.length || 0
-                });
-                
                 // Basic validation
-                if (loadedJson.worldData && loadedJson.knownEntities) {
-                    const pc = Object.values(loadedJson.knownEntities || {}).find((e: any) => e?.type === 'pc');
-                    
-                    // *** SAFE validatedData với tất cả arrays được đảm bảo ***
+                if (loadedJson.worldData && loadedJson.knownEntities && loadedJson.gameHistory) {
+                    const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
+                    // Ensure new fields have default values if loading an old save
                     const validatedData: SaveData = {
                         worldData: loadedJson.worldData,
-                        knownEntities: loadedJson.knownEntities || {},
-                        statuses: Array.isArray(loadedJson.statuses) ? loadedJson.statuses : [],
-                        quests: Array.isArray(loadedJson.quests) ? loadedJson.quests : [],
-                        gameHistory: Array.isArray(loadedJson.gameHistory) ? loadedJson.gameHistory : [],
-                        memories: Array.isArray(loadedJson.memories) ? loadedJson.memories : [],
-                        party: Array.isArray(loadedJson.party) ? loadedJson.party : (pc ? [pc] : []),
-                        customRules: Array.isArray(loadedJson.customRules) ? loadedJson.customRules : 
-                                    (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
+                        knownEntities: loadedJson.knownEntities,
+                        statuses: loadedJson.statuses || [],
+                        quests: loadedJson.quests || [],
+                        gameHistory: loadedJson.gameHistory,
+                        memories: loadedJson.memories || [],
+                        party: loadedJson.party || (pc ? [pc] : []),
+                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
                         systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
                         turnCount: loadedJson.turnCount || 0,
                         totalTokens: loadedJson.totalTokens || 0,
                         gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
                         chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
-                        
-                        // Support cho compressed history với safe checks
-                        compressedHistory: Array.isArray(loadedJson.compressedHistory) ? loadedJson.compressedHistory : [],
+                        storyLog: loadedJson.storyLog,
+                        choices: loadedJson.choices,
+                        locationDiscoveryOrder: loadedJson.locationDiscoveryOrder,
+                        // Thêm support cho compressed history
+                        compressedHistory: loadedJson.compressedHistory || [],
                         lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
                         historyStats: loadedJson.historyStats || {
                             totalEntriesProcessed: 0,
@@ -352,52 +326,18 @@ export default function App() {
                             lastCleanupTurn: 0,
                             cleanupHistory: []
                         },
-                        
-                        // *** SAFE SUPPORT CHO CHOICES VÀ STORYLOG ***
-                        choices: Array.isArray(loadedJson.choices) ? loadedJson.choices : [],
-                        storyLog: Array.isArray(loadedJson.storyLog) ? loadedJson.storyLog : []
                     };
-                    
-                    // *** ADDITIONAL SAFETY CHECKS ***
-                    
-                    // Ensure chronicle has all required arrays
-                    if (!validatedData.chronicle.memoir) validatedData.chronicle.memoir = [];
-                    if (!validatedData.chronicle.chapter) validatedData.chronicle.chapter = [];
-                    if (!validatedData.chronicle.turn) validatedData.chronicle.turn = [];
-                    
-                    // Ensure cleanupStats has required array
-                    if (!validatedData.cleanupStats?.cleanupHistory) {
-                        validatedData.cleanupStats = {
-                            ...validatedData.cleanupStats,
-                            cleanupHistory: []
-                        };
-                    }
-                    
-                    // Cleanup legacy field
                     delete (validatedData as any).userKnowledge;
-                    
-                    console.log("Save loaded successfully:", {
-                        choicesLoaded: validatedData.choices?.length || 0,
-                        storyLogLoaded: validatedData.storyLog?.length || 0,
-                        turnCount: validatedData.turnCount,
-                        gameHistoryEntries: validatedData.gameHistory?.length || 0,
-                        entitiesCount: Object.keys(validatedData.knownEntities || {}).length
-                    });
 
                     setGameState(validatedData);
                     setView('game');
                 } else {
-                    console.error("Invalid save file structure:", {
-                        hasWorldData: !!loadedJson.worldData,
-                        hasKnownEntities: !!loadedJson.knownEntities,
-                        hasGameHistory: !!loadedJson.gameHistory
-                    });
-                    alert('Tệp lưu không hợp lệ. Thiếu dữ liệu cần thiết (worldData, knownEntities).');
+                    alert('Tệp lưu không hợp lệ.');
                 }
             }
         } catch (error) {
             console.error('Lỗi khi tải tệp:', error);
-            alert(`Không thể đọc tệp lưu. Chi tiết lỗi: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            alert('Không thể đọc tệp lưu. Tệp có thể bị hỏng hoặc không đúng định dạng.');
         }
     };
     reader.readAsText(file);
@@ -411,37 +351,17 @@ export default function App() {
           case 'create-world':
               return <CreateWorld onBack={navigateToMenu} onStartGame={startNewGame} />;
           case 'game':
-              return gameState ? (
-                  <ErrorBoundary>
-                      <GameScreen 
-                          initialGameState={gameState} 
-                          onBackToMenu={navigateToMenu} 
-                          fontFamily={fontFamily}
-                          fontSize={fontSize}
-                          keyRotationNotification={keyRotationNotification}
-                          onClearNotification={() => setKeyRotationNotification(null)}
-                      />
-                  </ErrorBoundary>
-              ) : (
-                  <MainMenu 
-                      onStartNewAdventure={navigateToCreateWorld} 
-                      onOpenApiSettings={openApiSettings} 
-                      onLoadGameFromFile={handleLoadGameFromFile} 
-                      isUsingDefaultKey={isUsingDefaultKey} 
-                      onOpenChangelog={openChangelog}
-                  />
-              );
+              return gameState ? <GameScreen 
+                initialGameState={gameState} 
+                onBackToMenu={navigateToMenu} 
+                fontFamily={fontFamily}
+                fontSize={fontSize}
+                keyRotationNotification={keyRotationNotification}
+                onClearNotification={() => setKeyRotationNotification(null)}
+              /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
           case 'menu':
           default:
-              return (
-                  <MainMenu 
-                      onStartNewAdventure={navigateToCreateWorld} 
-                      onOpenApiSettings={openApiSettings} 
-                      onLoadGameFromFile={handleLoadGameFromFile} 
-                      isUsingDefaultKey={isUsingDefaultKey} 
-                      onOpenChangelog={openChangelog}
-                  />
-              );
+              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
       }
   }
 
