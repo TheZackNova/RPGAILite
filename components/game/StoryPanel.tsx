@@ -220,22 +220,26 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     // Use optimized scroll hook
     const { scrollElementRef, onScroll, scrollToBottom } = useOptimizedScroll(handleScroll, 16);
 
-    // Update container height on resize
+    // Update container height on resize using ResizeObserver for robustness
     useEffect(() => {
-        const updateContainerHeight = () => {
-            if (containerRef.current) {
-                const rect = containerRef.current.getBoundingClientRect();
-                setVirtualState(prev => ({
-                    ...prev,
-                    containerHeight: rect.height
-                }));
-            }
-        };
+        const element = scrollElementRef.current;
+        if (!element) return;
 
-        updateContainerHeight();
-        window.addEventListener('resize', updateContainerHeight);
-        return () => window.removeEventListener('resize', updateContainerHeight);
-    }, []);
+        const observer = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const { height } = entry.contentRect;
+                setVirtualState(prev => {
+                    if (prev.containerHeight !== height) {
+                        return { ...prev, containerHeight: height };
+                    }
+                    return prev;
+                });
+            }
+        });
+
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [scrollElementRef]);
 
     // Auto-scroll when new content is added
     useEffect(() => {
@@ -246,7 +250,6 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         }
     }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
 
-    // Calculate offset for visible items
     const offsetY = visibleRange.startIndex > 0 ? itemPositions[visibleRange.startIndex].start : 0;
 
     // Cleanup timeout on unmount
@@ -261,7 +264,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     return (
         <div 
             ref={containerRef}
-            className={`md:col-span-1 flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden ${className}`}
+            className={`flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden ${className}`}
         >
             {/* Header */}
             <div className="flex-shrink-0 p-4 pb-0">
@@ -303,7 +306,6 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                         ref={scrollElementRef}
                         className="h-full overflow-y-auto pr-2 p-4 md:pb-4 pb-40"
                         onScroll={onScroll}
-                        style={{ height: virtualState.containerHeight }}
                     >
                         <div
                             style={{
