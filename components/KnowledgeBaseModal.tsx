@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import type { Entity, KnownEntities } from './types.ts';
 import { getIconForEntity } from './utils.ts';
@@ -93,7 +92,7 @@ export const KnowledgeBaseModal: React.FC<{
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[75] p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4" onClick={onClose}>
             <div
                 className="bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl w-full max-w-4xl h-full max-h-[85vh] text-slate-900 dark:text-white flex flex-col"
                 onClick={e => e.stopPropagation()}
