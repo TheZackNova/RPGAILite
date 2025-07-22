@@ -3,6 +3,14 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.23.0',
+    date: '2024-08-21',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi nghiêm trọng khiến các địa điểm đã khám phá không hiển thị trên bản đồ, đặc biệt khi tải game từ file lưu cũ.' },
+      { type: 'improvement', text: 'Cải thiện độ tin cậy của việc tải game: Hệ thống giờ đây lưu lại thứ tự khám phá địa điểm và có cơ chế dự phòng để đảm bảo tất cả địa điểm luôn được hiển thị chính xác trên bản đồ.' },
+    ],
+  },
+  {
     version: '1.22.0',
     date: '2024-08-20',
     changes: [
