@@ -3,6 +3,15 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.21.0',
+    date: '2024-08-19',
+    changes: [
+      { type: 'feature', text: 'Nâng cấp mạnh mẽ cửa sổ "Tri Thức Thế Giới" với chức năng tìm kiếm và bộ lọc. Giờ đây người chơi có thể dễ dàng tìm kiếm thực thể theo tên và lọc theo từng loại (Kỹ năng, Vật phẩm, NPC...).' },
+      { type: 'improvement', text: 'Tối ưu hóa hiệu suất hiển thị trong "Tri Thức Thế Giới" khi có số lượng lớn các thực thể.' },
+      { type: 'fix', text: 'Sửa lỗi hiển thị nhỏ khiến một số icon trong Tri Thức không đồng nhất với các khu vực khác của game.' },
+    ],
+  },
+  {
     version: '1.20.0',
     date: '2024-08-18',
     changes: [
@@ -48,7 +57,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
   },
  {
     version: '1.17.0',
-    date: '2024-08-13',
+    date: '2024-08-12',
     changes: [
       { type: 'improvement', text: 'Tái cấu trúc mã nguồn (refactor) toàn bộ GameScreen, chia thành các component nhỏ hơn để dễ quản lý, bảo trì và mở rộng.' },
       { type: 'improvement', text: 'Cấu trúc thư mục được tổ chức lại với thư mục con `components/game` cho các thành phần của màn hình chơi game.' },
