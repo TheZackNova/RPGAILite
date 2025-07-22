@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
@@ -281,7 +278,6 @@ export default function App() {
             chapter: [],
             turn: [],
         },
-        lastCompressionTurn: 0,
       });
       setView('game');
   }
@@ -311,9 +307,6 @@ export default function App() {
                         totalTokens: loadedJson.totalTokens || 0,
                         gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
                         chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
-                        storyLog: loadedJson.storyLog,
-                        choices: loadedJson.choices,
-                        locationDiscoveryOrder: loadedJson.locationDiscoveryOrder,
                         // Thêm support cho compressed history
                         compressedHistory: loadedJson.compressedHistory || [],
                         lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
