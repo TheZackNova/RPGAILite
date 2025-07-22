@@ -1,7 +1,53 @@
 
+
 import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
+  {
+    version: '1.25.0',
+    date: '2024-08-23',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi logic trong quản lý trạng thái `lastCompressionTurn` gây ra các lỗi không mong muốn trong quá trình nén lịch sử và lưu game.' },
+      { type: 'improvement', text: 'Tái cấu trúc và tối ưu hóa hiệu suất cốt lõi của màn hình game (`GameScreen.tsx`). Giảm thiểu đáng kể việc render lại không cần thiết để giao diện mượt mà và phản hồi nhanh hơn.' },
+      { type: 'fix', text: 'Đảm bảo `lastCompressionTurn` được khởi tạo đúng cách khi bắt đầu một game mới để ngăn ngừa lỗi.' },
+    ],
+  },
+  {
+    version: '1.24.0',
+    date: '2024-08-22',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi hiển thị khiến cửa sổ thông tin (ví dụ: thông tin địa điểm) có thể bị che khuất bởi các giao diện khác như Bản đồ hoặc Sidebar bằng cách chuẩn hóa lại thứ tự hiển thị của tất cả các modal.' },
+      { type: 'improvement', text: 'Tối ưu hóa hiệu suất màn hình game bằng cách giảm các lần render lại không cần thiết và tái tạo hàm, giúp cải thiện độ phản hồi của giao diện.' },
+      { type: 'improvement', text: 'Dọn dẹp mã nguồn, loại bỏ các tệp tin không được sử dụng.' },
+    ],
+  },
+  {
+    version: '1.23.0',
+    date: '2024-08-21',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi nghiêm trọng khiến các địa điểm đã khám phá không hiển thị trên bản đồ, đặc biệt khi tải game từ file lưu cũ.' },
+      { type: 'improvement', text: 'Cải thiện độ tin cậy của việc tải game: Hệ thống giờ đây lưu lại thứ tự khám phá địa điểm và có cơ chế dự phòng để đảm bảo tất cả địa điểm luôn được hiển thị chính xác trên bản đồ.' },
+    ],
+  },
+  {
+    version: '1.22.0',
+    date: '2024-08-20',
+    changes: [
+      { type: 'improvement', text: 'Đại tu hiệu suất và kiến trúc: Màn hình game được tái cấu trúc thành các component nhỏ hơn, được tối ưu hóa bằng memoization và các hook tùy chỉnh để giảm re-render và cải thiện độ phản hồi.' },
+      { type: 'improvement', text: 'Nâng cấp hệ thống tạo prompt cốt lõi lên "Enhanced RAG System", cung cấp ngữ cảnh phù hợp hơn cho AI để có chất lượng phản hồi cao hơn.' },
+      { type: 'feature', text: 'Triển khai tính năng nén lịch sử và dọn dẹp trạng thái game tự động để quản lý bộ nhớ và mức sử dụng token trong các màn chơi dài, đảm bảo hiệu suất lâu dài tốt hơn.' },
+      { type: 'fix', text: 'Sửa nhiều lỗi khác nhau liên quan đến việc tải file lưu, hiển thị dữ liệu NPC và sự không nhất quán của giao diện người dùng.' },
+    ],
+  },
+  {
+    version: '1.21.0',
+    date: '2024-08-19',
+    changes: [
+      { type: 'feature', text: 'Nâng cấp mạnh mẽ cửa sổ "Tri Thức Thế Giới" với chức năng tìm kiếm và bộ lọc. Giờ đây người chơi có thể dễ dàng tìm kiếm thực thể theo tên và lọc theo từng loại (Kỹ năng, Vật phẩm, NPC...).' },
+      { type: 'improvement', text: 'Tối ưu hóa hiệu suất hiển thị trong "Tri Thức Thế Giới" khi có số lượng lớn các thực thể.' },
+      { type: 'fix', text: 'Sửa lỗi hiển thị nhỏ khiến một số icon trong Tri Thức không đồng nhất với các khu vực khác của game.' },
+    ],
+  },
   {
     version: '1.20.0',
     date: '2024-08-18',
@@ -48,7 +94,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
   },
  {
     version: '1.17.0',
-    date: '2024-08-13',
+    date: '2024-08-12',
     changes: [
       { type: 'improvement', text: 'Tái cấu trúc mã nguồn (refactor) toàn bộ GameScreen, chia thành các component nhỏ hơn để dễ quản lý, bảo trì và mở rộng.' },
       { type: 'improvement', text: 'Cấu trúc thư mục được tổ chức lại với thư mục con `components/game` cho các thành phần của màn hình chơi game.' },
