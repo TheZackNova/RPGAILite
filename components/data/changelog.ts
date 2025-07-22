@@ -3,6 +3,16 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.22.0',
+    date: '2024-08-20',
+    changes: [
+      { type: 'improvement', text: 'Đại tu hiệu suất và kiến trúc: Màn hình game được tái cấu trúc thành các component nhỏ hơn, được tối ưu hóa bằng memoization và các hook tùy chỉnh để giảm re-render và cải thiện độ phản hồi.' },
+      { type: 'improvement', text: 'Nâng cấp hệ thống tạo prompt cốt lõi lên "Enhanced RAG System", cung cấp ngữ cảnh phù hợp hơn cho AI để có chất lượng phản hồi cao hơn.' },
+      { type: 'feature', text: 'Triển khai tính năng nén lịch sử và dọn dẹp trạng thái game tự động để quản lý bộ nhớ và mức sử dụng token trong các màn chơi dài, đảm bảo hiệu suất lâu dài tốt hơn.' },
+      { type: 'fix', text: 'Sửa nhiều lỗi khác nhau liên quan đến việc tải file lưu, hiển thị dữ liệu NPC và sự không nhất quán của giao diện người dùng.' },
+    ],
+  },
+  {
     version: '1.21.0',
     date: '2024-08-19',
     changes: [
