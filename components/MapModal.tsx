@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type { Entity } from './types.ts';
 import { getIconForLocation } from './utils.ts';
 import * as GameIcons from './GameIcons.tsx';
-import { CrossIcon, PlusIcon, HomeIcon, PencilIcon, ClipboardListIcon } from './Icons.tsx';
+import { CrossIcon, PlusIcon, HomeIcon, PencilIcon } from './Icons.tsx';
 
 const MapLegend = () => {
     const iconLegend = [
@@ -35,7 +35,7 @@ const MapLegend = () => {
     ];
 
     return (
-        <div className="w-full md:w-64 flex-shrink-0 bg-slate-800/50 p-4 overflow-y-auto md:rounded-r-lg">
+        <div className="w-64 flex-shrink-0 bg-slate-800/50 p-4 overflow-y-auto rounded-r-lg">
             <h3 className="font-bold text-lg text-purple-300 mb-4">Chú giải Icon</h3>
             <ul className="space-y-2 mb-6">
                 {iconLegend.map(item => (
@@ -58,27 +58,6 @@ const MapLegend = () => {
     )
 };
 
-const MobileLegendSheet: React.FC<{onClose: () => void}> = ({ onClose }) => (
-    <div className="md:hidden fixed inset-0 bg-black/60 z-[75] flex items-end" onClick={onClose}>
-        <div 
-            className="w-full bg-[#1f2238] p-4 rounded-t-2xl shadow-2xl transition-transform transform translate-y-0 max-h-[60vh] flex flex-col"
-            style={{ animation: 'slideUp 0.3s ease-out' }}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div className="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3 flex-shrink-0"></div>
-            <div className="overflow-y-auto">
-                <MapLegend />
-            </div>
-        </div>
-         <style>{`
-            @keyframes slideUp {
-                from { transform: translateY(100%); }
-                to { transform: translateY(0); }
-            }
-        `}</style>
-    </div>
-);
-
 
 export const MapModal: React.FC<{
     isOpen: boolean;
@@ -86,16 +65,13 @@ export const MapModal: React.FC<{
     locations: Entity[];
     currentLocationName: string;
     discoveryOrder: string[];
-    onLocationClick: (locationName: string) => void;
-}> = ({ isOpen, onClose, locations, currentLocationName, discoveryOrder, onLocationClick }) => {
+}> = ({ isOpen, onClose, locations, currentLocationName, discoveryOrder }) => {
     if (!isOpen) return null;
     
     const svgRef = useRef<SVGSVGElement>(null);
     const [view, setView] = useState({ x: 0, y: 0, scale: 0.5 });
     const [isDragging, setIsDragging] = useState(false);
     const [startDrag, setStartDrag] = useState({ x: 0, y: 0 });
-    const touchRef = useRef({ initialDistance: 0, isPinching: false });
-    const [isLegendOpen, setIsLegendOpen] = useState(false);
     
     const nodePositions = useMemo(() => {
         const positions: { [key: string]: { x: number, y: number } } = {};
@@ -124,8 +100,15 @@ export const MapModal: React.FC<{
     }, [discoveryOrder]);
     
     useEffect(() => {
-        if (isOpen) {
-            resetView();
+        // Center view on the current location when map opens
+        const currentPos = nodePositions[currentLocationName];
+        if (currentPos && svgRef.current) {
+            const { width, height } = svgRef.current.getBoundingClientRect();
+            setView(prev => ({ 
+                ...prev,
+                x: -currentPos.x * prev.scale + width / 2,
+                y: -currentPos.y * prev.scale + height / 2,
+            }));
         }
     }, [isOpen, currentLocationName, nodePositions]);
 
@@ -133,25 +116,22 @@ export const MapModal: React.FC<{
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
         const scaleAmount = -e.deltaY * 0.001;
+        const newScale = Math.min(Math.max(0.1, view.scale + scaleAmount), 3);
         
-        setView(prev => {
-            const newScale = Math.min(Math.max(0.1, prev.scale + scaleAmount), 3);
-            const svgPoint = svgRef.current?.createSVGPoint();
-            if (svgPoint && svgRef.current) {
-                const rect = svgRef.current.getBoundingClientRect();
-                svgPoint.x = e.clientX - rect.left;
-                svgPoint.y = e.clientY - rect.top;
+        const svgPoint = svgRef.current?.createSVGPoint();
+        if (svgPoint && svgRef.current) {
+            const rect = svgRef.current.getBoundingClientRect();
+            svgPoint.x = e.clientX - rect.left;
+            svgPoint.y = e.clientY - rect.top;
 
-                const pointTo = svgPoint.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-                
-                return {
-                    scale: newScale,
-                    x: prev.x - (pointTo.x * (newScale - prev.scale)),
-                    y: prev.y - (pointTo.y * (newScale - prev.scale)),
-                };
-            }
-            return { ...prev, scale: newScale };
-        });
+            const pointTo = svgPoint.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
+            
+            setView({
+                scale: newScale,
+                x: view.x - (pointTo.x * (newScale - view.scale)),
+                y: view.y - (pointTo.y * (newScale - view.scale)),
+            });
+        }
     };
     
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -166,63 +146,6 @@ export const MapModal: React.FC<{
 
     const handleMouseUp = () => {
         setIsDragging(false);
-    };
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length === 1) {
-            setIsDragging(true);
-            setStartDrag({ x: e.touches[0].clientX - view.x, y: e.touches[0].clientY - view.y });
-        } else if (e.touches.length === 2) {
-            setIsDragging(false);
-            const dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            touchRef.current = { initialDistance: dist, isPinching: true };
-        }
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        e.preventDefault();
-        if (e.touches.length === 1 && isDragging && !touchRef.current.isPinching) {
-            setView(prev => ({ ...prev, x: e.touches[0].clientX - startDrag.x, y: e.touches[0].clientY - startDrag.y }));
-        } else if (e.touches.length === 2 && touchRef.current.isPinching) {
-            const newDist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            const scaleFactor = newDist / touchRef.current.initialDistance;
-            touchRef.current.initialDistance = newDist;
-
-            setView(prev => {
-                const newScale = Math.min(Math.max(0.1, prev.scale * scaleFactor), 3);
-                const svgPoint = svgRef.current?.createSVGPoint();
-                if (svgPoint && svgRef.current) {
-                    const rect = svgRef.current.getBoundingClientRect();
-                    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-                    
-                    svgPoint.x = midX - rect.left;
-                    svgPoint.y = midY - rect.top;
-
-                    const pointTo = svgPoint.matrixTransform(svgRef.current.getScreenCTM()!.inverse());
-
-                    return {
-                        scale: newScale,
-                        x: prev.x - (pointTo.x * (newScale - prev.scale)),
-                        y: prev.y - (pointTo.y * (newScale - prev.scale)),
-                    };
-                }
-                return { ...prev, scale: newScale };
-            });
-        }
-    };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        setIsDragging(false);
-        if (e.touches.length < 2) {
-            touchRef.current.isPinching = false;
-        }
     };
 
     const zoom = (factor: number) => {
@@ -244,27 +167,24 @@ export const MapModal: React.FC<{
     const discoveredLocations = new Set(discoveryOrder);
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[75] p-0 sm:p-4" onClick={onClose}>
-            <div className="bg-[#1f2238] border-2 border-slate-700 sm:rounded-lg shadow-2xl w-full h-full max-w-7xl max-h-full sm:max-h-[90vh] text-white flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[70] p-4" onClick={onClose}>
+            <div className="bg-[#1f2238] border-2 border-slate-700 rounded-lg shadow-2xl w-full h-full max-w-7xl max-h-[90vh] text-white flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-3 border-b-2 border-slate-700 flex justify-between items-center flex-shrink-0">
                     <h3 className="text-xl font-bold text-purple-300 flex items-center gap-3">
                         <GameIcons.MapPinIcon className="w-6 h-6" /> Bản Đồ
                     </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl leading-none"><CrossIcon className="w-6 h-6" /></button>
                 </div>
-                <div className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                <div className="flex-grow flex overflow-hidden">
                     <div className="flex-grow relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-slate-950">
                         <svg
                             ref={svgRef}
-                            className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                            className="w-full h-full cursor-grab"
                             onWheel={handleWheel}
                             onMouseDown={handleMouseDown}
                             onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
                             onMouseLeave={handleMouseUp}
-                            onTouchStart={handleTouchStart}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
                         >
                             <g style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transition: 'transform 0.1s linear' }}>
                                 {/* Edges */}
@@ -287,7 +207,7 @@ export const MapModal: React.FC<{
                                     if (isCurrent) color = 'rgb(249, 115, 22)';
 
                                     return (
-                                        <g key={loc.name} transform={`translate(${pos.x}, ${pos.y})`} className="cursor-pointer" onClick={() => onLocationClick(loc.name)}>
+                                        <g key={loc.name} transform={`translate(${pos.x}, ${pos.y})`} className="cursor-pointer">
                                             <circle r="25" fill={color} stroke="rgba(255,255,255,0.3)" strokeWidth="2" />
                                             <foreignObject x="-16" y="-16" width="32" height="32">
                                                  <div className="w-full h-full flex items-center justify-center text-white">
@@ -304,16 +224,12 @@ export const MapModal: React.FC<{
                              <button onClick={() => zoom(1.2)} className="w-10 h-10 bg-slate-700/80 hover:bg-slate-600 rounded-md flex items-center justify-center border border-slate-600"><PlusIcon className="w-6 h-6"/></button>
                              <button onClick={() => zoom(0.8)} className="w-10 h-10 bg-slate-700/80 hover:bg-slate-600 rounded-md flex items-center justify-center border border-slate-600"><svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="currentColor" viewBox="0 0 16 16"><path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/></svg></button>
                              <button onClick={resetView} className="w-10 h-10 bg-slate-700/80 hover:bg-slate-600 rounded-md flex items-center justify-center border border-slate-600"><GameIcons.MapPinIcon className="w-6 h-6"/></button>
-                             <button onClick={() => setIsLegendOpen(true)} className="md:hidden w-10 h-10 bg-slate-700/80 hover:bg-slate-600 rounded-md flex items-center justify-center border border-slate-600"><ClipboardListIcon className="w-6 h-6"/></button>
                              {/* Edit button placeholder */}
                              <button className="w-10 h-10 bg-slate-800/50 text-slate-500 cursor-not-allowed rounded-md flex items-center justify-center border border-slate-700"><PencilIcon className="w-5 h-5"/></button>
                         </div>
                     </div>
-                    <div className="hidden md:block">
-                        <MapLegend />
-                    </div>
+                    <MapLegend />
                 </div>
-                {isLegendOpen && <MobileLegendSheet onClose={() => setIsLegendOpen(false)} />}
             </div>
         </div>
     );
