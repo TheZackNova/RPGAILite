@@ -1,4 +1,3 @@
-
 // components/OptimizedInteractiveText.tsx
 import React, { useMemo, memo, useCallback } from 'react';
 import type { KnownEntities, EntityType, Entity } from './types.ts';
@@ -10,7 +9,6 @@ interface ProcessedTextPart {
     isEntity: boolean;
     isThought: boolean;
     isAnnouncement: boolean;
-    isPlayerAction: boolean;
     entity?: Entity;
     index: number;
 }
@@ -72,16 +70,6 @@ const ThoughtPart = memo<{ text: string }>(({ text }) => (
 ));
 ThoughtPart.displayName = 'ThoughtPart';
 
-// Memoized player action component
-const PlayerActionPart = memo<{ text: string }>(({ text }) => (
-    <div className="my-2 p-3 bg-gradient-to-r from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/50 border-l-4 border-red-500 rounded-r-md">
-        <p className="font-semibold bg-gradient-to-r from-red-600 to-red-800 dark:from-red-400 dark:to-red-200 bg-clip-text text-transparent">
-            {text}
-        </p>
-    </div>
-));
-PlayerActionPart.displayName = 'PlayerActionPart';
-
 // Memoized regular text component
 const RegularTextPart = memo<{ text: string }>(({ text }) => (
     <span>{text}</span>
@@ -95,10 +83,6 @@ const InteractiveTextPart = memo<{
 }>(({ part, onEntityClick }) => {
     if (part.isAnnouncement) {
         return <AnnouncementPart text={part.text} />;
-    }
-
-    if (part.isPlayerAction) {
-        return <PlayerActionPart text={part.text} />;
     }
 
     if (part.isEntity && part.entity) {
@@ -127,6 +111,15 @@ export const OptimizedInteractiveText: React.FC<{
     knownEntities: KnownEntities;
 }> = memo(({ text, onEntityClick, knownEntities }) => {
     
+    // Check if it's a player action
+    if (text.startsWith('> ')) {
+        return (
+            <div className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-orange-400 leading-relaxed whitespace-pre-wrap">
+                {text}
+            </div>
+        );
+    }
+
     // Memoize entity names sorted by length (longest first for better matching)
     const sortedEntityNames = useMemo(() => {
         return Object.keys(knownEntities).sort((a, b) => b.length - a.length);
@@ -150,17 +143,6 @@ export const OptimizedInteractiveText: React.FC<{
 
     // Memoize processed text parts
     const processedParts = useMemo((): ProcessedTextPart[] => {
-        // Check if entire text is a player action first
-        if (text.trim().startsWith('> ')) {
-            return [{
-                text: text,
-                isEntity: false,
-                isThought: false,
-                isAnnouncement: false,
-                isPlayerAction: true,
-                index: 0
-            }];
-        }
         
         const parts = text.split(splitRegex);
 
@@ -172,7 +154,6 @@ export const OptimizedInteractiveText: React.FC<{
                         isEntity: false,
                         isThought: false,
                         isAnnouncement: false,
-                        isPlayerAction: false,
                         index
                     };
                 }
@@ -180,14 +161,12 @@ export const OptimizedInteractiveText: React.FC<{
                 const isEntity = Boolean(knownEntities[part]);
                 const isThought = part.startsWith('`') && part.endsWith('`');
                 const isAnnouncement = part.startsWith('**⭐') && part.endsWith('⭐**');
-                const isPlayerAction = part.startsWith('> ');
 
                 return {
                     text: part,
                     isEntity,
                     isThought,
                     isAnnouncement,
-                    isPlayerAction,
                     entity: isEntity ? knownEntities[part] : undefined,
                     index
                 };

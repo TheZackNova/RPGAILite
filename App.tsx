@@ -1,11 +1,8 @@
-
-
-
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
 import { CreateWorld } from './components/CreateWorld.tsx';
-import { GameScreen } from './components/GameScreen.tsx';
+import { GameScreen } from './components/game/index.tsx';
 import { ApiSettingsModal } from './components/ApiSettingsModal.tsx';
 import { ChangelogModal } from './components/ChangelogModal.tsx';
 import { CustomizationFooter } from './components/CustomizationFooter.tsx';
