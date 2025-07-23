@@ -1,4 +1,5 @@
-import React, { memo, useMemo, useCallback } from 'react';
+// components/game/ui/PlayerCharacterSheet.tsx
+import React, { memo, useMemo } from 'react';
 import type { Entity, KnownEntities, Status } from '../../types.ts';
 import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusTextColor, getStatusFontWeight } from '../../utils.ts';
 import { UserIcon } from '../../Icons.tsx';
@@ -285,40 +286,3 @@ export const MemoizedPlayerCharacterSheet: React.FC<{
                     </div>
                     
                     {/* Appearance - if exists, show in a separate section */}
-                    {pc.appearance && (
-                        <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700/50">
-                            <strong className="font-semibold text-slate-800 dark:text-gray-100 block mb-1">Dung mạo:</strong>
-                            <p className="text-sm bg-slate-50 dark:bg-slate-800/30 p-2 rounded border border-slate-200 dark:border-slate-700 leading-relaxed">
-                                {pc.appearance}
-                            </p>
-                        </div>
-                    )}
-                    
-                    {/* Personality - if exists */}
-                    {pc.personality && (
-                        <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700/50">
-                            <strong className="font-semibold text-slate-800 dark:text-gray-100 block mb-1">Tính cách:</strong>
-                            <p className="text-sm bg-slate-50 dark:bg-slate-800/30 p-2 rounded border border-slate-200 dark:border-slate-700 leading-relaxed">
-                                {pc.personality}
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Skills Section */}
-            <MemoizedSkillsSection 
-                learnedSkills={learnedSkills} 
-                knownEntities={knownEntities} 
-                onEntityClick={onEntityClick} 
-            />
-
-            {/* Enhanced Status Section */}
-            <MemoizedStatusesSection 
-                statuses={statuses} 
-                onStatusClick={onStatusClick} 
-            />
-        </div>
-    );
-});
-MemoizedPlayerCharacterSheet.displayName = 'MemoizedPlayerCharacterSheet';
