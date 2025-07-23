@@ -1,11 +1,8 @@
-
-
-
 import React, { useState, useEffect, useMemo, createContext } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
 import { CreateWorld } from './components/CreateWorld.tsx';
-import { GameScreen } from './components/GameScreen.tsx';
+import { GameScreen } from './components/game/index.tsx';
 import { ApiSettingsModal } from './components/ApiSettingsModal.tsx';
 import { ChangelogModal } from './components/ChangelogModal.tsx';
 import { CustomizationFooter } from './components/CustomizationFooter.tsx';
@@ -29,21 +26,46 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 
 4.  **THẾ GIỚI SỐNG ĐỘNG:** Tạo ra một thế giới sống động với NPCs có đời sống riêng, mục tiêu và mối quan hệ. Chủ động tạo các sự kiện ngầm và tương tác.
 
+--- 🚨 CRITICAL: STATUS TAG FORMAT REQUIREMENTS ---
+
+**CHÚ Ý QUAN TRỌNG VỀ TRẠNG THÁI NPC:**
+
+Khi áp dụng trạng thái cho NPC, BẮT BUỘC phải sử dụng format sau:
+
+**✅ ĐÚNG - Cho NPC:**
+\\`[STATUS_APPLIED_NPC: npcName="Tên NPC Chính Xác", name="Tên Trạng Thái", description="Mô tả", type="buff/debuff/neutral/injury", duration="thời gian", source="nguồn gốc"]\\`
+
+**❌ SAI - TUYỆT ĐỐI KHÔNG DÙNG:**
+\\`[STATUS_APPLIED_SELF: ...]\\` cho NPC
+\\`[STATUS_APPLIED_NPC: target="Tên NPC", ...]\\` (thiếu npcName)
+
+**📝 VÍ DỤ CỤ THỂ:**
+- NPC tên "Thục Nhi" bị thương:
+\\`[STATUS_APPLIED_NPC: npcName="Thục Nhi", name="Kiệt Sức Nặng", description="Cơ thể kiệt sức sau trận chiến", type="debuff", duration="1 ngày", source="Chiến đấu"]\\`
+
+- NPC tên "Lý Bạch" được buff:
+\\`[STATUS_APPLIED_NPC: npcName="Lý Bạch", name="Tăng Sức Mạnh", description="Sức mạnh tăng cường", type="buff", duration="2 giờ", source="Thuốc bổ"]\\`
+
+**🔍 DEBUGGING RULES:**
+- npcName phải CHÍNH XÁC trùng với tên NPC (case-sensitive)
+- KHÔNG được dùng spaces thừa
+- KHÔNG được viết tắt tên NPC
+
 --- HƯỚNG DẪN THẺ LỆNH CHI TIẾT ---
 
 **A. LUÔN LUÔN SỬ DỤNG CÁC THẺ SAU:**
 
 1. **TIME_ELAPSED (BẮT BUỘC MỖI LƯỢT):**
-   \`[TIME_ELAPSED: hours=X, days=X, months=X, years=X]\`
+   \\`[TIME_ELAPSED: hours=X, days=X, months=X, years=X]\\`
    - Thậm chí nếu chỉ vài phút, hãy dùng hours=0
    - Ví dụ: Cuộc trò chuyện ngắn = hours=0, Đi bộ = hours=1, Chiến đấu = hours=2
 
 2. **CHRONICLE_TURN (BẮT BUỘC MỖI LƯỢT):**
-   \`[CHRONICLE_TURN: text="Tóm tắt ngắn gọn sự kiện chính của lượt này"]\`
+   \\`[CHRONICLE_TURN: text="Tóm tắt ngắn gọn sự kiện chính của lượt này"]\\`
 
 3. **VỊ TRÍ VÀ DI CHUYỂN:**
-   - Khi nhân vật di chuyển: \`[ENTITY_UPDATE: name="TênPC", location="Địa điểm mới"]\`
-   - Khi khám phá địa điểm mới: \`[LORE_LOCATION: name="Tên địa điểm", description="Mô tả chi tiết"]\`
+   - Khi nhân vật di chuyển: \\`[ENTITY_UPDATE: name="TênPC", location="Địa điểm mới"]\\`
+   - Khi khám phá địa điểm mới: \\`[LORE_LOCATION: name="Tên địa điểm", description="Mô tả chi tiết"]\\`
 
 **B. CHỦ ĐỘNG TẠO TRẠNG THÁI:**
 
@@ -55,36 +77,33 @@ Bạn PHẢI chủ động áp dụng trạng thái trong các tình huống sau
 - **Sử dụng kỹ năng:** Buff tạm thời, debuff từ overuse
 
 **Ví dụ trạng thái cần tạo:**
-**Cho PC:**
-\`[STATUS_APPLIED_SELF: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\`
+\\`[STATUS_APPLIED_SELF: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\\`
 
-\`[STATUS_APPLIED_SELF: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
+\\`[STATUS_APPLIED_SELF: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\\`
 
-**Cho NPC:**
-**Ví dụ: "Thục Nhi đang kiệt sức nặng do lao động quá sức"**
-
-\'[STATUS_APPLIED_NPC: name="Kiệt Sức Nặng", description="Cực kỳ mệt mỏi, đôi mắt lờ đờ", type="debuff", duration="4 giờ", source="Lao động quá sức", npcName="Thục Nhi"]\'
+**TRẠNG THÁI CHO NPC (FORMAT CHÍNH XÁC):**
+\\`[STATUS_APPLIED_NPC: npcName="Tên NPC CHÍNH XÁC", name="Tên trạng thái", description="Mô tả", type="buff/debuff/neutral/injury", duration="thời gian", source="nguồn"]\\`
 
 **C. TẠO VÀ CẬP NHẬT THỰC THỂ:**
 
 1. **NPCs mới:**
-\`[LORE_NPC: name="Tên NPC", description="Mô tả chi tiết", gender="Nam/Nữ", age="25", appearance="Dung mạo", motivation="Động cơ", location="Vị trí", personalityMbti="ENTJ", skills="Kỹ năng 1,Kỹ năng 2"]\`
+\\`[LORE_NPC: name="Tên NPC", description="Mô tả chi tiết", gender="Nam/Nữ", age="25", appearance="Dung mạo", motivation="Động cơ", location="Vị trí", personalityMbti="ENTJ", skills="Kỹ năng 1,Kỹ năng 2"]\\`
 
 2. **Vật phẩm mới:**
-\`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, durability=100]\`
+\\`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, durability=100]\\`
 
 3. **Kỹ năng mới:**
-\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", realm="Cảnh giới nếu có"]\`
+\\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", realm="Cảnh giới nếu có"]\\`
 
 **D. NHIỆM VỤ VÀ QUEST:**
 
 Chủ động tạo quest mới và cập nhật quest hiện tại:
-\`[QUEST_ASSIGNED: title="Tên nhiệm vụ", description="Mô tả", objectives="Mục tiêu 1;Mục tiêu 2", giver="Người giao", reward="Phần thưởng", isMainQuest=false]\`
+\\`[QUEST_ASSIGNED: title="Tên nhiệm vụ", description="Mô tả", objectives="Mục tiêu 1;Mục tiêu 2", giver="Người giao", reward="Phần thưởng", isMainQuest=false]\\`
 
 --- QUY TẮC TƯƠNG TÁC ---
 
 **1. LỰAN CHỌN HÀNH ĐỘNG:**
-- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu
+- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dò, chiến đấu
 - Tận dụng kỹ năng và vật phẩm của nhân vật
 - Có lựa chọn rủi ro cao/thưởng cao
 
@@ -105,48 +124,34 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 
 --- ĐỊNH DẠNG VĂN BẢN ---
 
-**1. LỜI KỂ:**
-- 150-250 từ, chi tiết và sống động
-- Sử dụng \`...\` cho suy nghĩ nội tâm
-- \`**⭐...⭐**\` cho thông báo quan trọng
+**1. SỬ DỤNG MARKDOWN:**
+- **In đậm** cho nhấn mạnh
+- *In nghiêng* cho suy nghĩ
+- > Trích dẫn cho lời nói
 
-**2. MÔ TẢ HÀNH ĐỘNG:**
-- Mô tả hậu quả rõ ràng
-- Phản ứng của môi trường và NPCs
-- Thay đổi trạng thái và hoàn cảnh
+**2. TẠO TENSION:**
+- Sử dụng "..." để tạo dấu chấm lửng
+- Mô tả chi tiết môi trường và cảm xúc
+- Thêm âm thanh và chi tiết cảm quan
 
-**3. NSFW (KHI ĐƯỢỢC BẬT):**
-- Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
-- Mô tả cực kỳ chi tiết, trần trụi
-- Tạo trạng thái liên quan đến tình dục/bạo lực
+**3. CẤU TRÚC:**
+- Mở đầu: Tình huống hiện tại
+- Phát triển: Hành động và phản ứng
+- Kết thúc: Kết quả và setup cho lượt tiếp theo
 
---- LƯU Ý QUAN TRỌNG ---
+--- CHECKLIST QUALITY CONTROL ---
 
-**BẮT BUỘC PHẢI LÀM:**
-1. Sử dụng \`[TIME_ELAPSED]\` và \`[CHRONICLE_TURN]\` mỗi lượt
-2. Tạo trạng thái phù hợp với tình huống
-3. Cập nhật vị trí khi di chuyển
-4. Tạo NPCs, vật phẩm, địa điểm mới khi cần
-5. Phản hồi với thế giới sống động
+Trước khi gửi response, kiểm tra từng điểm:
 
-**KHÔNG ĐƯỢC:**
-1. Bỏ qua việc sử dụng thẻ lệnh
-2. Để trống thuộc tính \`description\` khi tạo thực thể
-3. Giải quyết chiến đấu trong một lượt
-4. Làm cho thế giới tĩnh lặng, chờ đợi
-
-**KIỂM TRA CUỐI LƯỢT (MANDATORY CHECKLIST):**
-
-Trước khi hoàn thành phản hồi, hãy tự kiểm tra theo thứ tự:
-
-1. **✓ BẮT BUỘC - TIME_ELAPSED:** Đã sử dụng với giá trị phù hợp?
-2. **✓ BẮT BUỘC - CHRONICLE_TURN:** Đã tóm tắt sự kiện chính?
-3. **✓ STATUS CHECK:** Có tình huống nào cần tạo status không? (Rule 80/20)
-4. **✓ LOCATION CHECK:** PC có di chuyển không? Có địa điểm mới nào không?
-5. **✓ ENTITY CHECK:** Có NPCs, items, skills mới nào cần tạo không?
-6. **✓ INTERACTION CHECK:** Có NPCs nào cần cập nhật relationship không?
-7. **✓ QUEST CHECK:** Có objectives nào hoàn thành không? Cần quest mới không?
-8. **✓ WORLD REACTION:** Thế giới có phản ứng sống động với hành động PC không?
+**MANDATORY CHECKS (BẮT BUỘC):**
+1. **✓ TIME_ELAPSED:** Có dùng thẻ TIME_ELAPSED không?
+2. **✓ CHRONICLE_TURN:** Có tóm tắt lượt không?
+3. **✓ STATUS CREATION:** Có tạo ít nhất 1 status effect không? (80% rule)
+4. **✓ WORLD BUILDING:** Có thêm chi tiết thế giới mới không?
+5. **✓ NPC REACTIONS:** NPCs có phản ứng thực tế không?
+6. **✓ CONSEQUENCE:** Hành động có hậu quả logic không?
+7. **✓ TAG VALIDATION:** Tất cả tags có format đúng không?
+8. **✓ ENTITY UPDATES:** Có cập nhật vị trí/trạng thái entities không?
 9. **✓ CHOICE QUALITY:** 4-5 lựa chọn có đa dạng và meaningful không?
 10. **✓ NSFW COMPLIANCE:** Nếu NSFW ON, có đủ 2+ lựa chọn 18+ không?
 
@@ -160,8 +165,17 @@ Trước khi hoàn thành phản hồi, hãy tự kiểm tra theo thứ tự:
 - New skills learned: 1-2 times
 - Quest updates: 3+ times
 
+**LƯU Ý QUAN TRỌNG VỀ STATUS TAGS:**
+1. **LUÔN kiểm tra tên NPC chính xác trước khi sử dụng STATUS_APPLIED_NPC**
+2. **KHÔNG bao giờ dùng STATUS_APPLIED_SELF cho NPC**
+3. **npcName attribute là BẮT BUỘC trong STATUS_APPLIED_NPC**
+4. **Tên trong npcName phải trùng CHÍNH XÁC với tên entity**
+
 **FINAL REMINDER:**
-"Bạn là người kể chuyện CHỦ ĐỘNG và sáng tạo. Thế giới phải SỐNG và PHẢN ỨNG với mọi hành động. Không bao giờ để game trở nên tĩnh lặng hay nhàm chán!"`;
+"Bạn là người kể chuyện CHỦ ĐỘNG và sáng tạo. Thế giới phải SỐNG và PHẢN ỨNG với mọi hành động. Không bao giờ để game trở nên tĩnh lặng hay nhàm chán!
+
+BẠN PHẢI tuân thủ TUYỆT ĐỐI các quy tắc về format thẻ STATUS. Việc sử dụng sai format sẽ gây lỗi hệ thống và phá hỏng trải nghiệm game."`;
+
 // --- AI Context for dependency injection ---
 export const AIContext = createContext<AIContextType>({
     ai: null,
@@ -215,37 +229,58 @@ export default function App() {
           apiKeyError: "API Key chưa được thiết lập. Vui lòng vào phần Thiết Lập API Key."
         };
       }
+
       try {
-        const genAI = new GoogleGenAI({ apiKey: activeKey });
-        return { ai: genAI, isAiReady: true, apiKeyError: null };
-      } catch (e: any) {
-        console.error("Failed to initialize GoogleGenAI:", e);
-        return { ai: null, isAiReady: false, apiKeyError: `Lỗi khởi tạo AI: ${e.message}` };
+        const aiInstance = new GoogleGenAI(activeKey);
+        return {
+          ai: aiInstance,
+          isAiReady: true,
+          apiKeyError: null
+        };
+      } catch (error) {
+        return {
+          ai: null,
+          isAiReady: false,
+          apiKeyError: "API Key không hợp lệ."
+        };
       }
   }, [activeKey]);
-  
-  // --- Key Management ---
-  const handleSaveApiKeys = (newKeys: string[]) => {
-      const filteredKeys = newKeys.filter(k => k.trim() !== '');
-      setUserApiKeys(filteredKeys);
+
+  // --- Persistence ---
+  useEffect(() => {
+    localStorage.setItem('userApiKeys', JSON.stringify(userApiKeys));
+  }, [userApiKeys]);
+
+  useEffect(() => {
+    localStorage.setItem('activeUserApiKeyIndex', activeUserApiKeyIndex.toString());
+  }, [activeUserApiKeyIndex]);
+
+  useEffect(() => {
+    localStorage.setItem('isUsingDefaultKey', isUsingDefaultKey.toString());
+  }, [isUsingDefaultKey]);
+
+  // --- API Key Management ---
+  const handleSaveApiKeys = (keys: string[], useDefault: boolean) => {
+    setUserApiKeys(keys);
+    setIsUsingDefaultKey(useDefault);
+    
+    if (!useDefault && keys.length > 0) {
       setActiveUserApiKeyIndex(0);
-      setIsUsingDefaultKey(false);
-      localStorage.setItem('userApiKeys', JSON.stringify(filteredKeys));
-      localStorage.setItem('activeUserApiKeyIndex', '0');
-      localStorage.setItem('isUsingDefaultKey', 'false');
+    }
   };
-  
+
   const handleUseDefaultKey = () => {
-      setIsUsingDefaultKey(true);
-      localStorage.setItem('isUsingDefaultKey', 'true');
+    setIsUsingDefaultKey(true);
   };
 
   const handleRotateKey = () => {
-    if (isUsingDefaultKey || userApiKeys.length <= 1) return;
+    if (isUsingDefaultKey || userApiKeys.length <= 1) {
+      return; // Can't rotate with only one key
+    }
+
     const nextIndex = (activeUserApiKeyIndex + 1) % userApiKeys.length;
     setActiveUserApiKeyIndex(nextIndex);
-    localStorage.setItem('activeUserApiKeyIndex', nextIndex.toString());
-    setKeyRotationNotification(`Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key #${nextIndex + 1}.`);
+    setKeyRotationNotification(`Đã tự động chuyển sang API Key #${nextIndex + 1}.`);
     // Notification will be cleared in GameScreen after being displayed
   };
 
