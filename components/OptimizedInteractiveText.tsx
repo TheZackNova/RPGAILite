@@ -1,3 +1,4 @@
+
 // components/OptimizedInteractiveText.tsx
 import React, { useMemo, memo, useCallback } from 'react';
 import type { KnownEntities, EntityType, Entity } from './types.ts';
@@ -111,15 +112,6 @@ export const OptimizedInteractiveText: React.FC<{
     knownEntities: KnownEntities;
 }> = memo(({ text, onEntityClick, knownEntities }) => {
     
-    // Check if it's a player action
-    if (text.startsWith('> ')) {
-        return (
-            <div className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-pink-500 to-orange-400 leading-relaxed whitespace-pre-wrap">
-                {text}
-            </div>
-        );
-    }
-
     // Memoize entity names sorted by length (longest first for better matching)
     const sortedEntityNames = useMemo(() => {
         return Object.keys(knownEntities).sort((a, b) => b.length - a.length);
