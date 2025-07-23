@@ -55,10 +55,15 @@ Bạn PHẢI chủ động áp dụng trạng thái trong các tình huống sau
 - **Sử dụng kỹ năng:** Buff tạm thời, debuff từ overuse
 
 **Ví dụ trạng thái cần tạo:**
+**Cho PC:**
 \`[STATUS_APPLIED_SELF: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\`
 
 \`[STATUS_APPLIED_SELF: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
 
+**Cho NPC:**
+\`[STATUS_APPLIED_NPC: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\`
+
+\`[STATUS_APPLIED_NPC: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
 **C. TẠO VÀ CẬP NHẬT THỰC THỂ:**
 
 1. **NPCs mới:**
