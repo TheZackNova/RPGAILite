@@ -41,7 +41,9 @@ export const EntityInfoModal: React.FC<{
     const isLearnableItem = isPcsItem && entity.learnable;
     const isUsableItem = isPcsItem && entity.usable;
     const isEquippableItem = isPcsItem && entity.equippable;
-    const npcStatuses = statuses.filter(s => s.owner === entity.name);
+    
+    // For PC, NPC, and Companion - get their statuses
+    const characterStatuses = statuses.filter(s => s.owner === entity.name || (entity.type === 'pc' && s.owner === 'pc'));
     
     // Helper function to get relationship status color
     const getRelationshipColor = (relationship: string): string => {
@@ -79,6 +81,7 @@ export const EntityInfoModal: React.FC<{
                     <h3 className={`text-xl font-bold ${typeColors[entity.type] || 'text-slate-900 dark:text-white'} flex items-center gap-2`}>
                         <span className="w-6 h-6">{getIconForEntity(entity)}</span>
                         {entity.name}
+                        {entity.type === 'pc' && <span className="text-xs text-yellow-400 dark:text-yellow-500 font-normal italic">(Nhân vật chính)</span>}
                         {entity.equipped && <span className="text-xs text-green-400 dark:text-green-500 font-normal italic">(Đang trang bị)</span>}
                     </h3>
                     <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">
@@ -89,7 +92,7 @@ export const EntityInfoModal: React.FC<{
                 <div className="p-5 space-y-3 text-slate-700 dark:text-gray-300 max-h-[70vh] overflow-y-auto">
                     {/* Basic Information */}
                     <div className="space-y-2">
-                        <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type}</span></p>
+                        <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type === 'pc' ? 'Nhân vật chính' : entity.type}</span></p>
                         
                         {/* Character-like info */}
                         {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && (
@@ -104,13 +107,17 @@ export const EntityInfoModal: React.FC<{
                                 )}
                                 {entity.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Vị trí:</strong> {entity.location}</p>}
                                 
-                                {/* DANH VỌNG - Enhanced display */}
-                                {entity.fame && (
-                                    <div>
-                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong>
+                                {/* DANH VỌNG - Enhanced display for both PC and NPC */}
+                                <div>
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong>
+                                    {entity.fame ? (
                                         <span className={`ml-2 ${getFameColor(entity.fame)}`}>{entity.fame}</span>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <span className="ml-2 text-gray-500 dark:text-gray-400 italic">
+                                            {entity.type === 'pc' ? 'Chưa có danh tiếng' : 'Chưa xác định'}
+                                        </span>
+                                    )}
+                                </div>
                                 
                                 {entity.personality && (
                                     <div>
@@ -137,8 +144,22 @@ export const EntityInfoModal: React.FC<{
                         )}
 
                         {/* Realm can apply to characters and skills */}
-                        {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : 'Cảnh giới:'}</strong> {entity.realm}</p>}
+                        {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : entity.type === 'pc' ? 'Thực lực:' : 'Cảnh giới:'}</strong> <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{entity.realm}</span></p>}
                     </div>
+
+                    {/* PC specific info - Skills */}
+                    {entity.type === 'pc' && entity.learnedSkills && Array.isArray(entity.learnedSkills) && entity.learnedSkills.length > 0 && (
+                        <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60">
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Kỹ năng đã học:</strong>
+                            <ul className="list-disc list-inside pl-2 mt-1 space-y-1">
+                                {entity.learnedSkills.map((skillName: string) => (
+                                    <li key={skillName} className="text-sm text-slate-600 dark:text-gray-400">
+                                        {skillName}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
                     {/* NPC and Companion specific info */}
                     {(entity.type === 'npc' || entity.type === 'companion') && (
@@ -168,38 +189,40 @@ export const EntityInfoModal: React.FC<{
                                     </ul>
                                 </div>
                             )}
+                        </div>
+                    )}
 
-                            {/* TRẠNG THÁI - Enhanced display */}
-                            <div>
-                                <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
-                                {npcStatuses.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {npcStatuses.map(status => (
-                                            <button
-                                                key={status.name}
-                                                onClick={() => onStatusClick(status)}
-                                                className={`px-3 py-1.5 border rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')} shadow-sm`}
-                                            >
-                                                <span className="w-4 h-4">{getIconForStatus(status)}</span>
-                                                <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
-                                                    {status.name}
+                    {/* TRẠNG THÁI - Enhanced display for PC, NPC, and Companion */}
+                    {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && (
+                        <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60">
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
+                            {characterStatuses.length > 0 ? (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {characterStatuses.map(status => (
+                                        <button
+                                            key={status.name}
+                                            onClick={() => onStatusClick(status)}
+                                            className={`px-3 py-1.5 border rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')} shadow-sm`}
+                                        >
+                                            <span className="w-4 h-4">{getIconForStatus(status)}</span>
+                                            <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
+                                                {status.name}
+                                            </span>
+                                            {status.duration && status.duration !== 'permanent' && (
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                                    ({status.duration})
                                                 </span>
-                                                {status.duration && status.duration !== 'permanent' && (
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                                        ({status.duration})
-                                                    </span>
-                                                )}
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 italic text-center">
-                                            Không có trạng thái đặc biệt
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 italic text-center">
+                                        {entity.type === 'pc' ? 'Đang trong tình trạng bình thường' : 'Không có trạng thái đặc biệt'}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
                     
