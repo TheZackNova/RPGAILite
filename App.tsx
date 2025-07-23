@@ -61,9 +61,10 @@ Bạn PHẢI chủ động áp dụng trạng thái trong các tình huống sau
 \`[STATUS_APPLIED_SELF: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
 
 **Cho NPC:**
-\`[STATUS_APPLIED_NPC: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\`
+**Ví dụ: "Thục Nhi đang kiệt sức nặng do lao động quá sức"**
 
-\`[STATUS_APPLIED_NPC: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
+\'[STATUS_APPLIED_NPC: name="Kiệt Sức Nặng", description="Cực kỳ mệt mỏi, đôi mắt lờ đờ", type="debuff", duration="4 giờ", source="Lao động quá sức", npcName="Thục Nhi"]\'
+
 **C. TẠO VÀ CẬP NHẬT THỰC THỂ:**
 
 1. **NPCs mới:**
