@@ -1,5 +1,5 @@
 // components/game/hooks/useModalState.ts
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { Entity, Status, Quest } from '../../types.ts';
 
 export const useModalState = () => {
@@ -22,17 +22,43 @@ export const useModalState = () => {
     const [notification, setNotification] = useState<string | null>(null);
 
     const modalState = {
-        isHomeModalOpen, isRestartModalOpen, activeEntity, activeStatus, isMemoryModalOpen,
-        isKnowledgeModalOpen, isCustomRulesModalOpen, isMapModalOpen, activeQuest,
-        showSaveSuccess, showRulesSavedSuccess, isPcInfoModalOpen, isPartyModalOpen,
-        isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, notification
+        isHomeModalOpen, 
+        isRestartModalOpen, 
+        activeEntity, 
+        activeStatus, 
+        isMemoryModalOpen,
+        isKnowledgeModalOpen, 
+        isCustomRulesModalOpen, 
+        isMapModalOpen, 
+        activeQuest,
+        showSaveSuccess, 
+        showRulesSavedSuccess, 
+        isPcInfoModalOpen, 
+        isPartyModalOpen,
+        isQuestLogModalOpen, 
+        isSidebarOpen, 
+        isChoicesModalOpen, 
+        notification
     };
 
     const setters = {
-        setIsHomeModalOpen, setIsRestartModalOpen, setActiveEntity, setActiveStatus, setIsMemoryModalOpen,
-        setIsKnowledgeModalOpen, setIsCustomRulesModalOpen, setIsMapModalOpen, setActiveQuest,
-        setShowSaveSuccess, setShowRulesSavedSuccess, setIsPcInfoModalOpen, setIsPartyModalOpen,
-        setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setNotification
+        setIsHomeModalOpen, 
+        setIsRestartModalOpen, 
+        setActiveEntity, 
+        setActiveStatus, 
+        setIsMemoryModalOpen,
+        setIsKnowledgeModalOpen, 
+        setIsCustomRulesModalOpen, 
+        setIsMapModalOpen, 
+        setActiveQuest,
+        setShowSaveSuccess, 
+        setShowRulesSavedSuccess, 
+        setIsPcInfoModalOpen, 
+        setIsPartyModalOpen,
+        setIsQuestLogModalOpen, 
+        setIsSidebarOpen, 
+        setIsChoicesModalOpen, 
+        setNotification
     };
 
     const actions = useMemo(() => ({

@@ -19,7 +19,12 @@ export const useGameState = (initialGameState: SaveData) => {
     const [totalTokens, setTotalTokens] = useState<number>(initialGameState.totalTokens || 0);
     const [compressedHistory, setCompressedHistory] = useState<CompressedHistorySegment[]>(initialGameState.compressedHistory || []);
     const [historyStats, setHistoryStats] = useState(initialGameState.historyStats || { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
-    const [cleanupStats, setCleanupStats] = useState<SaveData['cleanupStats']>(initialGameState.cleanupStats || { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
+    const [cleanupStats, setCleanupStats] = useState<SaveData['cleanupStats']>(initialGameState.cleanupStats || { 
+        totalCleanupsPerformed: 0, 
+        totalTokensSavedFromCleanup: 0, 
+        lastCleanupTurn: 0, 
+        cleanupHistory: [] 
+    });
     const [storyLog, setStoryLog] = useState<string[]>([]);
     const [choices, setChoices] = useState<string[]>([]);
     
@@ -27,36 +32,112 @@ export const useGameState = (initialGameState: SaveData) => {
         if (Array.isArray(initialGameState.locationDiscoveryOrder)) {
             const savedOrder = [...initialGameState.locationDiscoveryOrder];
             const seen = new Set(savedOrder);
-            const allKnownLocations = Object.values(initialGameState.knownEntities).filter(e => e.type === 'location').map(e => e.name);
-            allKnownLocations.forEach(locName => { if (!seen.has(locName)) savedOrder.push(locName); });
+            const allKnownLocations = Object.values(initialGameState.knownEntities)
+                .filter(e => e.type === 'location')
+                .map(e => e.name);
+            allKnownLocations.forEach(locName => { 
+                if (!seen.has(locName)) savedOrder.push(locName); 
+            });
             return savedOrder;
         }
+        
         const order: string[] = [];
         const seen = new Set<string>();
+        
         initialGameState.gameHistory.forEach(entry => {
             if (entry.role === 'model') {
-                 try {
+                try {
                     const tagRegex = /\[LORE_LOCATION:\s*name="([^"]+)"[^\]]*\]/g;
                     let match;
                     while ((match = tagRegex.exec(JSON.parse(entry.parts[0].text).story || '')) !== null) {
                         const locName = match[1];
-                        if (!seen.has(locName)) { order.push(locName); seen.add(locName); }
+                        if (!seen.has(locName)) { 
+                            order.push(locName); 
+                            seen.add(locName); 
+                        }
                     }
-                } catch (e) { /* Ignore */ }
+                } catch (e) { 
+                    // Ignore parsing errors
+                }
             }
         });
-        const knownLocations = Object.values(initialGameState.knownEntities).filter(e => e.type === 'location').map(e => e.name);
-        knownLocations.forEach(locName => { if (!seen.has(locName)) order.push(locName); });
+        
+        const knownLocations = Object.values(initialGameState.knownEntities)
+            .filter(e => e.type === 'location')
+            .map(e => e.name);
+        knownLocations.forEach(locName => { 
+            if (!seen.has(locName)) order.push(locName); 
+        });
+        
         return order;
     });
 
     const gameState = useMemo(() => ({
-        worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder, currentTurnTokens
-    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder, currentTurnTokens]);
+        worldData, 
+        knownEntities, 
+        statuses, 
+        quests, 
+        gameHistory, 
+        memories, 
+        party, 
+        customRules, 
+        systemInstruction, 
+        turnCount, 
+        totalTokens, 
+        gameTime, 
+        chronicle, 
+        compressedHistory, 
+        historyStats, 
+        cleanupStats, 
+        storyLog, 
+        choices, 
+        locationDiscoveryOrder, 
+        currentTurnTokens
+    }), [
+        worldData, 
+        knownEntities, 
+        statuses, 
+        quests, 
+        gameHistory, 
+        memories, 
+        party, 
+        customRules, 
+        systemInstruction, 
+        turnCount, 
+        totalTokens, 
+        gameTime, 
+        chronicle, 
+        compressedHistory, 
+        historyStats, 
+        cleanupStats, 
+        storyLog, 
+        choices, 
+        locationDiscoveryOrder, 
+        currentTurnTokens
+    ]);
     
-    const setters = useMemo(() => ({
-        setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setTurnCount, setMemories, setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime, setCurrentTurnTokens, setTotalTokens, setCompressedHistory, setHistoryStats, setCleanupStats, setStoryLog, setChoices, setLocationDiscoveryOrder
-    }), [setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setTurnCount, setMemories, setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime, setCurrentTurnTokens, setTotalTokens, setCompressedHistory, setHistoryStats, setCleanupStats, setStoryLog, setChoices, setLocationDiscoveryOrder]);
+    const setters = {
+        setWorldData, 
+        setKnownEntities, 
+        setStatuses, 
+        setQuests, 
+        setGameHistory, 
+        setTurnCount, 
+        setMemories, 
+        setParty, 
+        setCustomRules, 
+        setSystemInstruction, 
+        setChronicle, 
+        setGameTime, 
+        setCurrentTurnTokens, 
+        setTotalTokens, 
+        setCompressedHistory, 
+        setHistoryStats, 
+        setCleanupStats, 
+        setStoryLog, 
+        setChoices, 
+        setLocationDiscoveryOrder
+    };
 
     return { gameState, setters };
 };
