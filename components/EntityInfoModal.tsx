@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import type { Entity, Status, EntityType } from './types.ts';
 import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusTextColor, getStatusFontWeight } from './utils.ts';
@@ -44,6 +42,32 @@ export const EntityInfoModal: React.FC<{
     const isUsableItem = isPcsItem && entity.usable;
     const isEquippableItem = isPcsItem && entity.equippable;
     const npcStatuses = statuses.filter(s => s.owner === entity.name);
+    
+    // Helper function to get relationship status color
+    const getRelationshipColor = (relationship: string): string => {
+        const rel = relationship.toLowerCase();
+        if (rel.includes('thù') || rel.includes('địch') || rel.includes('ghét')) {
+            return 'text-red-600 dark:text-red-400';
+        } else if (rel.includes('bạn') || rel.includes('yêu') || rel.includes('tốt')) {
+            return 'text-green-600 dark:text-green-400';
+        } else if (rel.includes('trung') || rel.includes('bình')) {
+            return 'text-yellow-600 dark:text-yellow-400';
+        }
+        return 'text-slate-700 dark:text-gray-300';
+    };
+
+    // Helper function to get fame color
+    const getFameColor = (fame: string): string => {
+        const fameLevel = fame.toLowerCase();
+        if (fameLevel.includes('nổi tiếng') || fameLevel.includes('danh gia') || fameLevel.includes('huyền thoại')) {
+            return 'text-purple-600 dark:text-purple-400 font-semibold';
+        } else if (fameLevel.includes('khét tiếng') || fameLevel.includes('ác danh')) {
+            return 'text-red-600 dark:text-red-400 font-semibold';
+        } else if (fameLevel.includes('tốt') || fameLevel.includes('cao')) {
+            return 'text-green-600 dark:text-green-400 font-semibold';
+        }
+        return 'text-slate-700 dark:text-gray-300';
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -57,49 +81,87 @@ export const EntityInfoModal: React.FC<{
                         {entity.name}
                         {entity.equipped && <span className="text-xs text-green-400 dark:text-green-500 font-normal italic">(Đang trang bị)</span>}
                     </h3>
-                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none"><CrossIcon className="w-6 h-6"/></button>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">
+                        <CrossIcon className="w-6 h-6"/>
+                    </button>
                 </div>
-                <div className="p-5 space-y-3 text-slate-700 dark:text-gray-300 max-h-[60vh] overflow-y-auto">
-                    <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type}</span></p>
-                    
-                    {/* Character-like info */}
-                    {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && (
-                        <>
-                            {entity.gender && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Giới tính:</strong> {entity.gender}</p>}
-                            {entity.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tuổi:</strong> {entity.age}</p>}
-                            {entity.appearance && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Dung mạo:</strong> {entity.appearance}</p>}
-                            {entity.fame && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong> {entity.fame}</p>}
-                            {entity.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Vị trí:</strong> {entity.location}</p>}
-                            {entity.personality && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Bề ngoài):</strong> {entity.personality}</p>}
-                            {entity.motivation && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Động cơ:</strong> {entity.motivation}</p>}
-                            {entity.type !== 'pc' && entity.personalityMbti && MBTI_PERSONALITIES[entity.personalityMbti] && (
-                                <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Cốt lõi):</strong> 
-                                    {` ${MBTI_PERSONALITIES[entity.personalityMbti].title} (${entity.personalityMbti}) - `}
-                                    <span className="italic">{`"${MBTI_PERSONALITIES[entity.personalityMbti].description}"`}</span>
-                                </p>
-                            )}
-                        </>
-                    )}
+                
+                <div className="p-5 space-y-3 text-slate-700 dark:text-gray-300 max-h-[70vh] overflow-y-auto">
+                    {/* Basic Information */}
+                    <div className="space-y-2">
+                        <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type}</span></p>
+                        
+                        {/* Character-like info */}
+                        {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && (
+                            <>
+                                {entity.gender && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Giới tính:</strong> {entity.gender}</p>}
+                                {entity.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tuổi:</strong> {entity.age}</p>}
+                                {entity.appearance && (
+                                    <div>
+                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Dung mạo:</strong>
+                                        <p className="pl-2 mt-1 text-sm">{entity.appearance}</p>
+                                    </div>
+                                )}
+                                {entity.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Vị trí:</strong> {entity.location}</p>}
+                                
+                                {/* DANH VỌNG - Enhanced display */}
+                                {entity.fame && (
+                                    <div>
+                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong>
+                                        <span className={`ml-2 ${getFameColor(entity.fame)}`}>{entity.fame}</span>
+                                    </div>
+                                )}
+                                
+                                {entity.personality && (
+                                    <div>
+                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Bề ngoài):</strong>
+                                        <p className="pl-2 mt-1 text-sm">{entity.personality}</p>
+                                    </div>
+                                )}
+                                {entity.motivation && (
+                                    <div>
+                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Động cơ:</strong>
+                                        <p className="pl-2 mt-1 text-sm">{entity.motivation}</p>
+                                    </div>
+                                )}
+                                {entity.type !== 'pc' && entity.personalityMbti && MBTI_PERSONALITIES[entity.personalityMbti] && (
+                                    <div>
+                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Cốt lõi):</strong>
+                                        <p className="pl-2 mt-1 text-sm">
+                                            {` ${MBTI_PERSONALITIES[entity.personalityMbti].title} (${entity.personalityMbti}) - `}
+                                            <span className="italic">{`"${MBTI_PERSONALITIES[entity.personalityMbti].description}"`}</span>
+                                        </p>
+                                    </div>
+                                )}
+                            </>
+                        )}
 
-                    {/* Realm can apply to characters and skills */}
-                    {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : 'Cảnh giới:'}</strong> {entity.realm}</p>}
+                        {/* Realm can apply to characters and skills */}
+                        {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : 'Cảnh giới:'}</strong> {entity.realm}</p>}
+                    </div>
 
                     {/* NPC and Companion specific info */}
                     {(entity.type === 'npc' || entity.type === 'companion') && (
                         <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-3">
-                            {entity.relationship && (
-                                <div>
-                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Quan hệ:</strong>
-                                    <p className="pl-2 mt-1 text-sm">{entity.relationship}</p>
-                                </div>
-                            )}
+                            {/* QUAN HỆ - Enhanced display */}
+                            <div>
+                                <strong className="font-semibold text-slate-800 dark:text-gray-100">Quan hệ:</strong>
+                                {entity.relationship ? (
+                                    <span className={`ml-2 ${getRelationshipColor(entity.relationship)}`}>
+                                        {entity.relationship}
+                                    </span>
+                                ) : (
+                                    <span className="ml-2 text-gray-500 dark:text-gray-400 italic">Chưa xác định</span>
+                                )}
+                            </div>
 
+                            {/* Skills */}
                             {Array.isArray(entity.skills) && entity.skills.length > 0 && (
                                 <div>
                                     <strong className="font-semibold text-slate-800 dark:text-gray-100">Kỹ năng:</strong>
-                                    <ul className="list-disc list-inside pl-2 mt-1">
+                                    <ul className="list-disc list-inside pl-2 mt-1 space-y-1">
                                         {entity.skills.map((skillName: string) => (
-                                            <li key={skillName} className="text-sm">
+                                            <li key={skillName} className="text-sm text-slate-600 dark:text-gray-400">
                                                 {skillName}
                                             </li>
                                         ))}
@@ -107,82 +169,115 @@ export const EntityInfoModal: React.FC<{
                                 </div>
                             )}
 
-                            {npcStatuses.length > 0 && (
-                                <div>
-                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
-                                    <div className="flex flex-wrap gap-2 mt-1">
+                            {/* TRẠNG THÁI - Enhanced display */}
+                            <div>
+                                <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
+                                {npcStatuses.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 mt-2">
                                         {npcStatuses.map(status => (
                                             <button
                                                 key={status.name}
                                                 onClick={() => onStatusClick(status)}
-                                                className={`px-2 py-1 border rounded-md transition-colors duration-200 flex items-center gap-1.5 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')}`}
+                                                className={`px-3 py-1.5 border rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')} shadow-sm`}
                                             >
                                                 <span className="w-4 h-4">{getIconForStatus(status)}</span>
                                                 <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
                                                     {status.name}
                                                 </span>
+                                                {status.duration && status.duration !== 'permanent' && (
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                                        ({status.duration})
+                                                    </span>
+                                                )}
                                             </button>
                                         ))}
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 italic text-center">
+                                            Không có trạng thái đặc biệt
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                     
                     {/* Item specific details */}
-                     {entity.type === 'item' && (
-                        <>
+                    {entity.type === 'item' && (
+                        <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60 space-y-2">
                             {typeof entity.durability === 'number' && 
                                 <p>
                                     <strong className="font-semibold text-slate-800 dark:text-gray-100">Độ bền:</strong> 
-                                    <span className={entity.durability <= 0 ? 'text-red-600 font-bold' : ''}>
+                                    <span className={entity.durability <= 0 ? 'text-red-600 dark:text-red-400 font-bold' : entity.durability <= 20 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}>
                                         {` ${entity.durability} / 100 `}
                                         {entity.durability <= 0 && <span className="ml-2">(Hỏng)</span>}
+                                        {entity.durability > 0 && entity.durability <= 20 && <span className="ml-2">(Sắp hỏng)</span>}
                                     </span>
                                 </p>
                             }
-                            {typeof entity.uses === 'number' && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Số lần dùng:</strong> {entity.uses}</p>}
-                        </>
+                            {typeof entity.uses === 'number' && (
+                                <p>
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Số lần dùng:</strong> 
+                                    <span className={entity.uses <= 0 ? 'text-red-600 dark:text-red-400' : entity.uses <= 2 ? 'text-yellow-600 dark:text-yellow-400' : ''}>
+                                        {entity.uses}
+                                        {entity.uses <= 0 && <span className="ml-2">(Đã hết)</span>}
+                                        {entity.uses > 0 && entity.uses <= 2 && <span className="ml-2">(Sắp hết)</span>}
+                                    </span>
+                                </p>
+                            )}
+                            {entity.owner && (
+                                <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Chủ sở hữu:</strong> {entity.owner}</p>
+                            )}
+                        </div>
                     )}
 
-                    <p className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60"><strong className="font-semibold text-slate-800 dark:text-gray-100">Mô tả:</strong> {entity.description || 'Chưa có mô tả.'}</p>
+                    {/* Description */}
+                    <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60">
+                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Mô tả:</strong>
+                        <p className="mt-2 text-sm leading-relaxed bg-slate-50 dark:bg-slate-800/30 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                            {entity.description || 'Chưa có mô tả.'}
+                        </p>
+                    </div>
                     
-                     <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/60 flex flex-col space-y-2">
-                        {isEquippableItem && (
-                            !entity.equipped ? (
-                                <button
-                                    onClick={() => onEquipItem(entity.name)}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors"
+                    {/* Action buttons for items */}
+                    {entity.type === 'item' && isPcsItem && (
+                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/60 flex flex-col space-y-2">
+                            {isEquippableItem && (
+                                !entity.equipped ? (
+                                    <button 
+                                        onClick={() => onEquipItem(entity.name)} 
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
+                                    >
+                                        ⚔️ Trang bị
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={() => onUnequipItem(entity.name)} 
+                                        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
+                                    >
+                                        📤 Gỡ trang bị
+                                    </button>
+                                )
+                            )}
+                            {isUsableItem && entity.uses! > 0 && (
+                                <button 
+                                    onClick={() => onUseItem(entity.name)} 
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
                                 >
-                                    Trang bị
+                                    🍃 Sử dụng {entity.uses && `(${entity.uses} lần)`}
                                 </button>
-                            ) : (
-                                <button
-                                    onClick={() => onUnequipItem(entity.name)}
-                                    className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition-colors"
+                            )}
+                            {isLearnableItem && (
+                                <button 
+                                    onClick={() => onLearnItem(entity.name)} 
+                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
                                 >
-                                    Tháo ra
+                                    📚 Học công pháp
                                 </button>
-                            )
-                        )}
-                        {isLearnableItem && (
-                             <button
-                                onClick={() => onLearnItem(entity.name)}
-                                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition-colors"
-                            >
-                                Học Công Pháp
-                            </button>
-                        )}
-                        {isUsableItem && (
-                            <button
-                                onClick={() => onUseItem(entity.name)}
-                                disabled={(typeof entity.durability === 'number' && entity.durability <= 0) || (typeof entity.uses === 'number' && entity.uses <= 0)}
-                                className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
-                            >
-                                Sử dụng
-                            </button>
-                        )}
-                     </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
