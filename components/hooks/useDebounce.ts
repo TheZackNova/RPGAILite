@@ -1,3 +1,4 @@
+// components/hooks/useDebounce.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
@@ -34,7 +35,7 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
     delay: number,
     deps: React.DependencyList = []
 ): T {
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const callbackRef = useRef(callback);
 
     // Update callback ref when dependencies change
@@ -78,13 +79,12 @@ export function useThrottledCallback<T extends (...args: any[]) => any>(
     delay: number
 ): T {
     const lastCallRef = useRef<number>(0);
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const callbackRef = useRef(callback);
 
     useEffect(() => {
         callbackRef.current = callback;
     }, [callback]);
-
 
     const throttledCallback = useCallback(
         ((...args: Parameters<T>) => {
@@ -118,4 +118,48 @@ export function useThrottledCallback<T extends (...args: any[]) => any>(
     }, []);
 
     return throttledCallback;
+}
+
+/**
+ * Debounce với cancel function
+ * @param callback - Function cần debounce
+ * @param delay - Thời gian delay (ms)
+ * @returns [debouncedCallback, cancel]
+ */
+export function useDebouncedCallbackWithCancel<T extends (...args: any[]) => any>(
+    callback: T,
+    delay: number
+): [T, () => void] {
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const callbackRef = useRef(callback);
+
+    useEffect(() => {
+        callbackRef.current = callback;
+    }, [callback]);
+
+    const cancel = useCallback(() => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+    }, []);
+
+    const debouncedCallback = useCallback(
+        ((...args: Parameters<T>) => {
+            cancel();
+            timeoutRef.current = setTimeout(() => {
+                callbackRef.current.apply(undefined, args);
+            }, delay);
+        }) as T,
+        [delay, cancel]
+    );
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            cancel();
+        };
+    }, [cancel]);
+
+    return [debouncedCallback, cancel];
 }
