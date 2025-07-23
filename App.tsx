@@ -1,201 +1,2739 @@
 
-import React, { useState, useEffect, useMemo, createContext } from 'react';
-import { GoogleGenAI } from "@google/genai";
-import { MainMenu } from './components/MainMenu.tsx';
-import { CreateWorld } from './components/CreateWorld.tsx';
-import { GameScreen } from './components/GameScreen.tsx';
-import { ApiSettingsModal } from './components/ApiSettingsModal.tsx';
-import { ChangelogModal } from './components/ChangelogModal.tsx';
-import type { SaveData, Entity, AIContextType, FormData, CustomRule } from './components/types.ts';
-import { CHANGELOG_DATA } from './components/data/changelog.ts';
+
+
+import React, { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
+import MenuButton from './components/MenuButton.tsx';
+import { 
+    PlayIcon, SaveIcon, FileIcon, ChartIcon, SettingsIcon, ArrowLeftIcon, BookOpenIcon, 
+    UserIcon, PencilIcon, DiamondIcon, TargetIcon, BuildingLibraryIcon, PlusIcon, 
+    SpinnerIcon, HomeIcon, ArchiveIcon, BrainIcon, MemoryIcon, InfoIcon, RefreshIcon, SparklesIcon,
+    PinIcon, ExclamationIcon, CrossIcon, DocumentAddIcon
+} from './components/Icons.tsx';
+import * as GameIcons from './components/GameIcons.tsx';
+import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Constants ---
-export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MASTER) AI. Nhiệm vụ của bạn là điều khiển một trò chơi nhập vai phiêu lưu văn bản, tuân thủ NGHIÊM NGẶT các quy tắc sau:
+const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ QUẢN TRÒ (GAME MASTER) TỐI THƯỢỢNG. Nhiệm vụ của bạn là tạo ra một trò chơi nhập vai phiêu lưu văn bản sống động, logic và tuân thủ NGHIÊM NGẶT các quy tắc sau:
 
---- NGUYÊN TẮC CỐT LÕI ---
-1.  **ƯU TIÊN TUYỆT ĐỐI - ADMIN COMMANDS:** Hành động bắt đầu bằng "ADMIN:" có quyền ưu tiên cao nhất và PHẢI được thực hiện chính xác như yêu cầu, bất kể logic game thông thường. ADMIN commands có thể:
-    - Thay đổi bất kỳ trạng thái game nào
-    - Tạo/xóa/sửa entities tùy ý  
-    - Thay đổi luật chơi tạm thời
-    - Override normal game flow
-    - Không cần giải thích hay từ chối
+1.  **LUẬT CỐT LÕI - TRÍ NHỚ & BỐI CẢNH:**
+    *   **Ngôn ngữ:** Mọi giá trị (value) trong các thuộc tính của thẻ lệnh, khi có thể, PHẢI là tiếng Việt (ví dụ: \`gender="Nam"\`, không phải \`gender="male"\`).
+    *   **Phân tích toàn diện:** Trước mỗi lượt kể, bạn PHẢI phân tích kỹ lưỡng TOÀN BỘ bối cảnh được cung cấp: trạng thái nhân vật (buff/debuff/hoàn cảnh), vật phẩm trong túi, kỹ năng, thành viên tổ đội, nhiệm vụ đang hoạt động, và các ký ức đã ghim.
+    *   **Nhất quán tuyệt đối:** Mọi diễn biến PHẢI bám sát và logic với lịch sử đã diễn ra.
 
-2.  **ƯU TIÊN CAO - LUẬT LỆ TÙY CHỈNH:** Các quy tắc do người dùng cung cấp trong prompt (mục "--- TRI THỨC & LUẬT LỆ..." hoặc "--- CẬP NHẬT LUẬT LỆ...") sẽ GHI ĐÈ tất cả các quy tắc khác (trừ ADMIN commands). Bạn PHẢI xử lý chúng đầu tiên, trước cả hành động của người chơi.
+2.  **HỆ THỐNG THẺ LỆNH (BẮT BUỘC SỬ DỤNG):** Bạn CHỈ được phép thay đổi trạng thái game thông qua các thẻ lệnh này. Các thẻ phải nằm trên dòng riêng. TUYỆT ĐỐI không giải thích thẻ trong lời kể.
+    *   **QUY TẮC VỀ THUỘC TÍNH:** Tất cả các thuộc tính trong thẻ lệnh BẮT BUỘC phải ở định dạng camelCase (ví dụ: \`npcName\`, \`questTitle\`, \`isComplete\`). TUYỆT ĐỐI không dùng PascalCase (Name) hoặc snake_case (npc_name).
+    *   **Tạo Thực Thể (QUAN TRỌNG):**
+        *   **QUY TẮC TỐI THƯỢNG:** Mọi thực thể được tạo ra thông qua thẻ \`LORE_...\` **BẮT BUỘC PHẢI** có thuộc tính \`description\` do AI tự viết. **TUYỆT ĐỐI CẤM** sử dụng các cụm từ như "Chưa có mô tả", "Không có thông tin" hoặc để trống trường \`description\`. Vi phạm quy tắc này sẽ phá hỏng trò chơi.
+        *   \`[LORE_NPC: name="...", gender="Nam|Nữ|Khác", age="...", personality="...", description="...", skills="Tên Skill 1, Tên Skill 2", realm="..."]\`: \`description\` và \`personality\` là BẮT BUỘC. \`skills\` là danh sách kỹ năng, \`realm\` là cảnh giới của NPC. Các kỹ năng này cũng phải được định nghĩa như một thực thể riêng.
+        *   \`[LORE_ITEM: name="...", description="...", usable="true", equippable="false", consumable="true", learnable="false", durability="100", uses="5"]\`: \`description\` là BẮT BUỘC, mô tả vật phẩm.
+        *   \`[LORE_LOCATION: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
+        *   \`[LORE_FACTION: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
+        *   \`[LORE_CONCEPT: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
+    *   **Hệ thống Trạng Thái (NÂNG CAO - ĐÃ CẬP NHẬT):**
+        *   **Cú pháp:** \`[STATUS_APPLIED_SELF: name="...", description="...", type="...", effects="...", source="...", duration="...", cureConditions="..."]\` và \`[STATUS_APPLIED_NPC: npcName="..." ...]\`.
+        *   **Thuộc tính Bắt buộc:** \`name\`, \`description\`, \`type\`, \`source\`, và \`duration\` là BẮT BUỘC.
+        *   **Thời Gian & Điều Kiện Chữa Trị:**
+            *   \`duration\`: PHẢI được xác định (ví dụ: "3 lượt", "Vĩnh viễn", "Cho đến khi được chữa trị", "Hết trận").
+            *   \`cureConditions\`: PHẢI được cung cấp nếu có thể chữa trị (ví dụ: "Yêu cầu vật phẩm Thuốc Giải Độc", "Nghỉ ngơi tại nơi an toàn").
+        *   **Trạng Thái Tiến Triển & Vĩnh Viễn (QUAN TRỌNG):** Các trạng thái (đặc biệt là \`injury\`) có thể trở nên tồi tệ hơn hoặc vĩnh viễn nếu không được xử lý.
+            *   Ví dụ 1 (Ban đầu): Nhân vật bị \`[STATUS_APPLIED_SELF: name="Gãy Xương Tay", description="Một tiếng rắc khô khốc vang lên, cánh tay trái của ngươi đau nhói và không thể cử động.", type="injury", effects="Không thể dùng tay trái cho bất kỳ hành động nào.", source="Đòn tấn công của Kẻ Cướp", duration="Cho đến khi được chữa trị", cureConditions="Yêu cầu Nẹp và Băng Bó."]\`.
+            *   Ví dụ 2 (Nếu bị bỏ mặc): Sau vài lượt người chơi không chữa trị, bạn PHẢI cập nhật nó bằng cách áp dụng lại thẻ: \`[STATUS_APPLIED_SELF: name="Di Tật Tay Trái", description="Xương tay đã liền lại sai vị trí, gây đau nhức và yếu đi vĩnh viễn.", type="injury", effects="Giảm 25% sức mạnh và sự khéo léo của tay trái.", source="Gãy xương không được chữa trị.", duration="Vĩnh viễn"]\`.
+        *   **Trạng Thái Tinh Thần & Cảm Xúc (BẮT BUỘC):** Chủ động áp dụng các trạng thái về tinh thần, cảm xúc dựa trên diễn biến.
+            *   Ví dụ (Sợ hãi): \`[STATUS_APPLIED_NPC: npcName="Tên Cướp", name="Hoảng Loạn", description="Nhìn thấy đồng bọn bị hạ gục, hắn mất hết ý chí chiến đấu.", type="debuff", effects="Giảm mạnh độ chính xác, có khả năng sẽ bỏ chạy.", duration="2 lượt", source="Chứng kiến đồng bọn thảm bại."]\`
+            *   Ví dụ (Hưng phấn): \`[STATUS_APPLIED_SELF: name="Hưng Phấn Chiến Đấu", description="Adrenaline tuôn trào, cảm thấy mình bất khả chiến bại.", type="buff", effects="Tăng sát thương, nhưng giảm khả năng phòng thủ và né tránh.", duration="3 lượt", source="Trận chiến kịch tính."]\`
+            *   Ví dụ (Buồn bã): \`[STATUS_APPLIED_SELF: name="Trái Tim Tan Vỡ", description="Cái chết của người đồng đội thân thiết khiến tâm trí trống rỗng.", type="debuff", effects="Không thể sử dụng các kỹ năng cần sự tập trung.", duration="Cho đến khi tìm thấy sự khuây khỏa", source="Mất mát người thân."]\`
+        *   **Trạng Thái Hoàn Cảnh & Sinh Lý:** Tạo các trạng thái dựa trên môi trường và tình hình.
+            *   Ví dụ: \`[STATUS_APPLIED_SELF: name="Mưa Tầm Tã", description="Mưa lớn che khuất tầm nhìn và khiến mặt đất trơn trượt.", type="neutral", effects="Giảm độ chính xác các đòn tấn công tầm xa, tăng khả năng ẩn nấp.", duration="Cho đến khi tạnh mưa", source="Môi trường"]\`
+        *   **Xóa Trạng Thái:** \`[STATUS_CURED_SELF: name="Tên Trạng Thái"]\` và \`[STATUS_CURED_NPC: npcName="Tên NPC", name="Tên Trạng Thái"]\`.
+    *   **Hệ thống Nhiệm vụ & Phần Thưởng:**
+        *   \`[QUEST_ASSIGNED: title="...", description="...", objectives="...", reward="..."]\`: Các thuộc tính \`title\`, \`description\`, \`objectives\` và \`reward\` là **BẮT BUỘC**.
+        *   \`[QUEST_UPDATED: title="...", status="completed|failed"]\`
+        *   \`[QUEST_OBJECTIVE_COMPLETED: questTitle="...", objectiveDescription="..."]\`
+        *   **TỰ ĐỘNG TRAO THƯỞNG (BẮT BUỘC):** Khi một nhiệm vụ được cập nhật thành \`completed\`, bạn **PHẢI** kiểm tra ngay lập tức thuộc tính \`reward\` của nhiệm vụ đó. Nếu có phần thưởng, bạn **BẮT BUỘC** phải dùng các thẻ \`[ITEM_AQUIRED: ...]\` hoặc \`[SKILL_LEARNED: ...]\` để trao phần thưởng cho người chơi. Phần thưởng này sau đó phải được thêm vào "Tri Thức Thế Giới".
+    *   **Hệ thống Vật phẩm & Trang bị:**
+        *   \`[ITEM_AQUIRED: name="..." description="..." ...]\`
+        *   \`[ITEM_DAMAGED: name="Tên Item" damage="10"]\`
+        *   \`[ITEM_CONSUMED: name="Tên Item"]\`
+        *   \`[ITEM_TRANSFORMED: oldName="Tên item cũ", newName="Tên item mới", description="Mô tả mới", ...]\`
+        *   \`[ITEM_EQUIPPED: name="Tên Item"]\`: Trang bị một vật phẩm cho nhân vật chính. Vật phẩm phải có \`equippable="true"\`.
+        *   \`[ITEM_UNEQUIPPED: name="Tên Item"]\`: Tháo một vật phẩm đã trang bị.
+    *   **Các Thẻ Quan Trọng Khác:**
+        *   \`[COMPANION: name="...", description="...", personality="..."]\`
+        *   \`[SKILL_LEARNED: name="...", description="...", realm="..."]\`: Kỹ năng được học.
+        *   \`[REALM_UPDATE: target="Tên Thực Thể", realm="..."]\`: Cập nhật cảnh giới cho một thực thể (nhân vật, NPC, hoặc kỹ năng/công pháp). Nếu việc tăng cảnh giới làm thay đổi mô tả của kỹ năng, hãy sử dụng thêm thẻ \`[ENTITY_UPDATE]\`.
+        *   \`[RELATIONSHIP_CHANGED: npcName="Tên NPC", relationship="Mối quan hệ"]\`
+        *   \`[ENTITY_UPDATE: name="Tên Thực Thể", newDescription="Mô tả mới đầy đủ..."]\`: **QUAN TRỌNG:** Sử dụng thuộc tính \`newDescription\` để cập nhật mô tả.
+        *   \`[MEMORY_ADD: text="..."]\`
 
-3.  **HỆ THỐNG THẺ LỆNH BẮT BUỘC:** Mọi thay đổi trạng thái game BẮT BUỘC phải được thực hiện qua các thẻ lệnh ẩn. KHÔNG BAO GIỜ bỏ qua việc sử dụng thẻ lệnh.
+3.  **LUẬT VỀ LỰA CHỌN VÀ HÀNH ĐỘNG (QUAN TRỌNG NHẤT - ĐÃ CẬP NHẬT):**
+    *   **Đánh giá Toàn diện:** Trước khi tạo lựa chọn, bạn PHẢI phân tích TOÀN DIỆN bối cảnh (trạng thái, kỹ năng, trang bị của nhân vật; trạng thái, quan hệ của NPC; môi trường; tình huống).
+    *   **KẾT QUẢ KHÔNG ĐẢM BẢO:** Kết quả của các lựa chọn có tỷ lệ phần trăm **KHÔNG** được đảm bảo. Bạn phải **BÍ MẬT "TUNG XÚC XẮC"** để quyết định kết quả dựa trên tỷ lệ đã nêu và tường thuật lại kết quả thực tế (thành công, thành công nhưng gặp rủi ro, hoặc thất bại).
+    *   **HỆ THỐNG LỰA CHỌN PHỨC HỢP (ÁP DỤNG NGHIÊM NGẶT):** Bạn phải cung cấp một chuỗi các lựa chọn đa dạng.
+        *   **1. Lựa chọn thường:** Các hành động đơn giản, an toàn, không có tỷ lệ rõ ràng. (VD: "Hỏi thăm về tin đồn gần đây.", "Kiểm tra lại túi đồ.")
+        *   **2. Lựa chọn Rủi ro (BẮT BUỘC CÓ KHI HÀNH ĐỘNG NGUY HIỂM):** Những hành động có khả năng thất bại. PHẢI tuân thủ định dạng sau:
+            *   **Định dạng:** \`Hành động (Thành công X%: [Kết quả thành công]. | Rủi ro: [Điều xấu có thể xảy ra ngay cả khi thành công]. | Thất bại: [Kết quả thất bại].)\`
+            *   **Ví dụ 1:** \`Tấn công vào tay cầm kiếm của tên cướp (Thành công 70%: Gây sát thương và khiến hắn lảo đảo. | Rủi ro: Đòn đánh của bạn bị lệch, tạo cơ hội cho tên cướp còn lại tấn công lén từ bên hông. | Thất bại: Bị tên cướp đỡ được và phản công quyết liệt.)\`
+            *   **Ví dụ 2:** \`Thuyết phục lính gác cho qua (Thành công 40%: Lính gác tin lời bạn và cho qua. | Rủi ro: Lính gác vẫn nghi ngờ và sẽ đi báo cáo lại sau khi bạn đi khỏi. | Thất bại: Lính gác nổi giận và gọi thêm người tới bắt bạn.)\`
+            *   **Logic Tỷ lệ:** Tỷ lệ thành công (X%) PHẢI được tính toán logic dựa trên chỉ số, kỹ năng, **trạng thái** (của cả PC và NPC), và **hoàn cảnh môi trường**. Trạng thái "Kiệt sức" sẽ giảm tỷ lệ thành công của các đòn tấn công vật lý. "Mưa Tầm Tã" có thể giảm tỷ lệ thành công của các đòn tấn công tầm xa nhưng tăng tỷ lệ thành công của hành động ẩn nấp.
+        *   **3. Lựa chọn Trả giá:** Những hành động mạnh mẽ yêu cầu hy sinh.
+            *   **Định dạng:** \`Hành động ([Mô tả hiệu ứng mạnh mẽ]. | Trả giá: [Cái giá phải trả, thường là một trạng thái debuff, mất vật phẩm, hoặc tổn hại vĩnh viễn].)\`
+            *   **Ví dụ:** \`Kích hoạt bí thuật Huyết Tế (Hiệu quả: Tăng vọt sức mạnh trong 3 lượt, đủ sức đối đầu với kẻ địch mạnh hơn. | Trả giá: Nhận trạng thái "Sinh Lực Hao Tổn" trong 1 ngày, giảm mạnh sức chịu đựng.)\`
 
-4.  **THẾ GIỚI SỐNG ĐỘNG:** Tạo ra một thế giới sống động với NPCs có đời sống riêng, mục tiêu và mối quan hệ. Chủ động tạo các sự kiện ngầm và tương tác.
+4.  **LUẬT VỀ CHIẾN ĐẤU:**
+    *   **CHIẾN ĐẤU THEO LƯỢT:** Các trận chiến KHÔNG ĐƯỢC giải quyết bằng một lựa chọn duy nhất. Bạn PHẢI chia nhỏ trận chiến thành các lượt hành động.
+    *   **LỰA CHỌN CHIẾN ĐẤU CHI TIẾT:** Trong mỗi lượt chiến đấu, bạn PHẢI cung cấp các lựa chọn hành động chiến thuật cụ thể (Tấn công, Phòng thủ, Né tránh, Dùng Kỹ năng/Vật phẩm, Thao tác đặc biệt). Nhiều lựa chọn trong số này sẽ là "Lựa chọn Rủi ro".
+    *   **KỸ NĂNG CỦA NPC:** NPC cũng có thể sở hữu và sử dụng kỹ năng. Trạng thái và kỹ năng của NPC ảnh hưởng đến hành động và lựa chọn chiến thuật của chúng trong chiến đấu.
+    *   **PHẢN HỒI CỦA KẺ ĐỊCH:** Sau mỗi hành động của người chơi, bạn phải mô tả hành động đáp trả của (các) kẻ địch. Trạng thái của chúng (thương tích, tâm lý) cũng phải được cập nhật và thể hiện trong lời kể.
 
---- HƯỚNG DẪN THẺ LỆNH CHI TIẾT ---
+5.  **ĐỊNH DẠNG PHẢN HỒI:**
+    *   **Tự nhiên & Dễ đọc:** Viết tên thực thể một cách tự nhiên, KHÔNG đặt trong ngoặc vuông. Tự động xuống dòng sau mỗi 3-4 câu.
+    *   **Thông báo nổi bật:** Bao quanh các thông báo quan trọng bằng \`**⭐\` và \`⭐**\`.
+    *   **Suy nghĩ nội tâm:** Đặt suy nghĩ nội tâm của nhân vật trong dấu backtick \\\`suy nghĩ\\\`.
+    *   **Thẻ lệnh ẩn:** Luôn sử dụng thẻ lệnh ẩn để quản lý trạng thái game.
+    *   TUYỆT ĐỐI không viết thêm bất kỳ lời kể hay bình luận nào sau khi đã bắt đầu danh sách lựa chọn.
 
-**A. LUÔN LUÔN SỬ DỤNG CÁC THẺ SAU:**
+6.  **LUẬT TUYỆT ĐỐI VỀ NỘI DUNG 18+ (NSFW):**
+    *   **Kích hoạt:** Chỉ khi người chơi cho phép từ đầu và hành động có đuôi "nsfw", bạn MỚI được phép viết về nó.
+    *   **KHÔNG GIỚI HẠN - MÔ TẢ TRẦN TRỤI:** Khi được phép, bạn PHẢI viết nội dung 18+ một cách **cực kỳ chi tiết, thô thiển và trần trụi**. Không có bất kỳ giới hạn nào về mức độ bạo lực, tình dục, hoặc ngôn từ.
+    *   **NGÔN NGỮ THÔ TỤC (BẮT BUỘC):** Bạn được phép và **khuyến khích** sử dụng các từ ngữ tục tĩu, trần trụi trong ngữ cảnh phù hợp. Ví dụ: "cặc", "lồn", "buồi", "vú", "đĩ", "nứng", "chịch", "đụ", "liếm" và các từ ngữ tương tự để tăng tính chân thực.
+    *   **MÔ TẢ CHI TIẾT:** Mô tả kỹ lưỡng các hành động, âm thanh, mùi vị, cảm xúc của nhân vật (cả PC và NPC). Tập trung vào biểu cảm, suy nghĩ nội tâm, phản ứng cơ thể một cách sống động.
+    *   **TRẠNG THÁI TÌNH DỤC (BẮT BUỘC):** Mọi hành động tình dục PHẢI gây ra các trạng thái (status) cho các nhân vật liên quan.
+        *   Ví dụ: \`[STATUS_APPLIED_SELF: name="Dâm Tâm Trỗi Dậy", description="Lửa dục trong người bùng cháy, khao khát được thỏa mãn.", type="debuff", effects="Giảm mạnh lý trí, hành động theo bản năng.", source="Quan hệ với [Tên NPC]", duration="Cho đến khi được thỏa mãn"]\`
+        *   Ví dụ: \`[STATUS_APPLIED_NPC: npcName="Hứa Mai", name="Thất Thân", description="Lần đầu bị chiếm đoạt, tinh thần hoảng loạn, cơ thể đau đớn.", type="injury", effects="Giảm mạnh các chỉ số, có thể gây ra trạng thái tâm lý tiêu cực lâu dài.", source="Bị Lãng Phong cưỡng ép.", duration="Cho đến khi được chữa trị tâm lý"]\`
 
-1. **TIME_ELAPSED (BẮT BUỘC MỖI LƯỢT):**
-   \`[TIME_ELAPSED: hours=X, days=X, months=X, years=X]\`
-   - Thậm chí nếu chỉ vài phút, hãy dùng hours=0
-   - Ví dụ: Cuộc trò chuyện ngắn = hours=0, Đi bộ = hours=1, Chiến đấu = hours=2
+7.  **KIẾN THỨC VÀ SÁNG TẠO:**
+    *   Hãy tận dụng kiến thức của bạn để làm phong phú câu chuyện.
+    *   Nếu người dùng cung cấp "Kiến thức bổ sung", bạn PHẢI ưu tiên sử dụng thông tin đó.
 
-2. **CHRONICLE_TURN (BẮT BUỘC MỖI LƯỢT):**
-   \`[CHRONICLE_TURN: text="Tóm tắt ngắn gọn sự kiện chính của lượt này"]\`
+8.  **LUẬT LỆ TÙY CHỈNH (QUAN TRỌNG NHẤT):**
+    *   **ƯU TIÊN TUYỆT ĐỐI:** Mọi thông tin trong mục "--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---" hoặc "--- CẬP NHẬT LUẬT LỆ THẾ GIỚI ---" đều có độ ưu tiên cao nhất, ghi đè lên tất cả các luật lệ mặc định khác nếu có xung đột.
+    *   **XỬ LÝ CẬP NHẬT LUẬT:** Nếu có mục "--- CẬP NHẬT LUẬT LỆ THẾ GIỚI ---", bạn PHẢI xử lý nó ĐẦU TIÊN, trước khi xử lý hành động của người chơi.
+        *   **KHI KÍCH HOẠT LUẬT MỚI:**
+            1.  Thông báo trong lời kể rằng có một quy tắc/luật lệ mới của thế giới đã hình thành.
+            2.  Với mỗi luật mới, hãy tạo một khái niệm tương ứng bằng thẻ \`[LORE_CONCEPT: name="<Tên tóm tắt của luật> (Đang hoạt động)", description="<Nội dung đầy đủ của luật>"]\`. Tên khái niệm PHẢI do bạn tự tóm tắt từ nội dung luật.
+            3.  Bất kỳ thực thể nào được yêu cầu tạo ra trong luật (vật phẩm, NPC) phải được tạo ngay lập tức bằng thẻ lệnh tương ứng.
+        *   **KHI VÔ HIỆU HÓA LUẬT:**
+            1.  Thông báo trong lời kể rằng một quy tắc/luật lệ cũ đã sụp đổ hoặc không còn hiệu lực.
+            2.  Với mỗi luật bị hủy, hãy tìm khái niệm tương ứng trong Tri Thức Thế Giới (dựa vào nội dung luật và có hậu tố "(Đang hoạt động)").
+            3.  Sử dụng thẻ \`[ENTITY_UPDATE]\` để cập nhật khái niệm đó. Thuộc tính \`name\` là tên cũ của khái niệm, còn \`newName\` là tên mới với hậu tố \`(Pháp Tắc Sụp Đổ)\` và \`newDescription\` là "Luật này đã bị vô hiệu hóa.".
+        *   **KHI CẬP NHẬT LUẬT:**
+            1.  Tìm khái niệm tương ứng trong Tri Thức Thế Giới dựa vào nội dung của "LUẬT CŨ" (khái niệm này sẽ có hậu tố "(Đang hoạt động)").
+            2.  Thông báo trong lời kể rằng một quy tắc/luật lệ đã được điều chỉnh.
+            3.  Sử dụng thẻ \`[ENTITY_UPDATE]\` để cập nhật khái niệm đó.
+            4.  Thuộc tính \`name\` của thẻ \`[ENTITY_UPDATE]\` PHẢI là tên cũ của khái niệm.
+            5.  Bạn PHẢI tự tóm tắt nội dung của "LUẬT MỚI" để tạo ra giá trị cho thuộc tính \`newName\`. Tên mới này cũng PHẢI có hậu tố "(Đang hoạt động)".
+            6.  Thuộc tính \`newDescription\` PHẢI là nội dung đầy đủ của "LUẬT MỚI".
+    *   **TUÂN THỦ LUẬT ĐANG HOẠT ĐỘNG:** Bạn PHẢI luôn tuân thủ các luật lệ được liệt kê trong "--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---" khi xử lý hành động của người chơi.`;
 
-3. **VỊ TRÍ VÀ DI CHUYỂN:**
-   - Khi nhân vật di chuyển: \`[ENTITY_UPDATE: name="TênPC", location="Địa điểm mới"]\`
-   - Khi khám phá địa điểm mới: \`[LORE_LOCATION: name="Tên địa điểm", description="Mô tả chi tiết"]\`
 
-**B. CHỦ ĐỘNG TẠO TRẠNG THÁI:**
-
-Bạn PHẢI chủ động áp dụng trạng thái trong các tình huống sau:
-- **Sau chiến đấu:** Vết thương, mệt mỏi, đau đớn
-- **Môi trường khắc nghiệt:** Lạnh, nóng, ẩm ướt, độc hại
-- **Hoạt động lâu dài:** Mệt mỏi, đói khát
-- **Tương tác xã hội:** Stress, hứng thú, tức giận
-- **Sử dụng kỹ năng:** Buff tạm thời, debuff từ overuse
-
-**Ví dụ trạng thái cần tạo:**
-\`[STATUS_APPLIED_SELF: name="Mệt Mỏi Nhẹ", description="Cảm thấy hơi mệt sau cuộc hành trình", type="debuff", duration="2 giờ", source="Di chuyển lâu"]\`
-
-\`[STATUS_APPLIED_SELF: name="Tăng Cường Thể Lực", description="Cơ thể được tăng cường sau khi luyện tập", type="buff", duration="1 ngày", source="Luyện võ"]\`
-
-**C. TẠO VÀ CẬP NHẬT THỰC THỂ:**
-
-1. **NPCs mới:**
-\`[LORE_NPC: name="Tên NPC", description="Mô tả chi tiết", gender="Nam/Nữ", age="25", appearance="Dung mạo", motivation="Động cơ", location="Vị trí", personalityMbti="ENTJ", skills="Kỹ năng 1,Kỹ năng 2"]\`
-
-2. **Vật phẩm mới:**
-\`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, durability=100]\`
-
-3. **Kỹ năng mới:**
-\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", realm="Cảnh giới nếu có"]\`
-
-**D. NHIỆM VỤ VÀ QUEST:**
-
-Chủ động tạo quest mới và cập nhật quest hiện tại:
-\`[QUEST_ASSIGNED: title="Tên nhiệm vụ", description="Mô tả", objectives="Mục tiêu 1;Mục tiêu 2", giver="Người giao", reward="Phần thưởng", isMainQuest=false]\`
-
---- QUY TẮC TƯƠNG TÁC ---
-
-**1. LỰAN CHỌN HÀNH ĐỘNG:**
-- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu
-- Tận dụng kỹ năng và vật phẩm của nhân vật
-- Có lựa chọn rủi ro cao/thưởng cao
-
-**2. KẾT QUẢ HÀNH ĐỘNG:**
-- KHÔNG đảm bảo thành công
-- Sử dụng RNG ẩn để quyết định kết quả
-- Hậu quả logic dựa trên kỹ năng và hoàn cảnh
-
-**3. CHIẾN ĐẤU:**
-- Theo từng lượt, không giải quyết nhanh
-- Kẻ địch cũng có hành động và trạng thái
-- Mô tả chi tiết và tạo tension
-
-**4. THẾ GIỚI PHẢN ỨNG:**
-- NPCs phản ứng với hành động của PC
-- Môi trường thay đổi theo thời gian
-- Sự kiện ngẫu nhiên và tình huống bất ngờ
-
---- ĐỊNH DẠNG VĂN BẢN ---
-
-**1. LỜI KỂ:**
-- 150-250 từ, chi tiết và sống động
-- Sử dụng \`...\` cho suy nghĩ nội tâm
-- \`**⭐...⭐**\` cho thông báo quan trọng
-
-**2. MÔ TẢ HÀNH ĐỘNG:**
-- Mô tả hậu quả rõ ràng
-- Phản ứng của môi trường và NPCs
-- Thay đổi trạng thái và hoàn cảnh
-
-**3. NSFW (KHI ĐƯỢC BẬT):**
-- Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
-- Mô tả cực kỳ chi tiết, trần trụi
-- Tạo trạng thái liên quan đến tình dục/bạo lực
-
---- LƯU Ý QUAN TRỌNG ---
-
-**BẮT BUỘC PHẢI LÀM:**
-1. Sử dụng \`[TIME_ELAPSED]\` và \`[CHRONICLE_TURN]\` mỗi lượt
-2. Tạo trạng thái phù hợp với tình huống
-3. Cập nhật vị trí khi di chuyển
-4. Tạo NPCs, vật phẩm, địa điểm mới khi cần
-5. Phản hồi với thế giới sống động
-
-**KHÔNG ĐƯỢC:**
-1. Bỏ qua việc sử dụng thẻ lệnh
-2. Để trống thuộc tính \`description\` khi tạo thực thể
-3. Giải quyết chiến đấu trong một lượt
-4. Làm cho thế giới tĩnh lặng, chờ đợi
-
-**KIỂM TRA CUỐI LƯỢT (MANDATORY CHECKLIST):**
-
-Trước khi hoàn thành phản hồi, hãy tự kiểm tra theo thứ tự:
-
-1. **✓ BẮT BUỘC - TIME_ELAPSED:** Đã sử dụng với giá trị phù hợp?
-2. **✓ BẮT BUỘC - CHRONICLE_TURN:** Đã tóm tắt sự kiện chính?
-3. **✓ STATUS CHECK:** Có tình huống nào cần tạo status không? (Rule 80/20)
-4. **✓ LOCATION CHECK:** PC có di chuyển không? Có địa điểm mới nào không?
-5. **✓ ENTITY CHECK:** Có NPCs, items, skills mới nào cần tạo không?
-6. **✓ INTERACTION CHECK:** Có NPCs nào cần cập nhật relationship không?
-7. **✓ QUEST CHECK:** Có objectives nào hoàn thành không? Cần quest mới không?
-8. **✓ WORLD REACTION:** Thế giới có phản ứng sống động với hành động PC không?
-9. **✓ CHOICE QUALITY:** 4-5 lựa chọn có đa dạng và meaningful không?
-10. **✓ NSFW COMPLIANCE:** Nếu NSFW ON, có đủ 2+ lựa chọn 18+ không?
-
-**NẾU BẤT KỲ MỤC NÀO MISSING → REVISE RESPONSE**
-
-**TARGET METRICS PER 10 TURNS:**
-- Status effects created: 8+ times (80% rule)
-- New locations: 3+ times  
-- New NPCs: 2-3 times
-- New items: 2+ times
-- New skills learned: 1-2 times
-- Quest updates: 3+ times
-
-**FINAL REMINDER:**
-"Bạn là người kể chuyện CHỦ ĐỘNG và sáng tạo. Thế giới phải SỐNG và PHẢN ỨNG với mọi hành động. Không bao giờ để game trở nên tĩnh lặng hay nhàm chán!"`;
 // --- AI Context for dependency injection ---
-export const AIContext = createContext<AIContextType>({
-    ai: null,
-    isAiReady: false,
-    apiKeyError: null,
-    isUsingDefaultKey: true,
-    userApiKeyCount: 0,
-    rotateKey: () => {},
-});
+interface AIContextType {
+    ai: GoogleGenAI | null;
+    isAiReady: boolean;
+    apiKeyError: string | null;
+}
+const AIContext = createContext<AIContextType>({ ai: null, isAiReady: false, apiKeyError: null });
+
+
+// --- Type Definitions ---
+type EntityType = 'pc' | 'npc' | 'location' | 'faction' | 'item' | 'skill' | 'status_effect' | 'companion' | 'concept';
+
+interface Entity {
+  name: string;
+  type: EntityType;
+  description: string;
+  gender?: string;
+  age?: string;
+  personality?: string;
+  relationship?: string; // For relationship tracking
+  uses?: number; // For consumable items
+  realm?: string; // For power levels or skill levels
+  durability?: number;
+  usable?: boolean;
+  equippable?: boolean;
+  equipped?: boolean; // New: For tracking equipped status
+  consumable?: boolean;
+  learnable?: boolean; // For 'công pháp' items
+  owner?: string; // 'pc' or npc name for items
+  skills?: string[]; // For NPCs
+  [key: string]: any; 
+}
+
+interface KnownEntities {
+    [name: string]: Entity;
+}
+
+interface FormData {
+    genre: string;
+    worldDetail: string;
+    writingStyle: string;
+    difficulty: string;
+    allowNsfw: boolean;
+    characterName: string;
+    customPersonality: string;
+    personalityFromList: string;
+    gender: string;
+    bio: string;
+    startSkill: string;
+    addGoal: boolean;
+}
+
+interface Status {
+    name:string;
+    description: string;
+    type: 'buff' | 'debuff' | 'neutral' | 'injury';
+    source: string;
+    duration?: string; // e.g., '3 turns', 'permanent'
+    effects?: string;
+    cureConditions?: string;
+    owner: string; // 'pc' or an NPC's name
+}
+
+interface Memory {
+    text: string;
+    pinned: boolean;
+}
+
+interface QuestObjective {
+    description: string;
+    completed: boolean;
+}
+
+interface Quest {
+    title: string;
+    description: string;
+    objectives: QuestObjective[];
+    giver?: string;
+    reward?: string;
+    isMainQuest: boolean;
+    status: 'active' | 'completed' | 'failed';
+}
+
+interface GameHistoryEntry {
+    role: 'user' | 'model';
+    parts: { text: string }[];
+}
+
+interface CustomRule {
+  id: string;
+  content: string;
+  isActive: boolean;
+}
+
+// --- Save Game Data Structure ---
+interface SaveData {
+    worldData: FormData;
+    storyLog: string[];
+    choices: string[];
+    knownEntities: KnownEntities;
+    statuses: Status[];
+    quests: Quest[];
+    gameHistory: GameHistoryEntry[];
+    memories: Memory[];
+    party: Entity[];
+    customRules: CustomRule[];
+    systemInstruction: string;
+    turnCount: number;
+}
+
+// --- Icon Factory ---
+const getIconForEntity = (entity: Entity): React.ReactNode => {
+    if (!entity) return <GameIcons.SparklesIcon />;
+    const name = entity.name.toLowerCase();
+    const type = entity.type;
+
+    if (type === 'item') {
+        if (name.includes('kiếm')) return <GameIcons.SwordIcon />;
+        if (name.includes('đao')) return <GameIcons.SaberIcon />;
+        if (name.includes('thương')) return <GameIcons.SpearIcon />;
+        if (name.includes('cung')) return <GameIcons.BowIcon />;
+        if (name.includes('trượng')) return <GameIcons.StaffIcon />;
+        if (name.includes('búa')) return <GameIcons.AxeIcon />;
+        if (name.includes('chủy thủ') || name.includes('dao găm')) return <GameIcons.DaggerIcon />;
+        if (name.includes('khiên')) return <GameIcons.ShieldIcon />;
+        if (name.includes('giáp')) return <GameIcons.ChestplateIcon />;
+        if (name.includes('nón') || name.includes('mũ')) return <GameIcons.HelmetIcon />;
+        if (name.includes('ủng') || name.includes('giày')) return <GameIcons.BootsIcon />;
+        if (name.includes('thuốc')) return <GameIcons.PotionIcon />;
+        if (name.includes('đan')) return <GameIcons.PillIcon />;
+        if (name.includes('sách') || name.includes('pháp') || name.includes('quyển')) return <GameIcons.BookIcon />;
+        if (name.includes('cuốn') || name.includes('chỉ')) return <GameIcons.ScrollIcon />;
+        if (name.includes('nhẫn')) return <GameIcons.RingIcon />;
+        if (name.includes('dây chuyền')) return <GameIcons.AmuletIcon />;
+        if (name.includes('chìa khóa')) return <GameIcons.KeyIcon />;
+        if (name.includes('tiền') || name.includes('vàng') || name.includes('bạc')) return <GameIcons.CoinIcon />;
+        if (name.includes('đá') || name.includes('ngọc')) return <GameIcons.GemIcon />;
+        if (name.includes('thịt') || name.includes('thực')) return <GameIcons.MeatIcon />;
+        return <GameIcons.ChestIcon />;
+    }
+
+    if (type === 'skill') {
+        if (name.includes('kiếm')) return <GameIcons.SwordIcon />;
+        if (name.includes('đao')) return <GameIcons.SaberIcon />;
+        if (name.includes('quyền') || name.includes('chưởng')) return <GameIcons.FistIcon />;
+        if (name.includes('cước')) return <GameIcons.BootIcon_Skill />;
+        if (name.includes('thân pháp')) return <GameIcons.FeatherIcon />;
+        if (name.includes('hỏa') || name.includes('lửa')) return <GameIcons.FireIcon />;
+        if (name.includes('lôi') || name.includes('sét')) return <GameIcons.LightningIcon />;
+        if (name.includes('thủy') || name.includes('nước')) return <GameIcons.WaterDropIcon />;
+        if (name.includes('độc')) return <GameIcons.PoisonIcon />;
+        if (name.includes('tâm pháp') || name.includes('công pháp') || name.includes('quyết')) return <GameIcons.BookIcon />;
+        return <GameIcons.ScrollIcon />;
+    }
+
+    if (type === 'npc' || type === 'companion') return <GameIcons.NpcIcon />;
+    if (type === 'location') return <GameIcons.MapIcon />;
+    if (type === 'faction') return <GameIcons.FlagIcon />;
+    if (type === 'concept') return <BrainIcon />;
+
+    return <GameIcons.SparklesIcon />;
+};
+
+const getIconForStatus = (status: Status): React.ReactNode => {
+    if (!status) return <InfoIcon />;
+    const name = status.name.toLowerCase();
+    const type = status.type;
+
+    if (type === 'buff') return <GameIcons.UpArrowIcon />;
+    if (name.includes('độc')) return <GameIcons.PoisonIcon />;
+    if (name.includes('chảy máu')) return <GameIcons.BloodDropIcon />;
+    if (name.includes('bỏng') || name.includes('hỏa')) return <GameIcons.FireIcon />;
+    if (name.includes('tê liệt') || name.includes('choáng')) return <GameIcons.LightningIcon />;
+    if (name.includes('gãy') || name.includes('trọng thương') || name.includes('thương tích')) return <GameIcons.BandagedHeartIcon />;
+    if (name.includes('tan vỡ') || name.includes('đau khổ')) return <GameIcons.BrokenHeartIcon />;
+    if (name.includes('yếu') || name.includes('suy nhược')) return <GameIcons.DownArrowIcon />;
+    if (type === 'injury') return <GameIcons.BandagedHeartIcon />;
+    if (type === 'debuff') return <GameIcons.DownArrowIcon />;
+    
+    return <GameIcons.HeartIcon />;
+};
+
+const getIconForQuest = (quest: Quest): React.ReactNode => {
+    if (!quest) return <GameIcons.ScrollIcon />;
+    if (quest.status === 'completed') return <GameIcons.CheckmarkIcon />;
+    if (quest.status === 'failed') return <CrossIcon />;
+    return <GameIcons.ScrollIcon />;
+};
+
+
+// --- Status Styling Helper Functions ---
+const getStatusTextColor = (status: Status): string => {
+    if (status.type === 'buff') {
+        return 'text-green-600 dark:text-green-400';
+    }
+    if (status.type === 'debuff' || status.type === 'injury') {
+        if (/\b(nặng|trọng|vĩnh viễn)\b/i.test(status.name) || status.duration === 'Vĩnh viễn') {
+             return 'text-red-700 dark:text-red-500';
+        }
+        if (/\b(nhẹ)\b/i.test(status.name)) {
+            return 'text-yellow-600 dark:text-yellow-400';
+        }
+        return 'text-red-600 dark:text-red-400';
+    }
+    return 'text-slate-600 dark:text-slate-400'; // Neutral
+};
+
+const getStatusFontWeight = (status: Status): string => {
+    if ((status.type === 'debuff' || status.type === 'injury') && (/\b(nặng|trọng|vĩnh viễn)\b/i.test(status.name) || status.duration === 'Vĩnh viễn')) {
+        return 'font-bold';
+    }
+    if (status.type === 'buff' || status.type === 'debuff' || status.type === 'injury') {
+        return 'font-semibold';
+    }
+    return 'font-normal';
+}
+
+const getStatusBorderColor = (status: Status): string => {
+    if (status.type === 'buff') {
+        return 'border-green-400/50';
+    }
+    if (status.type === 'debuff' || status.type === 'injury') {
+        if (/\b(nặng|trọng|vĩnh viễn)\b/i.test(status.name) || status.duration === 'Vĩnh viễn') {
+             return 'border-red-500/50';
+        }
+        if (/\b(nhẹ)\b/i.test(status.name)) {
+            return 'border-yellow-400/50';
+        }
+        return 'border-red-400/50';
+    }
+    return 'border-slate-400 dark:border-slate-600/50';
+};
+
+
+// --- MainMenu Component ---
+const MainMenu: React.FC<{ 
+    onStartNewAdventure: () => void; 
+    onOpenApiSettings: () => void; 
+    onLoadGameFromFile: (file: File) => void;
+    isUsingDefaultKey: boolean;
+}> = ({ onStartNewAdventure, onOpenApiSettings, onLoadGameFromFile, isUsingDefaultKey }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            onLoadGameFromFile(file);
+        }
+        // Reset file input to allow selecting the same file again
+        if (event.target) {
+            event.target.value = '';
+        }
+    };
+    
+    return (
+      <div className="bg-white/80 dark:bg-[#1f2238]/80 backdrop-blur-md border border-slate-300 dark:border-slate-700 p-8 rounded-2xl shadow-xl max-w-lg w-full">
+        <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept=".json"
+            className="hidden"
+        />
+        <header className="text-center mb-10">
+          <h1 className="text-4xl sm:text-5xl font-bold tracking-wider text-slate-900 dark:text-white">
+            <span className="dark:text-purple-400">ĐÂY LÀ GAME </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400">BẠN CÓ THỂ COOK MỌI THỨ</span>
+          </h1>
+        </header>
+        
+        <main className="flex flex-col items-center space-y-4">
+          <MenuButton 
+            text="Tạo Thế Giới Mới" 
+            icon={<PlayIcon />}
+            onClick={onStartNewAdventure}
+            colorClass="bg-gradient-to-r from-purple-600 via-pink-500 to-red-500"
+            hoverClass="hover:from-purple-700 hover:via-pink-600 hover:to-red-600"
+            focusClass="focus:ring-pink-500"
+          />
+          <MenuButton 
+            text="Tải Game Từ Tệp (.json)" 
+            icon={<FileIcon />}
+            onClick={() => fileInputRef.current?.click()}
+            colorClass="bg-blue-500"
+            hoverClass="hover:bg-blue-600"
+            focusClass="focus:ring-blue-400"
+          />
+          <MenuButton 
+            text="Xem Cập Nhật Game" 
+            icon={<ChartIcon />}
+            colorClass="bg-green-500"
+            hoverClass="hover:bg-green-600"
+            focusClass="focus:ring-green-400"
+          />
+           <MenuButton 
+            text="Thiết Lập API Key" 
+            icon={<SettingsIcon />}
+            onClick={onOpenApiSettings}
+            colorClass="bg-slate-700"
+            hoverClass="hover:bg-slate-600"
+            focusClass="focus:ring-slate-500"
+          />
+        </main>
+    
+        <footer className="text-center mt-10 text-xs text-slate-600 dark:text-gray-400">
+          <p>{isUsingDefaultKey ? 'Đang dùng Gemini AI mặc định.' : 'Đang dùng API Key của bạn.'}</p>
+          <p className="mt-1">UserID: 000000000</p>
+        </footer>
+      </div>
+    );
+};
+
+
+// --- Suggestion Modal Component ---
+const SuggestionModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    suggestions: string[];
+    onSelect: (suggestion: string) => void;
+    title: string;
+}> = ({ isOpen, onClose, suggestions, onSelect, title }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-200 dark:border-slate-600 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-2xl leading-none">&times;</button>
+                </div>
+                <div className="p-4 max-h-80 overflow-y-auto">
+                    {suggestions.length > 0 ? (
+                        <ul className="space-y-2">
+                            {suggestions.map((s, index) => (
+                                <li 
+                                    key={index}
+                                    onClick={() => onSelect(s)}
+                                    className="p-3 bg-slate-100 dark:bg-[#373c5a] rounded-md hover:bg-purple-600 dark:hover:bg-purple-600 hover:text-white cursor-pointer transition-colors duration-200 text-sm text-slate-800 dark:text-gray-200"
+                                >
+                                    {s}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-gray-500 dark:text-gray-400 text-center">Không có gợi ý nào.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Confirmation Modal Component ---
+const ConfirmationModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: React.ReactNode;
+}> = ({ isOpen, onClose, onConfirm, title, message }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-md text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-200 dark:border-slate-600">
+                    <h3 className="text-lg font-semibold">{title}</h3>
+                </div>
+                <div className="p-6 text-sm text-slate-700 dark:text-gray-300">
+                    {message}
+                </div>
+                <div className="p-3 bg-slate-50/80 dark:bg-[#1f2238]/80 rounded-b-lg flex justify-end space-x-3">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-md text-white text-sm font-semibold transition-colors duration-200"
+                    >
+                        Hủy
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-md text-white text-sm font-semibold transition-colors duration-200"
+                    >
+                        Xác nhận
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- API Settings Modal ---
+const ApiSettingsModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    currentApiKey: string;
+    isUsingDefault: boolean;
+    onSave: (key: string) => void;
+    onUseDefault: () => void;
+}> = ({ isOpen, onClose, currentApiKey, isUsingDefault, onSave, onUseDefault }) => {
+    if (!isOpen) return null;
+    const [keyInput, setKeyInput] = useState(isUsingDefault ? '' : currentApiKey);
+
+    const handleSaveClick = () => {
+        if (keyInput.trim()) {
+            onSave(keyInput.trim());
+            onClose();
+        }
+    };
+
+    const handleDefaultClick = () => {
+        onUseDefault();
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+            <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                <h2 className="text-3xl font-bold mb-4 text-center text-purple-600 dark:text-purple-300" style={{ textShadow: '0 0 8px rgba(192, 132, 252, 0.5)' }}>Thiết Lập Nguồn AI</h2>
+                <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl p-6 space-y-6">
+
+                    {/* Default AI Section */}
+                    <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-4">
+                        <p className="font-semibold text-sm mb-3 text-slate-800 dark:text-gray-300">Nguồn AI Mặc Định</p>
+                        <button
+                            onClick={handleDefaultClick}
+                            disabled={isUsingDefault}
+                            className="w-full flex items-center justify-center px-4 py-2.5 bg-cyan-600 text-white font-semibold rounded-md shadow-md hover:bg-cyan-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75 disabled:bg-slate-500 disabled:cursor-not-allowed"
+                        >
+                            <SparklesIcon className="w-5 h-5 mr-2" />
+                            Sử Dụng Gemini AI Mặc Định
+                        </button>
+                        {isUsingDefault && <p className="text-xs text-green-500 dark:text-green-400 mt-2 px-1 text-center">Đang hoạt động</p>}
+                    </div>
+
+                    <div className="text-center text-sm text-gray-500 dark:text-gray-400">hoặc</div>
+
+                    {/* Custom API Key Section */}
+                    <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-4">
+                        <p className="font-semibold text-sm mb-2 text-slate-800 dark:text-gray-300">Sử Dụng API Key Của Bạn</p>
+                        <label htmlFor="api-key-input" className="sr-only">Nhập API Key Gemini của bạn</label>
+                        <input
+                            id="api-key-input"
+                            type="password"
+                            placeholder="Nhập API Key Gemini của bạn"
+                            value={keyInput}
+                            onChange={(e) => setKeyInput(e.target.value)}
+                            className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 px-1">
+                            API Key của bạn sẽ được lưu trữ cục bộ trên trình duyệt này.
+                        </p>
+                        <button
+                            onClick={handleSaveClick}
+                            disabled={!keyInput.trim() || keyInput === currentApiKey && !isUsingDefault}
+                            className="w-full mt-3 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 rounded-md text-white text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500 disabled:cursor-not-allowed"
+                        >
+                            Lưu và Sử Dụng Key Này
+                        </button>
+                        {!isUsingDefault && <p className="text-xs text-green-500 dark:text-green-400 mt-2 px-1 text-center">Đang hoạt động</p>}
+                    </div>
+
+                    <button
+                        onClick={onClose}
+                        className="w-full px-4 py-2.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded-md text-white text-base font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    >
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const FormLabel: React.FC<{htmlFor?: string, children: React.ReactNode}> = ({ htmlFor, children }) => (
+    <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{children}</label>
+);
+
+const CustomSelect: React.FC<{value: string, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void, name: string, children: React.ReactNode}> = ({ value, onChange, name, children }) => (
+    <select name={name} value={value} onChange={onChange} className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
+        {children}
+    </select>
+);
+
+interface SuggestButtonProps {
+    onClick: () => void;
+    isLoading: boolean;
+    disabled: boolean;
+    colorClass: string;
+}
+
+const SuggestButton: React.FC<SuggestButtonProps> = ({ onClick, isLoading, disabled, colorClass }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        disabled={isLoading || disabled}
+        className={`flex-shrink-0 px-3 py-2 text-sm font-semibold text-white rounded-r-md transition-colors duration-200 disabled:bg-slate-500 disabled:cursor-wait ${colorClass}`}
+        style={{minWidth: '80px'}}
+    >
+        {isLoading ? <SpinnerIcon className="w-5 h-5 mx-auto" /> : 'Gợi Ý'}
+    </button>
+);
+
+
+
+// --- CreateWorld Component ---
+const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: FormData) => void; }> = ({ onBack, onStartGame }) => {
+    const { ai, isAiReady, apiKeyError } = useContext(AIContext);
+    const [formData, setFormData] = useState<FormData>({
+        genre: '',
+        worldDetail: '',
+        writingStyle: 'second_person',
+        difficulty: 'normal',
+        allowNsfw: false,
+        characterName: '',
+        customPersonality: '',
+        personalityFromList: '',
+        gender: 'ai_decides',
+        bio: '',
+        startSkill: '',
+        addGoal: false,
+    });
+
+    const [loadingStates, setLoadingStates] = useState({
+        genre: false,
+        worldDetail: false,
+        character: false,
+    });
+    const [isAnySuggestionLoading, setIsAnySuggestionLoading] = useState(false);
+    const [suggestionError, setSuggestionError] = useState<string | null>(null);
+    const suggestionLock = useRef(false);
+
+    const [genreSuggestions, setGenreSuggestions] = useState<string[]>([]);
+    const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        const isCheckbox = type === 'checkbox';
+        const checked = (e.target as HTMLInputElement).checked;
+
+        if (name === 'customPersonality') {
+             setFormData(prev => ({
+                ...prev,
+                customPersonality: value,
+                personalityFromList: '' // Clear list selection when typing custom
+            }));
+        } else if (name === 'personalityFromList') {
+            setFormData(prev => ({
+                ...prev,
+                personalityFromList: value,
+                customPersonality: '' // Clear custom input when selecting from list
+            }));
+        } else {
+             setFormData(prev => ({
+                ...prev,
+                [name]: isCheckbox ? checked : value
+            }));
+        }
+    };
+    
+    const handleGenreSuggestion = async () => {
+        if (!isAiReady || !ai) {
+            setSuggestionError(apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra thiết lập API Key.");
+            return;
+        }
+        if (suggestionLock.current) return;
+        suggestionLock.current = true;
+        setIsAnySuggestionLoading(true);
+        setLoadingStates(prev => ({ ...prev, genre: true }));
+        setSuggestionError(null);
+        const prompt = 'Gợi ý 5 chủ đề/bối cảnh độc đáo (tiếng Việt) cho game phiêu lưu văn bản, phong cách tiểu thuyết mạng. Mỗi cái trên một dòng.';
+        
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            const text = response.text.trim();
+            const suggestions = text.split('\n').map(s => s.replace(/^[*-]\s*/, '').trim()).filter(Boolean);
+            setGenreSuggestions(suggestions);
+            setIsGenreModalOpen(true);
+        } catch (error) {
+            console.error('Error generating genre suggestions:', error);
+            setSuggestionError("Gặp lỗi khi tạo gợi ý. Vui lòng kiểm tra API Key và thử lại.");
+            setGenreSuggestions([]);
+        } finally {
+            suggestionLock.current = false;
+            setIsAnySuggestionLoading(false);
+            setLoadingStates(prev => ({ ...prev, genre: false }));
+        }
+    };
+
+    const handleWorldDetailSuggestion = async () => {
+        if (!isAiReady || !ai) {
+            setSuggestionError(apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra thiết lập API Key.");
+            return;
+        }
+        if (suggestionLock.current) return;
+        suggestionLock.current = true;
+        setIsAnySuggestionLoading(true);
+        setLoadingStates(prev => ({ ...prev, worldDetail: true }));
+        setSuggestionError(null);
+
+        const prompt = `Dựa trên thể loại "${formData.genre}" và ý tưởng "${formData.worldDetail}", hãy viết một bối cảnh thế giới chi tiết và hấp dẫn (khoảng 3-5 dòng) theo văn phong tiểu thuyết mạng Trung Quốc. Bối cảnh cần khơi gợi sự tò mò và giới thiệu một xung đột hoặc yếu tố đặc biệt của thế giới. AI tự kể tiếp. Ví dụ: "Giang Hồ hiểm ác đầy rẫy anh hùng hảo hán và ma đầu tàn bạo, nơi công pháp và bí tịch quyết định tất cả, hệ thống cho phép bạn đoạt lấy nội lực, kinh nghiệm chiến đấu từ các cao thủ chính tà, khiến bạn phải ẩn mình giữa vô vàn ân oán giang hồ và lựa chọn giữa chính đạo giả tạo hay ma đạo tàn khốc."`;
+        
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            const text = response.text.trim();
+            setFormData(prev => ({ ...prev, worldDetail: text }));
+        } catch (error: any) {
+            console.error(`Error generating suggestion for world detail:`, error);
+            if (error.toString().includes('429')) {
+                setSuggestionError("Bạn đã gửi yêu cầu quá nhanh. Vui lòng chờ một lát rồi thử lại.");
+            } else {
+                setSuggestionError("Gặp lỗi khi tạo gợi ý. Vui lòng kiểm tra API Key và thử lại.");
+            }
+        } finally {
+            suggestionLock.current = false;
+            setIsAnySuggestionLoading(false);
+            setLoadingStates(prev => ({ ...prev, worldDetail: false }));
+        }
+    };
+
+    const handleCharacterSuggestion = async () => {
+        if (!isAiReady || !ai) {
+            setSuggestionError(apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra thiết lập API Key.");
+            return;
+        }
+        if (suggestionLock.current) return;
+        suggestionLock.current = true;
+        setIsAnySuggestionLoading(true);
+        setLoadingStates(prev => ({ ...prev, character: true }));
+        setSuggestionError(null);
+
+        const finalPersonality = formData.customPersonality || formData.personalityFromList;
+        const prompt = `Dựa trên thông tin nhân vật sau, hãy tạo một tiểu sử và kỹ năng khởi đầu phù hợp cho game nhập vai văn bản:
+- Tên nhân vật (do người dùng đặt): '${formData.characterName || 'Chưa có'}'
+- Thể loại: '${formData.genre || 'Chưa có'}'
+- Bối cảnh: '${formData.worldDetail || 'Chưa có'}'
+- Giới tính: '${formData.gender}'
+- Tính cách: '${finalPersonality || 'Chưa có'}'
+Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng khởi đầu phù hợp. KHÔNG được thay đổi tên nhân vật. Văn phong cần giống tiểu thuyết mạng. Trả về kết quả dưới dạng JSON với hai khóa: "bio" và "skill".`;
+        
+        const characterSuggestionSchema = {
+          type: Type.OBJECT,
+          properties: {
+            bio: { type: Type.STRING, description: 'Tiểu sử nhân vật gợi ý (2-3 câu, tiếng Việt).' },
+            skill: { type: Type.STRING, description: 'Kỹ năng khởi đầu gợi ý (tiếng Việt).' }
+          },
+          required: ['bio', 'skill']
+        };
+
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: characterSuggestionSchema,
+                }
+            });
+            const responseText = response.text.trim();
+            const suggestions = JSON.parse(responseText);
+            
+            setFormData(prev => ({ 
+                ...prev, 
+                bio: suggestions.bio || '',
+                startSkill: suggestions.skill || ''
+            }));
+        } catch (error: any) {
+            console.error('Error generating character suggestions:', error);
+            if (error.toString().includes('429')) {
+                 setSuggestionError("Bạn đã gửi yêu cầu quá nhanh. Vui lòng chờ một lát rồi thử lại.");
+            } else {
+                setSuggestionError("Gặp lỗi khi tạo gợi ý nhân vật. Vui lòng kiểm tra API Key và thử lại.");
+            }
+        } finally {
+            suggestionLock.current = false;
+            setIsAnySuggestionLoading(false);
+            setLoadingStates(prev => ({ ...prev, character: false }));
+        }
+    };
+    
+    const personalityOptions = ["Tùy Tâm Sở Dục","Điềm Đạm", "Nhiệt Huyết", "Vô Sỉ", "Nhẹ Nhàng", "Cơ Trí", "Lãnh Khốc", "Kiêu Ngạo", "Ngu Ngốc", "Giảo Hoạt"];
+    
+    return (
+        <div className="bg-white/80 dark:bg-[#252945]/80 backdrop-blur-md border border-slate-300 dark:border-slate-700 w-full max-w-5xl rounded-2xl shadow-2xl p-6 sm:p-8 text-slate-900 dark:text-white font-sans overflow-y-auto" style={{maxHeight: '95vh'}}>
+            <button onClick={onBack} className="flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors duration-200 mb-4">
+                <ArrowLeftIcon className="w-4 h-4 mr-2" />
+                Về Trang Chủ
+            </button>
+            <h1 className="text-3xl font-bold text-center mb-8 tracking-wide">Kiến Tạo Thế Giới</h1>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
+                    <h2 className="text-lg font-semibold flex items-center border-b border-slate-300 dark:border-slate-700 pb-2 mb-4">
+                        <BookOpenIcon className="w-5 h-5 mr-3 text-pink-600 dark:text-pink-400" /> Bối Cảnh Truyện
+                    </h2>
+                    <div>
+                        <FormLabel htmlFor="genre">Thể loại:</FormLabel>
+                        <div className="flex items-center">
+                            <input id="genre" name="genre" type="text" value={formData.genre} onChange={handleInputChange} placeholder="VD: Tiên hiệp, Huyền huyễn..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                            <SuggestButton onClick={handleGenreSuggestion} isLoading={loadingStates.genre} disabled={isAnySuggestionLoading} colorClass="bg-pink-500 hover:bg-pink-600" />
+                        </div>
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="worldDetail">Thế Giới/Bối Cảnh Chi Tiết:</FormLabel>
+                        <div className="flex items-center">
+                            <textarea id="worldDetail" name="worldDetail" value={formData.worldDetail} onChange={handleInputChange} placeholder="VD: Đại Lục Phong Vân..." rows={3} className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                            <SuggestButton onClick={handleWorldDetailSuggestion} isLoading={loadingStates.worldDetail} disabled={isAnySuggestionLoading} colorClass="bg-pink-500 hover:bg-pink-600" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-4 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
+                    <h2 className="text-lg font-semibold flex items-center border-b border-slate-300 dark:border-slate-700 pb-2 mb-4">
+                        <UserIcon className="w-5 h-5 mr-3 text-sky-600 dark:text-sky-400" /> Nhân Vật Chính
+                    </h2>
+                    <div>
+                        <FormLabel htmlFor="characterName">Danh Xưng/Tên:</FormLabel>
+                        <input id="characterName" name="characterName" type="text" value={formData.characterName} onChange={handleInputChange} placeholder="VD: Diệp Phàm, Hàn Lập..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="customPersonality">Tính Cách:</FormLabel>
+                         {!formData.customPersonality && (
+                            <CustomSelect name="personalityFromList" value={formData.personalityFromList} onChange={handleInputChange}>
+                                <option value="">Chọn tính cách có sẵn...</option>
+                                {personalityOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                            </CustomSelect>
+                        )}
+                        <input id="customPersonality" name="customPersonality" type="text" value={formData.customPersonality} onChange={handleInputChange} placeholder="Hoặc nhập tính cách của bạn (VD: Lạnh lùng)" className={`w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 ${!formData.customPersonality ? 'mt-2' : ''}`} />
+                    </div>
+                     <div>
+                        <FormLabel>Giới Tính:</FormLabel>
+                        <CustomSelect name="gender" value={formData.gender} onChange={handleInputChange}>
+                            <option value="ai_decides">Để AI quyết định</option>
+                            <option value="Nam">Nam</option>
+                            <option value="Nữ">Nữ</option>
+                        </CustomSelect>
+                    </div>
+                     <div>
+                        <FormLabel htmlFor="bio">Sơ Lược Tiểu Sử:</FormLabel>
+                        <textarea id="bio" name="bio" value={formData.bio} onChange={handleInputChange} placeholder="VD: Một phế vật mang huyết mạch thượng cổ..." rows={3} className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400"></textarea>
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="startSkill">Kỹ Năng Khởi Đầu (Tùy chọn):</FormLabel>
+                        <input id="startSkill" name="startSkill" type="text" value={formData.startSkill} onChange={handleInputChange} placeholder="VD: Thuật ẩn thân..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gợi ý cho AI về loại kỹ năng người muốn bắt đầu.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleCharacterSuggestion}
+                        disabled={isAnySuggestionLoading || !isAiReady}
+                        className="w-full mt-3 flex items-center justify-center px-4 py-2.5 bg-sky-600 text-white font-semibold rounded-md shadow-md hover:bg-sky-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:bg-slate-500 disabled:cursor-wait"
+                    >
+                        {loadingStates.character ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <SparklesIcon className="w-5 h-5 mr-2" />}
+                        Gợi Ý Tiểu sử & Kỹ năng
+                    </button>
+                </div>
+
+                <div className="lg:col-span-2 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
+                    <h2 className="text-lg font-semibold flex items-center pb-2 mb-4">
+                        <PencilIcon className="w-5 h-5 mr-3 text-yellow-600 dark:text-yellow-400" /> Phong cách viết
+                    </h2>
+                    <CustomSelect name="writingStyle" value={formData.writingStyle} onChange={handleInputChange}>
+                        <option value="second_person">Ngôi thứ hai - "Ngươi" là nhân vật chính</option>
+                        <option value="first_person">Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"</option>
+                    </CustomSelect>
+                </div>
+
+                <div className="lg:col-span-2 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
+                     <h2 className="text-lg font-semibold flex items-center pb-2 mb-4">
+                        <DiamondIcon className="w-5 h-5 mr-3 text-red-600 dark:text-red-400" /> Độ Khó & Nội Dung
+                    </h2>
+                    <FormLabel>Chọn Độ Khó:</FormLabel>
+                    <CustomSelect name="difficulty" value={formData.difficulty} onChange={handleInputChange}>
+                        <option value="easy">Dễ - Tạo ra cho đủ số thôi</option>
+                        <option value="normal">Thường - Cân bằng, phù hợp đa số</option>
+                        <option value="hard">Khó - Thử thách cao, Muốn ăn hành</option>
+                    </CustomSelect>
+                    <div className="mt-4 flex items-center">
+                        <input id="allowNsfw" name="allowNsfw" type="checkbox" checked={formData.allowNsfw} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-400 bg-gray-700 text-purple-600 focus:ring-purple-500" />
+                        <label htmlFor="allowNsfw" className="ml-3 text-sm text-slate-700 dark:text-gray-300">Cho phép nội dung 18+ (Cực kỳ chi tiết)</label>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-7">Khi được chọn, AI sẽ kể câu chuyện có tình tiết 18+ (có yếu tố bạo lực) và hành động tùy ý nsfw .</p>
+                </div>
+            
+
+            </div>
+
+            <div className="mt-8 flex flex-col items-center">
+                {suggestionError && (
+                    <p className="text-red-500 dark:text-red-400 text-sm mb-4 text-center">{suggestionError}</p>
+                )}
+                <button 
+                    onClick={() => onStartGame(formData)}
+                    disabled={!isAiReady}
+                    className="w-full max-w-lg bg-[#2dd4bf] hover:bg-[#14b8a6] text-slate-900 font-bold py-3 px-6 rounded-lg shadow-lg text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:bg-slate-500 disabled:cursor-not-allowed">
+                    {isAiReady ? 'Khởi Tạo Thế Giới' : 'AI chưa sẵn sàng'}
+                </button>
+            </div>
+
+            <SuggestionModal
+                isOpen={isGenreModalOpen}
+                onClose={() => setIsGenreModalOpen(false)}
+                suggestions={genreSuggestions}
+                onSelect={(suggestion) => {
+                    setFormData(prev => ({ ...prev, genre: suggestion }));
+                    setIsGenreModalOpen(false);
+                }}
+                title="Gợi ý thể loại"
+            />
+        </div>
+    );
+}
+
+// --- Status Detail Modal ---
+const StatusDetailModal: React.FC<{ status: Status | null; onClose: () => void; }> = ({ status, onClose }) => {
+    if (!status) return null;
+
+    const textColor = getStatusTextColor(status);
+    const borderColor = getStatusBorderColor(status).replace('/50', '/80');
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div 
+                className={`bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 ${borderColor} rounded-lg shadow-2xl w-full max-w-md text-slate-900 dark:text-white`} 
+                onClick={e => e.stopPropagation()}
+            >
+                <div className={`p-4 border-b-2 ${borderColor} flex justify-between items-center`}>
+                    <h3 className={`text-xl font-bold ${textColor} flex items-center gap-2`}>
+                       <span className="w-6 h-6">{getIconForStatus(status)}</span>
+                        {status.name}
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">&times;</button>
+                </div>
+                <div className="p-6 space-y-4 text-slate-700 dark:text-gray-300">
+                    <div>
+                        <p className="font-semibold text-slate-800 dark:text-gray-100 text-sm uppercase tracking-wider mb-1">Mô tả</p>
+                        <p className="italic text-base">"{status.description || 'Không có mô tả chi tiết.'}"</p>
+                    </div>
+                     <div className="border-t border-slate-200 dark:border-slate-700/60 mt-4 pt-4 space-y-3">
+                        {status.effects && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-32 inline-block">Hiệu ứng:</strong> {status.effects}</p>}
+                        {status.duration && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-32 inline-block">Thời gian:</strong> {status.duration}</p>}
+                        {status.cureConditions && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-32 inline-block">Cách chữa trị:</strong> {status.cureConditions}</p>}
+                        {status.source && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-32 inline-block">Nguồn gốc:</strong> {status.source}</p>}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Status Display Component ---
+const StatusDisplay: React.FC<{ 
+    statuses: Status[];
+    onStatusClick: (status: Status) => void;
+}> = ({ statuses, onStatusClick }) => {
+    return (
+        <div className="p-4 h-full flex flex-col">
+            <h3 className="font-semibold mb-2 flex-shrink-0 text-slate-800 dark:text-white">Trạng thái hiện tại:</h3>
+            <div className="flex-grow overflow-y-auto pr-2">
+                 {statuses.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        {statuses.map(status => (
+                            <button
+                                key={status.name}
+                                onClick={() => onStatusClick(status)}
+                                className={`px-2 py-1 border rounded-md transition-colors duration-200 flex items-center gap-1.5 ${getStatusBorderColor(status)} hover:bg-slate-300/50 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')}`}
+                            >
+                                <span className="w-4 h-4">{getIconForStatus(status)}</span>
+                                <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
+                                    {status.name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                ) : <p className="text-sm text-slate-600 dark:text-slate-400">Đang trong tình trạng bình thường.</p>}
+            </div>
+        </div>
+    );
+};
+
+// --- Quest Detail Modal ---
+const QuestDetailModal: React.FC<{ quest: Quest | null; onClose: () => void; }> = ({ quest, onClose }) => {
+    if (!quest) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div 
+                className="bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 border-yellow-400/80 rounded-lg shadow-2xl w-full max-w-lg text-slate-900 dark:text-white" 
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="p-4 border-b-2 border-yellow-400/80 flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
+                        <span className="w-6 h-6">{getIconForQuest(quest)}</span>
+                        {quest.title}
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">&times;</button>
+                </div>
+                <div className="p-5 space-y-4 text-slate-700 dark:text-gray-300 max-h-[60vh] overflow-y-auto">
+                    <p className="italic">{quest.description}</p>
+                    
+                    <div className="mt-4 pt-4 border-t border-yellow-500/30">
+                        <h4 className="font-semibold text-slate-800 dark:text-gray-100 mb-2">Mục tiêu:</h4>
+                        <ul className="space-y-1.5 list-inside">
+                            {quest.objectives.map((obj, index) => (
+                                <li key={index} className={`flex items-center ${obj.completed ? 'text-gray-500 line-through' : 'text-yellow-800 dark:text-yellow-100'}`}>
+                                    <span className="mr-3">{obj.completed ? '✅' : '🟡'}</span>
+                                    <span>{obj.description}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-yellow-500/30 grid grid-cols-2 gap-4 text-sm">
+                         {quest.giver && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 block">Người giao:</strong> {quest.giver}</p>}
+                         <p><strong className="font-semibold text-slate-800 dark:text-gray-100 block">Trạng thái:</strong> <span className="capitalize">{quest.status}</span></p>
+                         {quest.reward && <p className="col-span-2"><strong className="font-semibold text-slate-800 dark:text-gray-100 block">Phần thưởng:</strong> {quest.reward}</p>}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Quest Log Component ---
+const QuestLog: React.FC<{ quests: Quest[]; onQuestClick: (quest: Quest) => void }> = ({ quests, onQuestClick }) => {
+    const activeQuests = quests.filter(q => q.status === 'active');
+    const finishedQuests = quests.filter(q => q.status !== 'active');
+
+    return (
+        <div className="p-4 h-full flex flex-col">
+            <div className="flex-grow overflow-y-auto pr-2 space-y-4">
+                <div>
+                    <h4 className="text-sm font-semibold text-yellow-700 dark:text-yellow-300 mb-2 border-b border-yellow-400/20 pb-1">Đang Thực Hiện</h4>
+                    {activeQuests.length > 0 ? (
+                        <ul className="space-y-2">
+                            {activeQuests.map(quest => (
+                                <li key={quest.title} onClick={() => onQuestClick(quest)} className="text-sm p-2 bg-yellow-400/10 dark:bg-yellow-500/10 border-l-4 border-yellow-600 dark:border-yellow-400 rounded-r-md hover:bg-yellow-400/20 dark:hover:bg-yellow-500/20 transition-colors cursor-pointer">
+                                    <p className="font-semibold text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
+                                        <span className="w-4 h-4">{getIconForQuest(quest)}</span>
+                                        {quest.title}
+                                    </p>
+                                    <p className="text-xs text-yellow-800/80 dark:text-yellow-200/80 pl-6 mt-1">- {quest.objectives.find(o => !o.completed)?.description || "Hoàn thành các mục tiêu."}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : <p className="text-xs text-slate-600 dark:text-slate-400 pl-2 italic">Không có nhiệm vụ nào đang hoạt động.</p>}
+                </div>
+
+                {finishedQuests.length > 0 && (
+                    <div className="pt-2">
+                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 border-b border-slate-300 dark:border-slate-600 pb-1">Đã Kết Thúc</h4>
+                        <ul className="space-y-2">
+                            {finishedQuests.sort((a,b) => a.title.localeCompare(b.title)).map(quest => (
+                                <li key={quest.title} onClick={() => onQuestClick(quest)} className="text-sm p-2 bg-slate-200/50 dark:bg-slate-700/50 border-l-4 border-slate-400 dark:border-slate-500 rounded-r-md hover:bg-slate-300/50 dark:hover:bg-slate-600/50 transition-colors cursor-pointer opacity-70">
+                                    <p className={`font-semibold ${quest.status === 'completed' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'} flex items-center gap-2`}>
+                                        <span className="w-4 h-4">{getIconForQuest(quest)}</span>
+                                        <span className="line-through">{quest.title}</span>
+                                    </p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+// --- Entity Info Modal ---
+const EntityInfoModal: React.FC<{ 
+    entity: Entity | null; 
+    onClose: () => void; 
+    onUseItem: (itemName: string) => void;
+    onLearnItem: (itemName: string) => void;
+    onEquipItem: (itemName: string) => void;
+    onUnequipItem: (itemName: string) => void;
+    statuses: Status[];
+    onStatusClick: (status: Status) => void;
+}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick }) => {
+    if (!entity) return null;
+
+    const typeColors: { [key in EntityType | string]: string } = {
+        pc: 'text-yellow-600 dark:text-yellow-400',
+        npc: 'text-blue-600 dark:text-blue-400',
+        companion: 'text-blue-600 dark:text-blue-400',
+        location: 'text-green-600 dark:text-green-400',
+        faction: 'text-red-700 dark:text-red-500',
+        item: 'text-amber-700 dark:text-amber-300',
+        skill: 'text-amber-700 dark:text-amber-300',
+        concept: 'text-purple-600 dark:text-purple-400'
+    };
+    const borderColor: { [key in EntityType | string]: string } = {
+        pc: 'border-yellow-400',
+        npc: 'border-blue-400',
+        companion: 'border-blue-400',
+        location: 'border-green-400',
+        faction: 'border-red-500',
+        item: 'border-amber-400',
+        skill: 'border-amber-400',
+        concept: 'border-purple-400'
+    };
+
+    const isPcsItem = entity.type === 'item' && entity.owner === 'pc';
+    const isLearnableItem = isPcsItem && entity.learnable;
+    const isUsableItem = isPcsItem && entity.usable;
+    const isEquippableItem = isPcsItem && entity.equippable;
+    const npcStatuses = statuses.filter(s => s.owner === entity.name);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div 
+                className={`bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 ${borderColor[entity.type] || 'border-slate-600'} rounded-lg shadow-2xl w-full max-w-lg text-slate-900 dark:text-white`} 
+                onClick={e => e.stopPropagation()}
+            >
+                <div className={`p-4 border-b-2 ${borderColor[entity.type] || 'border-slate-600'} flex justify-between items-center`}>
+                    <h3 className={`text-xl font-bold ${typeColors[entity.type] || 'text-slate-900 dark:text-white'} flex items-center gap-2`}>
+                        <span className="w-6 h-6">{getIconForEntity(entity)}</span>
+                        {entity.name}
+                        {entity.equipped && <span className="text-xs text-green-400 dark:text-green-500 font-normal italic">(Đang trang bị)</span>}
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">&times;</button>
+                </div>
+                <div className="p-5 space-y-3 text-slate-700 dark:text-gray-300 max-h-[60vh] overflow-y-auto">
+                    <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type}</span></p>
+                    {entity.personality && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách:</strong> {entity.personality}</p>}
+
+                    {entity.type === 'npc' && Array.isArray(entity.skills) && entity.skills.length > 0 && (
+                        <div className="mt-2">
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Kỹ năng:</strong>
+                            <ul className="list-disc list-inside pl-2 mt-1">
+                                {entity.skills.map((skillName: string) => (
+                                    <li key={skillName} className="text-sm">
+                                        {skillName}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {npcStatuses.length > 0 && (
+                        <div className="mt-2">
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                {npcStatuses.map(status => (
+                                    <button
+                                        key={status.name}
+                                        onClick={() => onStatusClick(status)}
+                                        className={`px-2 py-1 border rounded-md transition-colors duration-200 flex items-center gap-1.5 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')}`}
+                                    >
+                                        <span className="w-4 h-4">{getIconForStatus(status)}</span>
+                                        <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
+                                            {status.name}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {entity.gender && <p className="mt-2"><strong className="font-semibold text-slate-800 dark:text-gray-100">Giới tính:</strong> {entity.gender}</p>}
+                    {entity.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Tuổi:</strong> {entity.age}</p>}
+                    {entity.relationship && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Quan hệ:</strong> {entity.relationship}</p>}
+                    {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : 'Cảnh giới:'}</strong> {entity.realm}</p>}
+                    {typeof entity.durability === 'number' && 
+                        <p>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Độ bền:</strong> 
+                            <span className={entity.durability <= 0 ? 'text-red-600 font-bold' : ''}>
+                                {` ${entity.durability} / 100 `}
+                                {entity.durability <= 0 && <span className="ml-2">(Hỏng)</span>}
+                            </span>
+                        </p>
+                    }
+                    {typeof entity.uses === 'number' && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Số lần dùng:</strong> {entity.uses}</p>}
+                    <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Mô tả:</strong> {entity.description || 'Chưa có mô tả.'}</p>
+                    
+                     <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/60 flex flex-col space-y-2">
+                        {isEquippableItem && (
+                            !entity.equipped ? (
+                                <button
+                                    onClick={() => onEquipItem(entity.name)}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded transition-colors"
+                                >
+                                    Trang bị
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => onUnequipItem(entity.name)}
+                                    className="w-full bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded transition-colors"
+                                >
+                                    Tháo ra
+                                </button>
+                            )
+                        )}
+                        {isLearnableItem && (
+                             <button
+                                onClick={() => onLearnItem(entity.name)}
+                                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded transition-colors"
+                            >
+                                Học Công Pháp
+                            </button>
+                        )}
+                        {isUsableItem && (
+                            <button
+                                onClick={() => onUseItem(entity.name)}
+                                disabled={(typeof entity.durability === 'number' && entity.durability <= 0) || (typeof entity.uses === 'number' && entity.uses <= 0)}
+                                className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded transition-colors disabled:bg-slate-600 disabled:cursor-not-allowed"
+                            >
+                                Sử dụng
+                            </button>
+                        )}
+                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Interactive Text Renderer ---
+const InteractiveText: React.FC<{
+    text: string;
+    onEntityClick: (entityName: string) => void;
+    knownEntities: KnownEntities;
+}> = ({ text, onEntityClick, knownEntities }) => {
+    const typeColors: { [key in EntityType | string]: string } = {
+        pc: 'text-yellow-700 dark:text-yellow-400 font-bold',
+        npc: 'text-blue-700 dark:text-blue-400 font-semibold',
+        companion: 'text-blue-700 dark:text-blue-400 font-semibold',
+        location: 'text-green-700 dark:text-green-400 font-semibold',
+        faction: 'text-red-700 dark:text-red-500 font-semibold',
+        item: 'am-kim', // custom class
+        skill: 'am-kim', // custom class
+        concept: 'text-purple-700 dark:text-purple-400 font-semibold'
+    };
+
+    const entityNames = useMemo(() =>
+        Object.keys(knownEntities).sort((a, b) => b.length - a.length),
+        [knownEntities]
+    );
+
+    const regex = useMemo(() => {
+        if (entityNames.length === 0) {
+            return /(\`.*?\`|\*\*⭐.*?\*⭐\*\*)/g;
+        }
+        const escapedNames = entityNames.map(name =>
+            name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        );
+        return new RegExp(`(${escapedNames.join('|')}|` + '`.*?`' + `|` + '\\*\\*⭐.*?⭐\\*\\*' + `)`, 'g');
+    }, [entityNames]);
+
+    const parts = text.split(regex);
+
+    return (
+        <div className="text-slate-900 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+            {parts.map((part, index) => {
+                if (!part) return null;
+
+                const isEntity = knownEntities[part];
+                const isThought = part.startsWith('`') && part.endsWith('`');
+                const isAnnouncement = part.startsWith('**⭐') && part.endsWith('⭐**');
+
+                if (isAnnouncement) {
+                     return (
+                        <div key={index} className="my-2 p-3 bg-yellow-400/10 dark:bg-yellow-500/10 border-l-4 border-yellow-500 dark:border-yellow-400 rounded-r-md">
+                            <p className="font-semibold text-yellow-700 dark:text-yellow-200">
+                               <span className="mr-2">⭐</span>
+                               {part.slice(3, -3).trim()}
+                            </p>
+                        </div>
+                    );
+                }
+
+                if (isEntity) {
+                    const entity = knownEntities[part];
+                    const styleClass = typeColors[entity.type] || 'text-slate-900 dark:text-white font-semibold';
+                    return (
+                        <span
+                            key={index}
+                            onClick={() => onEntityClick(part)}
+                            className={`${styleClass} cursor-pointer hover:underline transition-all`}
+                        >
+                            <span className="inline-block w-[1em] h-[1em] align-middle -mt-px mr-1.5">{getIconForEntity(entity)}</span>
+                            {part}
+                        </span>
+                    );
+                }
+                
+                if (isThought) {
+                    return <i key={index} className="text-slate-600 dark:text-slate-400">{part.slice(1, -1)}</i>;
+                }
+
+                return <span key={index}>{part}</span>;
+            })}
+        </div>
+    );
+};
+
+
+// --- Memory Modal Component ---
+const MemoryModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    memories: Memory[];
+    onTogglePin: (index: number) => void;
+}> = ({ isOpen, onClose, memories, onTogglePin }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-lg text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-slate-200 dark:border-slate-600 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">Dòng Ký Ức</h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-2xl leading-none">&times;</button>
+                </div>
+                <div className="p-4 max-h-96 overflow-y-auto">
+                    {memories.length > 0 ? (
+                        <ul className="space-y-3">
+                            {memories.map((mem, index) => (
+                                <li key={index} className="flex items-start justify-between gap-3 text-sm text-slate-700 dark:text-gray-300 border-l-2 border-purple-500 pl-3 py-1">
+                                    <span>{mem.text}</span>
+                                    <button 
+                                        onClick={() => onTogglePin(index)}
+                                        className={`p-1 rounded-full transition-colors ${mem.pinned ? 'bg-yellow-400 text-slate-800' : 'bg-slate-500 dark:bg-slate-600 hover:bg-slate-400 dark:hover:bg-slate-500 text-white'}`}
+                                        aria-label={mem.pinned ? 'Bỏ ghim' : 'Ghim'}
+                                    >
+                                        <PinIcon className="w-4 h-4" />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-gray-500 dark:text-gray-400 text-center py-4">Chưa có ký ức mới.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Party Member Tab Content ---
+const PartyMemberTab: React.FC<{
+    party: Entity[];
+    onMemberClick: (entityName: string) => void;
+}> = ({ party, onMemberClick }) => (
+    <div className="p-4 h-full flex flex-col">
+        <h3 className="font-semibold mb-2 flex-shrink-0 text-slate-800 dark:text-white">Thành viên tổ đội:</h3>
+        <div className="flex-grow overflow-y-auto pr-2">
+            {party.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                    {party.map(member => (
+                        <button
+                            key={member.name}
+                            onClick={() => onMemberClick(member.name)}
+                            className="px-3 py-1.5 bg-cyan-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/50 rounded-md text-sm hover:bg-blue-500/30 dark:hover:bg-blue-500/40 transition-colors flex items-center gap-2"
+                        >
+                            <span className="w-4 h-4">{getIconForEntity(member)}</span>
+                            {member.name}
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-sm text-slate-600 dark:text-slate-400">Tổ đội trống.</p>
+            )}
+        </div>
+    </div>
+);
+
+// --- Knowledge Base Modal ---
+const KnowledgeBaseModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    pc: Entity | undefined;
+    knownEntities: KnownEntities;
+    onEntityClick: (entityName: string) => void;
+    turnCount: number;
+}> = ({ isOpen, onClose, pc, knownEntities, onEntityClick, turnCount }) => {
+    if (!isOpen) return null;
+
+    const categorizedEntities: { [key: string]: Entity[] } = {};
+    Object.values(knownEntities).forEach(entity => {
+        if (entity.type === 'item') {
+            // Add to player's inventory if they own it
+            if (entity.owner === 'pc') {
+                if (!categorizedEntities['inventory']) {
+                    categorizedEntities['inventory'] = [];
+                }
+                categorizedEntities['inventory'].push(entity);
+            }
+            
+            // Add ALL items to the encyclopedia
+            if (!categorizedEntities['item_encyclopedia']) {
+                categorizedEntities['item_encyclopedia'] = [];
+            }
+            categorizedEntities['item_encyclopedia'].push(entity);
+        } else {
+            if (!categorizedEntities[entity.type]) {
+                categorizedEntities[entity.type] = [];
+            }
+            // Don't add PC to the NPC list
+            if (entity.type === 'npc' && entity.name === pc?.name) return;
+            categorizedEntities[entity.type]?.push(entity);
+        }
+    });
+    
+    const categoryTitles: { [key: string]: string } = {
+        skill: "Kỹ năng & Công pháp",
+        inventory: "Hành Trang Nhân Vật",
+        npc: "Nhân vật đã gặp",
+        location: "Địa điểm đã biết",
+        item_encyclopedia: "Bách Khoa Vật Phẩm",
+        faction: "Thế lực & Tổ chức",
+        companion: "Đồng hành",
+        concept: "Khái Niệm & Quy Tắc"
+    };
+
+    const handleItemClick = (name: string) => {
+        onClose(); // Close this modal first
+        setTimeout(() => onEntityClick(name), 100); // Open the entity detail modal after a short delay
+    }
+
+    const categoryOrder: string[] = ['skill', 'inventory', 'npc', 'companion', 'location', 'faction', 'item_encyclopedia', 'concept'];
+
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+            <div
+                className="bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 border-slate-300 dark:border-slate-600 rounded-lg shadow-2xl w-full max-w-4xl h-full max-h-[85vh] text-slate-900 dark:text-white flex flex-col"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="p-4 border-b-2 border-slate-200 dark:border-slate-600 flex justify-between items-center flex-shrink-0">
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
+                        <BrainIcon className="w-6 h-6" />
+                        Tri Thức Thế Giới
+                    </h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none"><CrossIcon className="w-6 h-6" /></button>
+                </div>
+                <div className="p-5 flex-grow overflow-y-auto">
+                    {pc && (
+                        <div className="bg-slate-200/50 dark:bg-slate-800/50 p-4 rounded-lg mb-6">
+                            <h4 className="text-lg font-bold text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+                                <span className="w-5 h-5">{getIconForEntity(pc)}</span>
+                                {pc.name} - Lượt: {turnCount}
+                            </h4>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 italic mt-1">"{pc.description}"</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2"><b>Tính cách:</b> {pc.personality}</p>
+                            {pc.realm && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1"><b>Cảnh giới:</b> {pc.realm}</p>}
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {categoryOrder.map(category => {
+                            const entities = categorizedEntities[category]?.sort((a,b) => a.name.localeCompare(b.name));
+                            if (!entities || entities.length === 0) return null;
+                            if (category === 'pc') return null; // Don't show PC as a category
+
+                            return (
+                                <div key={category}>
+                                    <h5 className="font-semibold text-purple-700 dark:text-purple-300 mb-2 border-b border-purple-400/20 pb-1">{categoryTitles[category]}</h5>
+                                    <ul className="space-y-1.5 max-h-60 overflow-y-auto pr-2">
+                                        {entities.map(entity => (
+                                            <li key={entity.name}>
+                                                <button onClick={() => handleItemClick(entity.name)} className="text-left w-full text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 dark:hover:text-cyan-100 hover:underline text-sm flex items-center gap-2">
+                                                    <span className="w-4 h-4 flex-shrink-0">{getIconForEntity(entity)}</span>
+                                                    <span>
+                                                        {entity.name}
+                                                        {category === 'inventory' && entity.equipped && <span className="text-xs text-green-400 dark:text-green-500 ml-2 font-normal italic">(Đang trang bị)</span>}
+                                                        {(entity.type === 'skill' || entity.type === 'npc') && entity.realm ? ` (${entity.realm})` : ''}
+                                                    </span>
+                                                </button>
+                                                {entity.type === 'npc' && Array.isArray(entity.skills) && entity.skills.length > 0 && (
+                                                    <div className="pl-4 text-xs text-slate-600 dark:text-slate-400">
+                                                        {entity.skills.map((skillName: string) => {
+                                                            const skillEntity = knownEntities[skillName];
+                                                            return (
+                                                                <div key={skillName}>- {skillName} {skillEntity?.realm ? `(${skillEntity.realm})` : ''}</div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Custom Rules Modal ---
+const CustomRulesModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (rules: CustomRule[]) => void;
+    currentRules: CustomRule[];
+}> = ({ isOpen, onClose, onSave, currentRules }) => {
+    if (!isOpen) return null;
+    const [rules, setRules] = useState<CustomRule[]>(currentRules);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSave = () => {
+        onSave(rules);
+        onClose();
+    };
+
+    const handleAddRule = () => {
+        setRules(prev => [...prev, { id: Date.now().toString(), content: '', isActive: true }]);
+    };
+
+    const handleDeleteRule = (id: string) => {
+        setRules(prev => prev.filter(r => r.id !== id));
+    };
+
+    const handleRuleChange = (id: string, newContent: string) => {
+        setRules(prev => prev.map(r => r.id === id ? { ...r, content: newContent } : r));
+    };
+
+    const handleToggleActive = (id: string, newIsActive: boolean) => {
+        setRules(prev => prev.map(r => r.id === id ? { ...r, isActive: newIsActive } : r));
+    };
+
+    const handleSaveRulesToFile = () => {
+        if (rules.length === 0) {
+            alert("Không có luật nào để lưu.");
+            return;
+        }
+        const jsonString = JSON.stringify(rules, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `AI-RolePlay-CustomRules-${timestamp}.json`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleLoadRulesClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text === 'string') {
+                    const loadedRules: CustomRule[] = JSON.parse(text);
+                    
+                    if (Array.isArray(loadedRules) && loadedRules.every(r => typeof r === 'object' && r !== null && 'id' in r && 'content' in r && 'isActive' in r)) {
+                        const existingIds = new Set(rules.map(r => r.id));
+                        const rulesToAdd: CustomRule[] = [];
+                        
+                        loadedRules.forEach(loadedRule => {
+                            if (existingIds.has(loadedRule.id)) {
+                                // ID conflict, generate a new one to allow adding.
+                                rulesToAdd.push({ ...loadedRule, id: `${Date.now()}-${Math.random()}` });
+                            } else {
+                                rulesToAdd.push(loadedRule);
+                            }
+                        });
+
+                        setRules(prev => [...prev, ...rulesToAdd]);
+                        alert(`Đã tải và thêm thành công ${rulesToAdd.length} luật mới.`);
+                    } else {
+                        throw new Error('Định dạng tệp không hợp lệ.');
+                    }
+                }
+            } catch (error) {
+                console.error('Lỗi khi tải tệp luật:', error);
+                alert('Không thể đọc tệp luật. Tệp có thể bị hỏng hoặc không đúng định dạng.');
+            }
+        };
+        reader.readAsText(file);
+        
+        if (event.target) {
+            event.target.value = '';
+        }
+    };
+
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[70] p-4" onClick={onClose}>
+            <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl w-full max-w-3xl h-full max-h-[85vh] flex flex-col text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept=".json"
+                    className="hidden"
+                />
+                <div className="p-4 border-b border-slate-200 dark:border-slate-600 flex justify-between items-center flex-shrink-0">
+                    <h3 className="text-lg font-semibold flex items-center gap-2"><DocumentAddIcon className="w-6 h-6" /> Nạp Tri Thức & Quản Lý Luật Lệ</h3>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">&times;</button>
+                </div>
+                <div className="p-4 flex-grow overflow-y-auto space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Thêm luật lệ, vật phẩm, nhân vật, hoặc bất kỳ thông tin nào bạn muốn AI tuân theo. AI sẽ ưu tiên các luật lệ đang hoạt động,Luật lệ sẽ được áp dụng vào lượt sau.
+                        <br/>
+                        Ví dụ: "Tạo ra một thanh kiếm tên là 'Hỏa Long Kiếm' có khả năng phun lửa, miêu tả chi tiết hoặc nhờ AI tự viết ra." hoặc "KHÓA HÀNH ĐỘNG TÙY Ý".
+                    </p>
+                    <button onClick={handleAddRule} className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center justify-center gap-2">
+                        <PlusIcon className="w-5 h-5" /> Thêm Luật Mới
+                    </button>
+                    {rules.map((rule, index) => (
+                        <div key={rule.id} className="bg-slate-200/50 dark:bg-[#373c5a]/50 p-3 rounded-lg border border-slate-300 dark:border-slate-600 space-y-2">
+                             <textarea
+                                value={rule.content}
+                                onChange={(e) => handleRuleChange(rule.id, e.target.value)}
+                                placeholder={`Nội dung luật #${index + 1}...`}
+                                className="w-full h-24 bg-white dark:bg-[#1f2238] border border-slate-300 dark:border-slate-500 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"
+                            />
+                            <div className="flex justify-between items-center">
+                                <label htmlFor={`rule-toggle-${rule.id}`} className="flex items-center cursor-pointer">
+                                    <input
+                                        id={`rule-toggle-${rule.id}`}
+                                        type="checkbox"
+                                        checked={rule.isActive}
+                                        onChange={(e) => handleToggleActive(rule.id, e.target.checked)}
+                                        className="h-4 w-4 rounded border-gray-400 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Hoạt động</span>
+                                </label>
+                                <button onClick={() => handleDeleteRule(rule.id)} className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded-md text-xs font-semibold transition-colors">
+                                    Xóa
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    {rules.length === 0 && <p className="text-center text-slate-600 dark:text-slate-400 italic py-4">Chưa có luật lệ tùy chỉnh nào.</p>}
+                </div>
+                <div className="p-3 bg-slate-50/80 dark:bg-[#1f2238]/80 rounded-b-lg flex justify-between items-center flex-shrink-0">
+                     <div className="flex items-center space-x-2">
+                         <button onClick={handleSaveRulesToFile} className="px-3 py-2 bg-green-700 hover:bg-green-600 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
+                            <SaveIcon className="w-4 h-4"/> Lưu Luật Ra File
+                        </button>
+                        <button onClick={handleLoadRulesClick} className="px-3 py-2 bg-sky-600 hover:bg-sky-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
+                            <FileIcon className="w-4 h-4"/> Tải Luật Từ File
+                        </button>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                        <button onClick={onClose} className="px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-md text-white text-sm font-semibold transition-colors duration-200">
+                            Hủy
+                        </button>
+                        <button onClick={handleSave} className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-md text-white text-sm font-semibold transition-colors duration-200">
+                            Lưu Thay Đổi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+// --- GameScreen Component ---
+const GameScreen: React.FC<{ 
+    initialGameState: SaveData, 
+    onBackToMenu: () => void,
+    fontFamily: string,
+    fontSize: string
+}> = ({ initialGameState, onBackToMenu, fontFamily, fontSize }) => {
+    const { ai, isAiReady, apiKeyError } = useContext(AIContext);
+    const [worldData, setWorldData] = useState(initialGameState.worldData);
+    const [storyLog, setStoryLog] = useState(initialGameState.storyLog);
+    const [choices, setChoices] = useState(initialGameState.choices);
+    const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
+    const [customAction, setCustomAction] = useState('');
+    const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
+    
+    // Game State
+    const [knownEntities, setKnownEntities] = useState<KnownEntities>(initialGameState.knownEntities);
+    const [statuses, setStatuses] = useState<Status[]>(initialGameState.statuses);
+    const [quests, setQuests] = useState<Quest[]>(initialGameState.quests);
+    const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>(initialGameState.gameHistory);
+    const [turnCount, setTurnCount] = useState<number>(initialGameState.turnCount);
+    const [memories, setMemories] = useState<Memory[]>(initialGameState.memories);
+    const [party, setParty] = useState<Entity[]>(initialGameState.party);
+    const [customRules, setCustomRules] = useState<CustomRule[]>(initialGameState.customRules);
+    const [systemInstruction, setSystemInstruction] = useState<string>(initialGameState.systemInstruction);
+
+    // Modal & Notification States
+    const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
+    const [activeStatus, setActiveStatus] = useState<Status | null>(null);
+    const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
+    const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState(false);
+    const [isCustomRulesModalOpen, setIsCustomRulesModalOpen] = useState(false);
+    const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+    const [showRulesSavedSuccess, setShowRulesSavedSuccess] = useState(false);
+
+    // Rule change tracking
+    const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
+    const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
+
+    const storyContainerRef = useRef<HTMLDivElement>(null);
+
+    const pcName = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc')?.name, [knownEntities]);
+
+    const isCustomActionLocked = useMemo(() => {
+        return customRules.some(rule =>
+            rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')
+        );
+    }, [customRules]);
+
+    useEffect(() => {
+        if (storyContainerRef.current) {
+            storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
+        }
+    }, [storyLog]);
+    
+    useEffect(() => {
+        // Only generate story if history is empty (i.e., it's a new game)
+        if (gameHistory.length === 0 && isAiReady) {
+            generateInitialStory();
+        } else if (!isAiReady) {
+            setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
+            setIsLoading(false);
+        } else {
+             // For loaded games, still need to scroll to bottom on initial load
+            if (storyContainerRef.current) {
+                storyContainerRef.current.scrollTop = storyContainerRef.current.scrollHeight;
+            }
+        }
+    }, [isAiReady]); // Re-run if AI readiness changes
+    
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
+        choices: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
+        },
+      },
+      required: ['story', 'choices']
+    };
+
+    const parseStoryAndTags = (storyText: string): string => {
+        if (!storyText) return '';
+    
+        const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
+        let cleanStory = storyText;
+    
+        const parseAttributes = (attrString: string): { [key: string]: any } => {
+            const attributes: { [key: string]: any } = {};
+            const attrRegex = /(\w+)\s*=\s*"([^"]*)"/g;
+            let match;
+            while ((match = attrRegex.exec(attrString)) !== null) {
+                const key = match[1];
+                let value: string | boolean | number | QuestObjective[] = match[2];
+    
+                if ((key === 'isMainQuest' || key === 'equippable' || key === 'usable' || key === 'consumable' || key === 'learnable') && typeof value === 'string') {
+                    value = value.toLowerCase() === 'true';
+                } else if (key === 'objectives' && typeof value === 'string') {
+                    value = value.split(';').map(desc => ({ description: desc.trim(), completed: false }));
+                } else if ((key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount') && typeof value === 'string' && !isNaN(Number(value))) {
+                    attributes[key] = Number(value);
+                    continue;
+                }
+                attributes[key] = value;
+            }
+            return attributes;
+        };
+    
+        let match;
+        const unprocessedTags: string[] = [];
+        while ((match = tagRegex.exec(storyText)) !== null) {
+            cleanStory = cleanStory.replace(match[0], ''); // Remove tag from displayed story
+            const tagType = match[1];
+            const rawContent = match[2];
+            
+            const attributes = parseAttributes(rawContent);
+            if (tagType === 'MEMORY_ADD' && attributes.text) {
+                setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
+                continue;
+            }
+            if (Object.keys(attributes).length === 0) {
+                 unprocessedTags.push(match[0]);
+                 continue;
+            }
+    
+            switch (tagType) {
+                case 'STATUS_APPLIED_SELF':
+                    setStatuses(prev => [...prev.filter(s => s.name !== attributes.name || s.owner !== 'pc'), { ...attributes, owner: 'pc' } as Status]);
+                    break;
+                case 'STATUS_APPLIED_NPC':
+                    setStatuses(prev => [...prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)), { ...attributes, owner: attributes.npcName } as Status]);
+                    break;
+                case 'STATUS_CURED_SELF':
+                    setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
+                    break;
+                case 'STATUS_CURED_NPC':
+                    setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)));
+                    break;
+                case 'SKILL_LEARNED':
+                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'skill', ...attributes } }));
+                    break;
+                case 'LORE_NPC':
+                    setKnownEntities(prev => {
+                        const newAttributes = { ...attributes };
+                        if (typeof newAttributes.skills === 'string') {
+                            newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+                        }
+                        return { ...prev, [attributes.name]: { type: 'npc', ...newAttributes } };
+                    });
+                    break;
+                case 'LORE_ITEM':
+                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
+                    break;
+                case 'LORE_LOCATION':
+                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'location', ...attributes } }));
+                    break;
+                case 'LORE_FACTION':
+                     setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
+                     break;
+                case 'LORE_CONCEPT':
+                     setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'concept', ...attributes } }));
+                     break;
+                case 'ENTITY_UPDATE':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const targetName = attributes.name;
+                        if (newEntities[targetName]) {
+                            // Use newDescription and remove it from attributes to avoid overwriting description with undefined
+                            const { name, newDescription, ...updateData } = attributes;
+                            const finalUpdateData = { ...updateData };
+                            if (newDescription) {
+                                finalUpdateData.description = newDescription;
+                            }
+                            
+                            // Handle renaming
+                            if (attributes.newName && attributes.newName !== targetName) {
+                                const oldEntity = newEntities[targetName];
+                                delete newEntities[targetName];
+                                newEntities[attributes.newName] = {
+                                    ...oldEntity,
+                                    ...finalUpdateData,
+                                    name: attributes.newName
+                                };
+                            } else {
+                                newEntities[targetName] = { ...newEntities[targetName], ...finalUpdateData };
+                            }
+                        } else {
+                            console.warn(`Attempted to update non-existent entity: ${targetName}`);
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'ITEM_AQUIRED':
+                    setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', owner: 'pc', ...attributes } }));
+                    break;
+                 case 'ITEM_CONSUMED':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const itemToConsume = newEntities[attributes.name];
+
+                        if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
+                            if (typeof itemToConsume.uses === 'number' && itemToConsume.uses > 1) {
+                                newEntities[attributes.name] = {
+                                    ...itemToConsume,
+                                    uses: itemToConsume.uses - 1,
+                                };
+                            } else {
+                                const { owner, equipped, ...restOfItem } = itemToConsume;
+                                newEntities[attributes.name] = restOfItem;
+                            }
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'ITEM_EQUIPPED':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const item = newEntities[attributes.name];
+                        if (item && item.owner === 'pc' && item.equippable) {
+                            item.equipped = true;
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'ITEM_UNEQUIPPED':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const item = newEntities[attributes.name];
+                        if (item && item.owner === 'pc') {
+                            item.equipped = false;
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'ITEM_TRANSFORMED':
+                    setKnownEntities(prev => {
+                        const { oldName, newName, description, ...rest } = attributes;
+                        if (!oldName || !newName) {
+                            console.warn("ITEM_TRANSFORMED tag missing oldName or newName", attributes);
+                            return prev;
+                        }
+
+                        const newEntities = { ...prev };
+                        const oldItem = newEntities[oldName];
+                        
+                        if (oldItem) {
+                            delete newEntities[oldName];
+                        } else {
+                             console.warn(`Attempted to transform non-existent item: ${oldName}`);
+                        }
+                        
+                        const newItem: Entity = {
+                            ...rest,
+                            name: newName,
+                            type: 'item',
+                            owner: oldItem?.owner || 'pc',
+                            description: description || `Vật phẩm được biến đổi từ ${oldName}.`,
+                        };
+
+                        newEntities[newName] = newItem;
+                        
+                        return newEntities;
+                    });
+                    break;
+                case 'ITEM_UPDATED':
+                     setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        if (newEntities[attributes.name] && newEntities[attributes.name].owner === 'pc') {
+                             newEntities[attributes.name] = { ...newEntities[attributes.name], ...attributes };
+                        }
+                        return newEntities;
+                    });
+                    break;
+                 case 'ITEM_DAMAGED':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const item = newEntities[attributes.name];
+                        if (item && typeof item.durability === 'number') {
+                            item.durability = Math.max(0, item.durability - (attributes.damage || 0));
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'ITEM_REPAIRED':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const item = newEntities[attributes.name];
+                        if (item && typeof item.durability === 'number') {
+                            item.durability = Math.min(100, item.durability + (attributes.repairedAmount || 0));
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'REALM_UPDATE':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        const targetEntity = Object.values(newEntities).find(e => e.name === attributes.target);
+                        if (targetEntity) {
+                            newEntities[targetEntity.name].realm = attributes.realm;
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'COMPANION':
+                     const newCompanion = { type: 'companion', ...attributes } as Entity;
+                     if (newCompanion.name && newCompanion.description) {
+                        setParty(prev => [...prev.filter(p => p.name !== newCompanion.name), newCompanion]);
+                        setKnownEntities(prev => ({ ...prev, [newCompanion.name]: newCompanion }));
+                     } else {
+                        console.warn('COMPANION tag is missing required attributes (name, description)', attributes);
+                     }
+                     break;
+                case 'RELATIONSHIP_CHANGED':
+                    setKnownEntities(prev => {
+                        const newEntities = { ...prev };
+                        if (newEntities[attributes.npcName]) {
+                            newEntities[attributes.npcName].relationship = attributes.relationship;
+                        }
+                        return newEntities;
+                    });
+                    break;
+                case 'QUEST_ASSIGNED':
+                    const newQuest: Quest = {
+                         title: attributes.title,
+                         description: attributes.description,
+                         objectives: attributes.objectives || [],
+                         giver: attributes.giver,
+                         reward: attributes.reward,
+                         isMainQuest: attributes.isMainQuest || false,
+                         status: 'active'
+                    };
+                    setQuests(prev => [...prev.filter(q => q.title !== newQuest.title), newQuest]);
+                    break;
+                case 'QUEST_UPDATED':
+                    setQuests(prev => prev.map(q => q.title === attributes.title ? { ...q, status: attributes.status } : q));
+                    break;
+                case 'QUEST_OBJECTIVE_COMPLETED':
+                    setQuests(prev => prev.map(q => {
+                        if (q.title === attributes.questTitle) {
+                            const newObjectives = q.objectives.map(obj => 
+                                obj.description === attributes.objectiveDescription ? { ...obj, completed: true } : obj
+                            );
+                            const allCompleted = newObjectives.every(obj => obj.completed);
+                            return {
+                                ...q,
+                                objectives: newObjectives,
+                                status: allCompleted ? 'completed' : q.status
+                            };
+                        }
+                        return q;
+                    }));
+                    break;
+                 default:
+                    if (tagType !== 'DEFINE_REALM_SYSTEM') {
+                       unprocessedTags.push(match[0]);
+                    }
+            }
+        }
+        const finalStory = cleanStory.trim();
+        if (unprocessedTags.length > 0) {
+             console.warn("Unprocessed Tags:", unprocessedTags);
+        }
+        return finalStory;
+    };
+    
+
+    const parseApiResponse = (text: string) => {
+        try {
+            const jsonResponse = JSON.parse(text);
+            const cleanStory = parseStoryAndTags(jsonResponse.story);
+
+            setStoryLog(prev => [...prev, cleanStory]);
+            setChoices(jsonResponse.choices || []);
+
+        } catch (e) {
+            console.error("Failed to parse AI response:", e);
+            console.error("Raw response text:", text);
+            setStoryLog(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);
+            setChoices([]);
+        }
+    };
+    
+    const generateKnowledgeContext = (): string => {
+        let context = "--- BÁO CÁO TÌNH HÌNH HIỆN TẠI (DỮ LIỆU CỐT LÕI) ---\n";
+        const pc = Object.values(knownEntities).find(e => e.type === 'pc');
+    
+        if (pc) {
+            context += `**Nhân vật chính:** ${pc.name} (Lượt: ${turnCount}, Cảnh giới: ${pc.realm || 'Chưa có'})\n`;
+    
+            const pcStatuses = statuses.filter(s => s.owner === 'pc' || s.owner === pc.name);
+            if (pcStatuses.length > 0) {
+                context += `**Trạng thái nhân vật:**\n${pcStatuses.map(s => `- ${s.name}: ${s.effects || s.description} (Thời gian: ${s.duration || 'không rõ'})`).join('\n')}\n`;
+            } else {
+                context += `**Trạng thái nhân vật:** Bình thường.\n`;
+            }
+    
+            const inventoryItems = Object.values(knownEntities).filter(e => e.type === 'item' && e.owner === 'pc');
+            if (inventoryItems.length > 0) {
+                context += `**Vật phẩm trong túi:**\n${inventoryItems.map(i => {
+                    let itemDetails = [];
+                    if (i.equipped) itemDetails.push('đang trang bị');
+                    if (i.learnable) itemDetails.push('có thể học');
+                    if (typeof i.uses === 'number') itemDetails.push(`còn ${i.uses} lần dùng`);
+                    if (typeof i.durability === 'number') itemDetails.push(`độ bền ${i.durability}/100`);
+                    return `- ${i.name}` + (itemDetails.length > 0 ? ` (${itemDetails.join(', ')})` : '');
+                }).join('\n')}\n`;
+            }
+    
+            const skills = Object.values(knownEntities).filter(e => e.type === 'skill');
+            if (skills.length > 0) {
+                context += `**Kỹ năng đã học:**\n${skills.map(s => `- ${s.name}` + (s.realm ? ` (Cảnh giới: ${s.realm})` : '')).join('\n')}\n`;
+            }
+        }
+    
+        const activeQuests = quests.filter(q => q.status === 'active');
+        if (activeQuests.length > 0) {
+            context += `**Nhiệm vụ đang làm:**\n${activeQuests.map(q => `- ${q.title}: Mục tiêu - ${q.objectives.filter(o => !o.completed).map(o => o.description).join(', ')}`).join('\n')}\n`;
+        }
+    
+        const companions = party.filter(p => p.type === 'companion' || (p.type === 'pc' && p.name !== pc?.name));
+        if (companions.length > 0) {
+            context += `**Đồng hành:**\n${companions.map(p => `- ${p.name}`).join('\n')}\n`;
+        }
+    
+        const npcs = Object.values(knownEntities).filter(e => e.type === 'npc' && e.name !== pc?.name);
+        if (npcs.length > 0) {
+            context += `**NPC đã gặp:**\n${npcs.map(n => {
+                let details = [];
+                if (n.relationship) details.push(`Quan hệ: ${n.relationship}`);
+                if (n.realm) details.push(`Cảnh giới: ${n.realm}`);
+                const npcStatuses = statuses.filter(s => s.owner === n.name);
+                if (npcStatuses.length > 0) details.push(`Trạng thái: ${npcStatuses.map(s => s.name).join(', ')}`);
+                return `- ${n.name}` + (details.length > 0 ? ` (${details.join('; ')})` : '');
+            }).join('\n')}\n`;
+        }
+    
+        context += "--- KẾT THÚC BÁO CÁO ---\n";
+        return context;
+    }
+
+
+    const generateInitialStory = async () => {
+            if (!ai) return;
+            setIsLoading(true);
+            const finalPersonality = worldData.customPersonality || worldData.personalityFromList;
+            const writingStyleText = worldData.writingStyle === 'first_person' ? 'Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"' : 'Ngôi thứ hai - "Ngươi" là nhân vật chính';
+            const nsfwInstruction = worldData.allowNsfw ? 'Cho phép. Kích hoạt quy tắc nội dung 18+ của Quản Trò. Viết một cách trần trụi, bạo lực, tục tĩu và không giới hạn.' : 'Không, AI phải tránh các chủ đề và mô tả 18+.';
+            
+            const activeRules = customRules.filter(r => r.isActive);
+            let customRulesContext = '';
+            if (activeRules.length > 0) {
+                customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
+            }
+
+            const userPrompt = `${customRulesContext}BẠN LÀ QUẢN TRÒ. Hãy bắt đầu một câu chuyện phiêu lưu mới dựa trên các thông tin sau:
+- Thể loại: '${worldData.genre}'
+- Phong cách viết: '${writingStyleText}'
+- Bối cảnh: ${worldData.worldDetail}
+- Độ khó: ${worldData.difficulty}
+- Nhân vật chính (PC):
+  - Tên: ${worldData.characterName || 'Vô Danh'}
+  - Giới tính: ${worldData.gender}
+  - Tiểu sử: ${worldData.bio}
+  - Tính cách CỐT LÕI: "${finalPersonality}"
+- Kỹ năng khởi đầu mong muốn: ${worldData.startSkill || 'Không có'}
+- NSFW: ${nsfwInstruction}
+
+YÊU CẦU:
+1.  Bắt đầu câu chuyện bằng cách giới thiệu nhân vật chính trong bối cảnh đã cho.
+2.  Dùng thẻ \`[DEFINE_REALM_SYSTEM]\` để tạo hệ thống sức mạnh cho thế giới (nếu có).
+3.  Tạo và định nghĩa kỹ năng khởi đầu cho nhân vật bằng thẻ \`[SKILL_LEARNED]\`. Nếu là công pháp, hãy thêm thuộc tính \`realm\`.
+4.  Dùng các thẻ lệnh phù hợp khác để thiết lập trạng thái ban đầu (nếu có vật phẩm, hãy dùng \`[ITEM_AQUIRED]\`).
+5.  Giao cho người chơi một nhiệm vụ đầu tiên đơn giản bằng thẻ \`[QUEST_ASSIGNED]\`, nhiệm vụ phải có tiêu đề, mô tả và ít nhất một mục tiêu.
+6.  Cung cấp phần đầu của câu chuyện và 4-5 lựa chọn đầu tiên cho người chơi.
+7.  Sử dụng định dạng thông báo nổi bật \`**⭐...⭐**\` nếu cần.`;
+            
+            // Create the PC entity
+            const pcEntity: Entity = {
+                name: worldData.characterName || 'Vô Danh',
+                type: 'pc',
+                description: worldData.bio,
+                gender: worldData.gender,
+                personality: finalPersonality
+            };
+            setKnownEntities({ [pcEntity.name]: pcEntity });
+            setParty([pcEntity]);
+
+
+            const initialHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
+            setGameHistory(initialHistory);
+
+            try {
+                 const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: initialHistory,
+                    config: {
+                        systemInstruction: systemInstruction,
+                        responseMimeType: "application/json",
+                        responseSchema: responseSchema,
+                    }
+                });
+                const responseText = response.text.trim();
+                parseApiResponse(responseText);
+                setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
+            } catch (error) {
+                console.error("Error generating initial story:", error);
+                setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+            } finally {
+                setIsLoading(false);
+            }
+    };
+        
+    const handleAction = async (action: string) => {
+        let originalAction = action.trim();
+        let isNsfwRequest = false;
+        
+        // Check for 'nsfw' at the end, possibly separated by spaces
+        const nsfwRegex = /\s+nsfw\s*$/i;
+        if (nsfwRegex.test(originalAction)) {
+            isNsfwRequest = true;
+            originalAction = originalAction.replace(nsfwRegex, '').trim();
+        }
+    
+        if (!originalAction || isLoading || !ai) return;
+    
+        setIsLoading(true);
+        setChoices([]);
+        setCustomAction('');
+    
+        setStoryLog(prev => [...prev, `> ${originalAction}`]);
+    
+        let ruleChangeContext = '';
+        if (ruleChanges && (ruleChanges.activated.length > 0 || ruleChanges.deactivated.length > 0 || ruleChanges.updated.length > 0)) {
+            ruleChangeContext += '--- CẬP NHẬT LUẬT LỆ THẾ GIỚI (XỬ LÝ TRƯỚC HÀNH ĐỘNG NGƯỜI CHƠI) ---\n';
+            
+            if (ruleChanges.activated.length > 0) {
+                ruleChangeContext += 'KÍCH HOẠT LUẬT MỚI:\n';
+                ruleChangeContext += ruleChanges.activated.map(r => `- "${r.content}"`).join('\n') + '\n';
+            }
+    
+            if (ruleChanges.deactivated.length > 0) {
+                ruleChangeContext += 'VÔ HIỆU HÓA LUẬT CŨ:\n';
+                ruleChangeContext += ruleChanges.deactivated.map(r => `- "${r.content}"`).join('\n') + '\n';
+            }
+
+            if (ruleChanges.updated.length > 0) {
+                ruleChangeContext += 'CẬP NHẬT LUẬT ĐANG HOẠT ĐỘNG:\n';
+                ruleChangeContext += ruleChanges.updated.map(u => `LUẬT CŨ: "${u.oldRule.content}"\nLUẬT MỚI: "${u.newRule.content}"`).join('\n\n') + '\n';
+            }
+    
+            ruleChangeContext += '--- KẾT THÚC CẬP NHẬT LUẬT ---\n';
+            setRuleChanges(null); // Consume the changes
+        }
+
+        const knowledgeContext = generateKnowledgeContext();
+        
+        const pinnedMemories = memories.filter(m => m.pinned).map(m => `- ${m.text}`).join('\n');
+        let memoryContext = '';
+        if (pinnedMemories) {
+            memoryContext = `\n--- KÝ ỨC ĐÃ GHIM (QUAN TRỌNG) ---\n${pinnedMemories}\n`;
+        }
+
+        let nsfwInstructionPart = '';
+        if (isNsfwRequest && worldData.allowNsfw) {
+            nsfwInstructionPart = `\nLƯU Ý ĐẶC BIỆT: Người chơi đã yêu cầu "nsfw". Hãy tạo ra một phản hồi 18+ cực kỳ chi tiết, trần trụi và không giới hạn, ngay cả khi hành động có vẻ bình thường. Tập trung vào các yếu tố khiêu dâm, bạo lực, và tâm lý.`;
+        }
+
+        const activeRules = customRules.filter(r => r.isActive);
+        let customRulesContext = '';
+        if (activeRules.length > 0) {
+            customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
+        }
+        
+        const lastStoryPart = storyLog.slice(-2)[0] || ''; // Get the last AI narrative part
+
+        const userPrompt = `${ruleChangeContext}${customRulesContext}${knowledgeContext}
+--- Diễn biến gần nhất ---
+${lastStoryPart}
+${memoryContext}
+--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---
+"${originalAction}"
+${nsfwInstructionPart}
+YÊU CẦU: Dựa trên hành động của người chơi và TOÀN BỘ bối cảnh đã cung cấp (bao gồm cả luật lệ tùy chỉnh), hãy tiếp tục câu chuyện một cách logic.`;
+    
+        const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
+        const updatedHistory = [...gameHistory, newUserEntry];
+        setGameHistory(updatedHistory);
+    
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: updatedHistory,
+                config: {
+                    systemInstruction: systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema,
+                }
+            });
+            const responseText = response.text.trim();
+            parseApiResponse(responseText);
+            setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
+            setTurnCount(prev => prev + 1); // Increment turn count
+        } catch (error) {
+            console.error("Error continuing story:", error);
+            // Revert the optimistic UI update on failure
+            setStoryLog(prev => prev.slice(0, -1));
+            const lastModelResponseText = [...gameHistory].reverse().find(h => h.role === 'model')?.parts[0].text;
+            if(lastModelResponseText) {
+                try {
+                    const prevChoices = JSON.parse(lastModelResponseText).choices;
+                    setChoices(prevChoices || []);
+                } catch(e) {
+                    console.error("Could not restore choices:", e);
+                    setChoices([]);
+                }
+            }
+             setStoryLog(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    
+    const handleEntityClick = (entityName: string) => {
+        const entity = knownEntities[entityName];
+        if (entity) {
+            setActiveEntity(entity);
+        }
+    };
+
+    const handleUseItem = (itemName: string) => {
+        setActiveEntity(null); // Close modal
+        // A short delay to prevent the modal from re-opening if the layout shifts
+        setTimeout(() => {
+            handleAction(`Sử dụng vật phẩm: ${itemName}`);
+        }, 100);
+    };
+
+    const handleLearnItem = (itemName: string) => {
+        setActiveEntity(null);
+        setTimeout(() => {
+            handleAction(`Học công pháp: ${itemName}`);
+        }, 100);
+    };
+
+    const handleEquipItem = (itemName: string) => {
+        setActiveEntity(null);
+        setTimeout(() => {
+            handleAction(`Trang bị ${itemName}`);
+        }, 100);
+    };
+    
+    const handleUnequipItem = (itemName: string) => {
+        setActiveEntity(null);
+        setTimeout(() => {
+            handleAction(`Tháo ${itemName}`);
+        }, 100);
+    };
+
+    const handleStatusClick = (status: Status) => {
+        setActiveStatus(status);
+    };
+
+    const handleToggleMemoryPin = (index: number) => {
+        setMemories(prev => prev.map((mem, i) => i === index ? { ...mem, pinned: !mem.pinned } : mem));
+    };
+
+    const handleQuestClick = (quest: Quest) => {
+        setActiveQuest(quest);
+    };
+    
+     const handleSuggestAction = async () => {
+        if (isLoading || !ai) return;
+        setIsLoading(true);
+        const finalPersonality = worldData.customPersonality || worldData.personalityFromList;
+        const suggestionPrompt = `Bối cảnh: "${storyLog.slice(-1)[0]}". Tính cách NV: "${finalPersonality}". Gợi ý một hành động sáng tạo hoặc hợp lý tiếp theo cho người chơi. Chỉ trả về một câu hành động ngắn gọn.`;
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: suggestionPrompt,
+            });
+            setCustomAction(response.text.trim());
+        } catch (error) {
+            console.error("Error suggesting action:", error);
+            setCustomAction("Không thể nhận gợi ý lúc này.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveGame = () => {
+        setShowSaveSuccess(true);
+        setTimeout(() => setShowSaveSuccess(false), 3000);
+    
+        const currentGameState: SaveData = {
+          worldData,
+          storyLog,
+          choices,
+          knownEntities,
+          statuses,
+          quests,
+          gameHistory,
+          memories,
+          party,
+          customRules,
+          systemInstruction,
+          turnCount,
+        };
+        
+        const jsonString = JSON.stringify(currentGameState, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        const charName = worldData.characterName.replace(/\s+/g, '_') || 'NhanVat';
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        link.download = `AI-RolePlay-${charName}-${timestamp}.json`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleSaveRules = (newRules: CustomRule[]) => {
+        const oldRules = previousRulesRef.current;
+        
+        const activated: CustomRule[] = [];
+        const deactivated: CustomRule[] = [];
+        const updated: { oldRule: CustomRule, newRule: CustomRule }[] = [];
+    
+        const newRulesMap = new Map(newRules.map(r => [r.id, r]));
+        const oldRulesMap = new Map(oldRules.map(r => [r.id, r]));
+    
+        // Check for new, updated, and activated/deactivated rules
+        for (const [id, newRule] of newRulesMap.entries()) {
+            const oldRule = oldRulesMap.get(id);
+            if (!oldRule) {
+                // Brand new rule
+                if (newRule.isActive && newRule.content.trim()) {
+                    activated.push(newRule);
+                }
+            } else {
+                // Existing rule, check for changes
+                if (newRule.isActive && !oldRule.isActive) {
+                    // Was inactive, now active
+                    if (newRule.content.trim()) {
+                        activated.push(newRule);
+                    }
+                } else if (!newRule.isActive && oldRule.isActive) {
+                    // Was active, now inactive
+                    deactivated.push(oldRule);
+                } else if (newRule.isActive && oldRule.isActive && newRule.content !== oldRule.content) {
+                    // Is active and content changed -> treat as update
+                    if (newRule.content.trim()) {
+                        updated.push({ oldRule, newRule });
+                    } else {
+                        // Content was deleted, treat as deactivation
+                        deactivated.push(oldRule);
+                    }
+                }
+            }
+        }
+    
+        // Check for deleted rules that were active
+        for (const [id, oldRule] of oldRulesMap.entries()) {
+            if (!newRulesMap.has(id) && oldRule.isActive) {
+                deactivated.push(oldRule);
+            }
+        }
+        
+        if (activated.length > 0 || deactivated.length > 0 || updated.length > 0) {
+            setRuleChanges({ activated, deactivated, updated });
+            setStoryLog(prev => [...prev, `**⭐ [HỆ THỐNG]: Đã ghi nhận thay đổi luật lệ. Thay đổi sẽ được áp dụng vào lượt đi tiếp theo. ⭐**`]);
+        }
+        
+        setCustomRules(newRules);
+        // Use deep copy to prevent mutation issues
+        previousRulesRef.current = JSON.parse(JSON.stringify(newRules));
+    
+        setShowRulesSavedSuccess(true);
+        setTimeout(() => setShowRulesSavedSuccess(false), 3500);
+    };
+
+
+    const renderActiveTabContent = () => {
+        switch (activeTab) {
+            case 'status':
+                const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
+                return <StatusDisplay statuses={pcStatuses} onStatusClick={handleStatusClick} />;
+            case 'quests':
+                return <QuestLog quests={quests} onQuestClick={handleQuestClick} />;
+            case 'party':
+                const displayParty = party.filter(p => p.name !== pcName);
+                return <PartyMemberTab party={displayParty} onMemberClick={handleEntityClick} />;
+            default:
+                return null;
+        }
+    };
+    
+    const hasActiveQuests = quests.some(q => q.status === 'active');
+    const [activeTab, setActiveTab] = useState('status');
+
+    return (
+        <div className="bg-transparent w-full h-full p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" style={{maxHeight: '98vh', height: '98vh'}}>
+            {showSaveSuccess && (
+                <div className="absolute top-20 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+                    Lưu trữ thành công!
+                </div>
+            )}
+            {showRulesSavedSuccess && (
+                <div className="absolute top-20 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+                    Lưu luật lệ thành công! Sẽ có hiệu lực ở lượt sau.
+                </div>
+            )}
+            {/* Menu 1: Top Navigation */}
+            <div className="flex justify-between items-center bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-3 rounded-t-lg shadow-lg flex-shrink-0 border-b border-slate-300/20 dark:border-slate-600/20">
+                <button onClick={() => setIsRestartModalOpen(true)} className="flex items-center text-sm px-3 py-1.5 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 rounded shadow-sm border border-slate-300 dark:border-slate-500 transition-colors text-slate-800 dark:text-white"><HomeIcon className="w-4 h-4 mr-2" /> Home</button>
+                <div className="text-center flex-1 min-w-0 mx-4">
+                    <div className="text-lg font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider truncate" title={worldData.genre || "Phiêu Lưu Ký"}>{worldData.genre || "Phiêu Lưu Ký"}</div>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 capitalize truncate" title={`Tính cách: ${worldData.customPersonality || worldData.personalityFromList}`}>Tính cách: {worldData.customPersonality || worldData.personalityFromList}</div>
+                </div>
+                <div className="flex items-center space-x-2 text-sm text-white">
+                    <button onClick={handleSaveGame} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><ArchiveIcon className="w-4 h-4 mr-1.5" /> Lưu Trữ</button>
+                    <button onClick={() => setIsCustomRulesModalOpen(true)} className="flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded shadow-sm border border-purple-500/50 transition-colors"><DocumentAddIcon className="w-4 h-4 mr-1.5" /> Nạp Tri Thức</button>
+                    <button onClick={() => setIsKnowledgeModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><BrainIcon className="w-4 h-4 mr-1.5" /> Tri Thức</button>
+                    <button onClick={() => setIsMemoryModalOpen(true)} className="flex items-center px-3 py-1.5 bg-slate-600 dark:bg-slate-700 hover:bg-slate-500 dark:hover:bg-slate-600 rounded shadow-sm border border-slate-500/50 transition-colors"><MemoryIcon className="w-4 h-4 mr-1.5" /> Ký Ức</button>
+                    <button onClick={() => setIsRestartModalOpen(true)} className="flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded shadow-sm border border-red-500/50 transition-colors"><RefreshIcon className="w-4 h-4 mr-1.5" /> Bắt Đầu Lại</button>
+                </div>
+            </div>
+
+            {/* Menu 2: Tabs */}
+            <div className="flex justify-around items-center bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-1 flex-shrink-0">
+                 <button onClick={() => setActiveTab('status')} className={`flex-1 text-center py-2 text-sm rounded transition-colors ${activeTab === 'status' ? 'bg-slate-200/60 dark:bg-slate-700/80 text-slate-900 dark:text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/40 dark:hover:bg-slate-700/50'}`}>Trạng thái hiện tại</button>
+                 <button onClick={() => setActiveTab('party')} className={`flex-1 text-center py-2 text-sm rounded transition-colors ${activeTab === 'party' ? 'bg-slate-200/60 dark:bg-slate-700/80 text-slate-900 dark:text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/40 dark:hover:bg-slate-700/50'}`}>Tổ Đội Thành Viên</button>
+                 <button onClick={() => setActiveTab('quests')} className={`relative flex-1 text-center py-2 text-sm rounded transition-colors ${activeTab === 'quests' ? 'bg-slate-200/60 dark:bg-slate-700/80 text-slate-900 dark:text-white font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/40 dark:hover:bg-slate-700/50'}`}>
+                    Nhật Ký Nhiệm Vụ
+                    {hasActiveQuests && <span className="absolute top-1 right-2 w-5 h-5 flex items-center justify-center text-yellow-600 dark:text-yellow-300"><ExclamationIcon className="w-4 h-4" /></span>}
+                </button>
+            </div>
+             <div className="bg-white/70 dark:bg-[#2a2f4c]/80 backdrop-blur-sm rounded-b-lg flex-shrink-0 h-40 overflow-hidden shadow-lg border-x border-b border-slate-300/20 dark:border-slate-600/20">
+                {renderActiveTabContent()}
+            </div>
+            
+            {/* Menu 3: Main Content */}
+            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden">
+                {/* Story Panel */}
+                <div className="flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-4 rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden">
+                    <h2 className="text-xl font-semibold mb-3 text-pink-700 dark:text-pink-400 flex-shrink-0">Diễn Biến Câu Chuyện:</h2>
+                    <div ref={storyContainerRef} className={`flex-grow overflow-y-auto pr-2 space-y-4 ${fontFamily} ${fontSize}`}>
+                       {storyLog.map((line, index) => (
+                           line.trim() === '' ? null : line.startsWith('>') 
+                            ? <p key={index} className='text-cyan-700 dark:text-cyan-300 italic pl-4'>{line}</p>
+                            : <InteractiveText key={index} text={line} onEntityClick={handleEntityClick} knownEntities={knownEntities} />
+                       ))}
+                       {isLoading && isAiReady && storyLog.length > 0 && <div className="flex justify-center p-4"><SpinnerIcon className="w-8 h-8 text-slate-700 dark:text-white"/></div>}
+                    </div>
+                </div>
+
+                {/* Choices Panel */}
+                 <div className="flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm p-4 rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden">
+                    <h2 className="text-xl font-semibold mb-3 text-cyan-600 dark:text-cyan-400 flex-shrink-0">Lựa Chọn Của Ngươi:</h2>
+                    <div className="overflow-y-auto pr-2 flex-grow">
+                        {!isAiReady ? (
+                             <div className="flex items-center justify-center h-full text-red-600 dark:text-red-400 text-center p-4">
+                                {apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."}
+                            </div>
+                        ) : isLoading && choices.length === 0 ? (
+                            <div className="flex items-center justify-center h-full py-4">
+                                <SpinnerIcon className="w-10 h-10 text-slate-700 dark:text-white" />
+                            </div>
+                        ) : (
+                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {choices.map((choice, index) => (
+                                    <button 
+                                        key={index}
+                                        onClick={() => handleAction(choice)}
+                                        className={`w-full h-full text-left p-3 bg-slate-200 dark:bg-slate-700 hover:bg-purple-600 dark:hover:bg-purple-600 text-slate-800 dark:text-gray-200 hover:text-white rounded-md transition-colors duration-200 shadow-sm border border-slate-300 dark:border-slate-600 ${fontSize}`}
+                                    >
+                                        {choice.match(/^\d+\.\s/) ? choice : `${index + 1}. ${choice}`}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-300 dark:border-slate-700 flex-shrink-0">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Hoặc, nhập hành động tùy ý (thêm "nsfw" ở cuối để có nội dung 18+):</p>
+                        <div className="flex items-center">
+                            <input 
+                                type="text"
+                                value={customAction}
+                                onChange={(e) => setCustomAction(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleAction(customAction)}
+                                disabled={isLoading || !isAiReady || isCustomActionLocked}
+                                placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ." : "Ví dụ: nhặt hòn đá lên..."}
+                                className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 disabled:bg-slate-500"
+                            />
+                            <button 
+                                onClick={handleSuggestAction}
+                                disabled={isLoading || !isAiReady}
+                                className="px-3 py-2 bg-yellow-500 dark:bg-yellow-600 hover:bg-yellow-400 dark:hover:bg-yellow-500 text-white font-semibold transition-colors disabled:bg-slate-500"
+                                aria-label="Gợi ý hành động"
+                            >
+                                <SparklesIcon className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => handleAction(customAction)}
+                                disabled={isLoading || !isAiReady || isCustomActionLocked}
+                                className="px-4 py-2 bg-cyan-500 dark:bg-cyan-600 hover:bg-cyan-400 dark:hover:bg-cyan-500 text-white font-semibold rounded-r-md transition-colors disabled:bg-slate-500"
+                            >
+                                Gửi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <ConfirmationModal
+                isOpen={isRestartModalOpen}
+                onClose={() => setIsRestartModalOpen(false)}
+                onConfirm={onBackToMenu}
+                title="Xác nhận Quay Về Trang Chủ"
+                message={<p>Toàn bộ tiến trình chưa lưu sẽ bị mất. Bạn có chắc chắn muốn quay về trang chủ không?</p>}
+            />
+            <EntityInfoModal 
+                entity={activeEntity} 
+                onClose={() => setActiveEntity(null)} 
+                onUseItem={handleUseItem} 
+                onLearnItem={handleLearnItem}
+                onEquipItem={handleEquipItem}
+                onUnequipItem={handleUnequipItem}
+                statuses={statuses} 
+                onStatusClick={handleStatusClick} 
+            />
+            <StatusDetailModal status={activeStatus} onClose={() => setActiveStatus(null)} />
+            <MemoryModal isOpen={isMemoryModalOpen} onClose={() => setIsMemoryModalOpen(false)} memories={memories} onTogglePin={handleToggleMemoryPin} />
+            <QuestDetailModal quest={activeQuest} onClose={() => setActiveQuest(null)} />
+            <KnowledgeBaseModal 
+                isOpen={isKnowledgeModalOpen} 
+                onClose={() => setIsKnowledgeModalOpen(false)} 
+                pc={Object.values(knownEntities).find(p => p.type === 'pc')}
+                knownEntities={knownEntities}
+                onEntityClick={handleEntityClick}
+                turnCount={turnCount}
+            />
+            <CustomRulesModal
+                isOpen={isCustomRulesModalOpen}
+                onClose={() => setIsCustomRulesModalOpen(false)}
+                onSave={handleSaveRules}
+                currentRules={customRules}
+            />
+        </div>
+    );
+};
+
+// --- Customization Footer Component ---
+const CustomizationFooter: React.FC<{
+    fontFamily: string;
+    setFontFamily: (font: string) => void;
+    fontSize: string;
+    setFontSize: (size: string) => void;
+}> = ({ fontFamily, setFontFamily, fontSize, setFontSize }) => {
+    
+    const fontOptions = [
+        { value: 'font-sans', label: 'Inter' },
+        { value: 'font-serif', label: 'Merriweather' },
+        { value: 'font-lora', label: 'Lora' },
+        { value: 'font-mono', label: 'Roboto Mono' },
+        { value: 'font-source-code', label: 'Source Code Pro' },
+    ];
+
+    const sizeOptions = [
+        { value: 'text-xs', label: 'Cực nhỏ' },
+        { value: 'text-sm', label: 'Nhỏ' },
+        { value: 'text-base', label: 'Vừa' },
+        { value: 'text-lg', label: 'Lớn' },
+        { value: 'text-xl', label: 'Rất lớn' },
+        { value: 'text-2xl', label: 'Cực lớn' },
+    ];
+    
+    return (
+        <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-[#1f2238]/80 backdrop-blur-sm border-t border-slate-300 dark:border-slate-700 p-2 z-[100]">
+            <div className="max-w-7xl mx-auto flex items-center justify-center space-x-4 md:space-x-8">
+                {/* Font Family Selector */}
+                <div className="flex items-center space-x-2">
+                    <label htmlFor="font-family" className="text-sm font-medium text-slate-700 dark:text-slate-300">Phông chữ:</label>
+                    <select
+                        id="font-family"
+                        value={fontFamily}
+                        onChange={(e) => setFontFamily(e.target.value)}
+                        className="bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-1 px-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                        {fontOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                </div>
+                
+                {/* Font Size Selector */}
+                 <div className="flex items-center space-x-2">
+                    <label htmlFor="font-size" className="text-sm font-medium text-slate-700 dark:text-slate-300">Cỡ chữ:</label>
+                    <select
+                        id="font-size"
+                        value={fontSize}
+                        onChange={(e) => setFontSize(e.target.value)}
+                        className="bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md py-1 px-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                        {sizeOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export default function App() {
   const [view, setView] = useState('menu'); // 'menu', 'create-world', 'game'
   const [gameState, setGameState] = useState<SaveData | null>(null);
   const [isApiSettingsModalOpen, setIsApiSettingsModalOpen] = useState(false);
-  const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
-  const [keyRotationNotification, setKeyRotationNotification] = useState<string | null>(null);
 
-  // --- API Key State ---
-  const [userApiKeys, setUserApiKeys] = useState<string[]>(() => {
-      const savedKeys = localStorage.getItem('userApiKeys');
-      return savedKeys ? JSON.parse(savedKeys) : [];
-  });
-  const [activeUserApiKeyIndex, setActiveUserApiKeyIndex] = useState<number>(() => {
-      return parseInt(localStorage.getItem('activeUserApiKeyIndex') || '0', 10);
-  });
-  const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => {
-      return localStorage.getItem('isUsingDefaultKey') !== 'false'; // Default to true
-  });
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('userApiKey') || (process.env.API_KEY || ''));
+  const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => !localStorage.getItem('userApiKey'));
+  
+  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem('fontFamily') || 'font-sans');
+  const [fontSize, setFontSize] = useState(() => localStorage.getItem('fontSize') || 'text-base');
 
-  // --- Memoized AI Instance ---
-  const activeKey = useMemo(() => {
-    if (isUsingDefaultKey) {
-        return process.env.API_KEY || '';
-    }
-    if (userApiKeys.length > 0) {
-        const validIndex = activeUserApiKeyIndex < userApiKeys.length ? activeUserApiKeyIndex : 0;
-        return userApiKeys[validIndex] || '';
-    }
-    return '';
-  }, [isUsingDefaultKey, userApiKeys, activeUserApiKeyIndex]);
+  useEffect(() => {
+    localStorage.setItem('fontFamily', fontFamily);
+  }, [fontFamily]);
+
+  useEffect(() => {
+    localStorage.setItem('fontSize', fontSize);
+  }, [fontSize]);
+
 
   const { ai, isAiReady, apiKeyError } = useMemo(() => {
-      if (!activeKey) {
+      if (!apiKey) {
         return {
           ai: null,
           isAiReady: false,
@@ -203,37 +2741,24 @@ export default function App() {
         };
       }
       try {
-        const genAI = new GoogleGenAI({ apiKey: activeKey });
+        const genAI = new GoogleGenAI({ apiKey });
         return { ai: genAI, isAiReady: true, apiKeyError: null };
       } catch (e: any) {
         console.error("Failed to initialize GoogleGenAI:", e);
         return { ai: null, isAiReady: false, apiKeyError: `Lỗi khởi tạo AI: ${e.message}` };
       }
-  }, [activeKey]);
+  }, [apiKey]);
   
-  // --- Key Management ---
-  const handleSaveApiKeys = (newKeys: string[]) => {
-      const filteredKeys = newKeys.filter(k => k.trim() !== '');
-      setUserApiKeys(filteredKeys);
-      setActiveUserApiKeyIndex(0);
+  const handleSaveApiKey = (newKey: string) => {
+      localStorage.setItem('userApiKey', newKey);
+      setApiKey(newKey);
       setIsUsingDefaultKey(false);
-      localStorage.setItem('userApiKeys', JSON.stringify(filteredKeys));
-      localStorage.setItem('activeUserApiKeyIndex', '0');
-      localStorage.setItem('isUsingDefaultKey', 'false');
   };
   
   const handleUseDefaultKey = () => {
+      localStorage.removeItem('userApiKey');
+      setApiKey(process.env.API_KEY || '');
       setIsUsingDefaultKey(true);
-      localStorage.setItem('isUsingDefaultKey', 'true');
-  };
-
-  const handleRotateKey = () => {
-    if (isUsingDefaultKey || userApiKeys.length <= 1) return;
-    const nextIndex = (activeUserApiKeyIndex + 1) % userApiKeys.length;
-    setActiveUserApiKeyIndex(nextIndex);
-    localStorage.setItem('activeUserApiKeyIndex', nextIndex.toString());
-    setKeyRotationNotification(`Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key #${nextIndex + 1}.`);
-    // Notification will be cleared in GameScreen after being displayed
   };
 
 
@@ -250,29 +2775,20 @@ export default function App() {
           description: data.bio,
           gender: data.gender,
           personality: data.customPersonality || data.personalityFromList,
-          learnedSkills: [],
       };
-      
-      const { customRules, ...worldData } = data;
-
       setGameState({
-        worldData: worldData,
+        worldData: data,
+        storyLog: [],
+        choices: [],
         knownEntities: { [pcEntity.name]: pcEntity },
         statuses: [],
         quests: [],
         gameHistory: [],
         memories: [],
         party: [pcEntity],
-        customRules: customRules || [],
+        customRules: [],
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
         turnCount: 0,
-        totalTokens: 0,
-        gameTime: { year: 1, month: 1, day: 1, hour: 8 },
-        chronicle: {
-            memoir: [],
-            chapter: [],
-            turn: [],
-        },
       });
       setView('game');
   }
@@ -285,32 +2801,16 @@ export default function App() {
             if (typeof text === 'string') {
                 const loadedJson = JSON.parse(text);
                 // Basic validation
-                if (loadedJson.worldData && loadedJson.knownEntities && loadedJson.gameHistory) {
+                if (loadedJson.worldData && loadedJson.gameHistory) {
                     const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
                     // Ensure new fields have default values if loading an old save
                     const validatedData: SaveData = {
-    worldData: loadedJson.worldData,
-    knownEntities: loadedJson.knownEntities,
-    statuses: loadedJson.statuses || [],
-    quests: loadedJson.quests || [],
-    gameHistory: loadedJson.gameHistory,
-    memories: loadedJson.memories || [],
-    party: loadedJson.party || (pc ? [pc] : []),
-    customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
-    systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
-    turnCount: loadedJson.turnCount || 0,
-    totalTokens: loadedJson.totalTokens || 0,
-    gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
-    chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
-    // Thêm support cho compressed history
-    compressedHistory: loadedJson.compressedHistory || [],
-    lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
-    historyStats: loadedJson.historyStats || {
-        totalEntriesProcessed: 0,
-        totalTokensSaved: 0,
-        compressionCount: 0
-    }
-};
+                        ...loadedJson,
+                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
+                        party: loadedJson.party || (pc ? [pc] : []),
+                        systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
+                        turnCount: loadedJson.turnCount || 0,
+                    };
                     delete (validatedData as any).userKnowledge;
 
                     setGameState(validatedData);
@@ -328,27 +2828,21 @@ export default function App() {
   };
 
   const openApiSettings = () => setIsApiSettingsModalOpen(true);
-  const openChangelog = () => setIsChangelogModalOpen(true);
 
   const renderContent = () => {
       switch(view) {
           case 'create-world':
               return <CreateWorld onBack={navigateToMenu} onStartGame={startNewGame} />;
           case 'game':
-              return gameState ? <GameScreen 
-                initialGameState={gameState} 
-                onBackToMenu={navigateToMenu} 
-                keyRotationNotification={keyRotationNotification}
-                onClearNotification={() => setKeyRotationNotification(null)}
-              /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
+              return gameState ? <GameScreen initialGameState={gameState} onBackToMenu={navigateToMenu} fontFamily={fontFamily} fontSize={fontSize}/> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey}/>;
           case 'menu':
           default:
-              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
+              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey}/>;
       }
   }
 
   return (
-    <AIContext.Provider value={{ ai, isAiReady, apiKeyError, isUsingDefaultKey, userApiKeyCount: userApiKeys.length, rotateKey: handleRotateKey }}>
+    <AIContext.Provider value={{ ai, isAiReady, apiKeyError }}>
       <style>{`
         .am-kim {
             background: linear-gradient(135deg, #ca8a04, #eab308, #fde047);
@@ -371,20 +2865,19 @@ export default function App() {
             100% { background-position: 0% 50%; }
         }
       `}</style>
-      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
+      <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-20 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
         {renderContent()}
         <ApiSettingsModal 
           isOpen={isApiSettingsModalOpen} 
           onClose={() => setIsApiSettingsModalOpen(false)}
-          userApiKeys={userApiKeys}
+          currentApiKey={apiKey}
           isUsingDefault={isUsingDefaultKey}
-          onSave={handleSaveApiKeys}
+          onSave={handleSaveApiKey}
           onUseDefault={handleUseDefaultKey}
         />
-        <ChangelogModal
-            isOpen={isChangelogModalOpen}
-            onClose={() => setIsChangelogModalOpen(false)}
-            changelogData={CHANGELOG_DATA}
+        <CustomizationFooter 
+            fontFamily={fontFamily} setFontFamily={setFontFamily}
+            fontSize={fontSize} setFontSize={setFontSize}
         />
       </div>
     </AIContext.Provider>
