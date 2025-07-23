@@ -238,13 +238,13 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     }, []);
 
     // Auto-scroll when new content is added
-    useEffect(() => {
-        if (virtualState.shouldAutoScroll && storyLog.length > 0) {
-            setTimeout(() => {
-                scrollToBottom();
-            }, 100);
-        }
-    }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
+    //useEffect(() => {
+     //   if (virtualState.shouldAutoScroll && storyLog.length > 0) {
+     //       setTimeout(() => {
+      //          scrollToBottom();
+     //       }, 100);
+//   }
+ //   }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
 
     // Calculate offset for visible items
     const offsetY = visibleRange.startIndex > 0 ? itemPositions[visibleRange.startIndex].start : 0;
