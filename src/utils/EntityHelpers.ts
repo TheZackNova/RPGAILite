@@ -12,7 +12,7 @@ export const getIconForEntity = (entity: Entity): React.ReactNode => {
     if (type === 'item') {
         if (name.includes('kiếm')) return <GameIcons.SwordIcon />;
         if (name.includes('đao')) return <GameIcons.SaberIcon />;
-        if (name.includes('thương')) return <GameIcons.SpearIcon />;
+        if (name.includes('thường')) return <GameIcons.SpearIcon />;
         if (name.includes('cung')) return <GameIcons.BowIcon />;
         if (name.includes('trượng')) return <GameIcons.StaffIcon />;
         if (name.includes('búa')) return <GameIcons.AxeIcon />;
