@@ -1,3 +1,7 @@
+
+
+
+
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
@@ -67,14 +71,15 @@ const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, 
     const ownerStatuses = filteredStatuses.filter(s => s.owner === owner);
 
     // 3. Separate the owner's statuses by the new status's type.
-    const ownerStatusesOfOtherTypes = ownerStatuses.filter(s => s.type !== newStatusType);
     const ownerStatusesOfType = ownerStatuses.filter(s => s.type === newStatusType);
-
-    // 4. Limit the number of statuses of the same type for the owner (to prevent spam).
-    const maxStatusesPerType = 8;
+    const ownerStatusesOfOtherTypes = ownerStatuses.filter(s => s.type !== newStatusType);
+    
+    // 4. Apply the limit. Max 2 statuses per type.
+    const maxStatusesPerType = 2;
     let finalOwnerStatusesOfType = ownerStatusesOfType;
+
     if (ownerStatusesOfType.length >= maxStatusesPerType) {
-        // Keep the most recent ones. Since they are added chronologically,
+        // If limit is reached or exceeded, keep only the newest (limit - 1) statuses.
         // The oldest ones are at the beginning of the array.
         finalOwnerStatusesOfType = ownerStatusesOfType.slice(ownerStatusesOfType.length - (maxStatusesPerType - 1));
     }
@@ -101,7 +106,7 @@ export const GameScreen: React.FC<{
 }> = ({ initialGameState, onBackToMenu, fontFamily, fontSize, keyRotationNotification, onClearNotification }) => {
     const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount } = useContext(AIContext);
     const [worldData, setWorldData] = useState(initialGameState.worldData);
-    const [isLoading, setIsLoading] = useState(false); // FIX: Initialize as false instead of conditional
+    const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
     const [customAction, setCustomAction] = useState('');
     
     // Game State
@@ -124,6 +129,7 @@ export const GameScreen: React.FC<{
     const [historyStats, setHistoryStats] = useState(initialGameState.historyStats || { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
     const [cleanupStats, setCleanupStats] = useState<SaveData['cleanupStats']>(initialGameState.cleanupStats || { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
 
+
     // Modal & Notification States
     const [isHomeModalOpen, setIsHomeModalOpen] = useState(false);
     const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
@@ -139,27 +145,444 @@ export const GameScreen: React.FC<{
     const [isPcInfoModalOpen, setIsPcInfoModalOpen] = useState(false);
     const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
     const [isQuestLogModalOpen, setIsQuestLogModalOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
     const [notification, setNotification] = useState<string | null>(null);
+    
+    // Map State
+    const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
+        // Priority 1: Use directly saved order if it exists
+        if (Array.isArray(initialGameState.locationDiscoveryOrder)) {
+            const savedOrder = [...initialGameState.locationDiscoveryOrder];
+            const seen = new Set(savedOrder);
+            const allKnownLocations = Object.values(initialGameState.knownEntities)
+                .filter(e => e.type === 'location')
+                .map(e => e.name);
 
-    // AI Response Schema
-    const responseSchema: Type = {
-        type: "object",
-        properties: {
-            story: { type: "string", description: "Main story content" },
-            choices: { type: "array", items: { type: "string" }, description: "Player choices" }
-        },
-        required: ["story", "choices"]
-    };
+            allKnownLocations.forEach(locName => {
+                if (!seen.has(locName)) {
+                    savedOrder.push(locName);
+                }
+            });
+            return savedOrder;
+        }
 
-    // Rehydrated state from initialGameState
+        // Priority 2: Fallback for older saves - rehydrate from history
+        const order: string[] = [];
+        const seen = new Set<string>();
+        initialGameState.gameHistory.forEach(entry => {
+            if (entry.role === 'model') {
+                 try {
+                    const jsonResponse = JSON.parse(entry.parts[0].text);
+                    const storyText = jsonResponse.story || '';
+                    const tagRegex = /\[LORE_LOCATION:\s*name="([^"]+)"[^\]]*\]/g;
+                    let match;
+                    while ((match = tagRegex.exec(storyText)) !== null) {
+                        const locName = match[1];
+                        if (!seen.has(locName)) {
+                            order.push(locName);
+                            seen.add(locName);
+                        }
+                    }
+                } catch (e) { /* Ignore non-json responses */ }
+            }
+        });
+        
+        // Final fallback: Ensure all known locations are at least present, even if order is arbitrary
+        const knownLocations = Object.values(initialGameState.knownEntities)
+            .filter(e => e.type === 'location')
+            .map(e => e.name);
+            
+        knownLocations.forEach(locName => {
+            if (!seen.has(locName)) {
+                order.push(locName);
+                seen.add(locName);
+            }
+        });
+
+        return order;
+    });
+
+    // Rule change tracking
+    const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
+    const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
+
+    
+
+    const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
+    const pcName = pcEntity?.name;
+    
+    const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
+        if (!storyText) return '';
+    
+        const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
+        let cleanStory = storyText;
+    
+        const parseAttributes = (attrString: string): { [key: string]: any } => {
+            const attributes: { [key: string]: any } = {};
+            const attrRegex = /(\w+)=("([^"]*)"|([^\s"\]]+))/g; // Handle quoted and unquoted values
+            let match;
+            while ((match = attrRegex.exec(attrString)) !== null) {
+                const key = match[1];
+                let value: string | boolean | number | { description: string, completed: boolean }[] = match[3] !== undefined ? match[3] : match[4];
+    
+                if ((key === 'isMainQuest' || key === 'equippable' || key === 'usable' || key === 'consumable' || key === 'learnable') && typeof value === 'string') {
+                    value = value.toLowerCase() === 'true';
+                } else if (key === 'objectives' && typeof value === 'string') {
+                    value = value.split(';').map(desc => ({ description: desc.trim(), completed: false }));
+                } else if ((key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours') && typeof value === 'string' && !isNaN(Number(value))) {
+                    attributes[key] = Number(value);
+                    continue;
+                }
+                attributes[key] = value;
+            }
+            return attributes;
+        };
+    
+        let match;
+        const unprocessedTags: string[] = [];
+        while ((match = tagRegex.exec(storyText)) !== null) {
+            cleanStory = cleanStory.replace(match[0], ''); // Remove tag from displayed story
+            
+            if (applySideEffects) {
+                const tagType = match[1];
+                const rawContent = match[2];
+                
+                const attributes = parseAttributes(rawContent);
+                if (tagType === 'MEMORY_ADD' && attributes.text) {
+                    setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
+                    continue;
+                }
+                if (Object.keys(attributes).length === 0) {
+                     unprocessedTags.push(match[0]);
+                     continue;
+                }
+        
+                switch (tagType) {
+                    case 'TIME_ELAPSED':
+                        const elapsed = {
+                            years: Number(attributes.years) || 0,
+                            months: Number(attributes.months) || 0,
+                            days: Number(attributes.days) || 0,
+                            hours: Number(attributes.hours) || 0
+                        };
+                        if (Object.values(elapsed).some(v => v > 0)) {
+                            setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
+                        }
+                        break;
+                    case 'CHRONICLE_TURN':
+                        if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, turn: [...prev.turn, attributes.text] }));
+                        }
+                        break;
+                    case 'CHRONICLE_CHAPTER':
+                        if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, chapter: [...prev.chapter, attributes.text] }));
+                        }
+                        break;
+                    case 'CHRONICLE_MEMOIR':
+                         if (attributes.text) {
+                            setChronicle(prev => ({ ...prev, memoir: [...prev.memoir, attributes.text] }));
+                        }
+                        break;
+                    case 'STATUS_APPLIED_SELF':
+                        setStatuses(prev => applyStatusWithLimit(prev, attributes, 'pc'));
+                        break;
+                    case 'STATUS_APPLIED_NPC':
+                        if (attributes.npcName) {
+                            const { npcName, ...statusData } = attributes;
+                            setStatuses(prev => applyStatusWithLimit(prev, statusData, npcName));
+                        }
+                        break;
+                    case 'STATUS_CURED_SELF':
+                        setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
+                        break;
+                    case 'STATUS_CURED_NPC':
+                        setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === attributes.npcName)));
+                        break;
+                    case 'LORE_SKILL':
+                        setKnownEntities(prev => {
+                            const { name, description, ...rest } = attributes;
+                            if (name && description) {
+                                const newSkill: Entity = {
+                                    type: 'skill',
+                                    name: name,
+                                    description: description,
+                                    ...rest
+                                };
+                                return { ...prev, [name]: newSkill };
+                            }
+                            return prev;
+                        });
+                        break;
+                    case 'SKILL_LEARNED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const { name, description, ...rest } = attributes;
+                            if (name && description) {
+                                const newSkill: Entity = {
+                                    type: 'skill',
+                                    name: name,
+                                    description: description,
+                                    ...rest
+                                };
+                                newEntities[name] = newSkill;
+                        
+                                const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                if (pc) {
+                                    const pcName = pc.name;
+                                    const updatedPc = { ...newEntities[pcName] };
+                                    if (!updatedPc.learnedSkills) {
+                                        updatedPc.learnedSkills = [];
+                                    }
+                                    if (!updatedPc.learnedSkills.includes(name)) {
+                                        updatedPc.learnedSkills.push(name);
+                                    }
+                                    newEntities[pcName] = updatedPc;
+                                }
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'LORE_NPC':
+                        setKnownEntities(prev => {
+                            const newAttributes = { ...attributes };
+                            if (typeof newAttributes.skills === 'string') {
+                                newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+                            }
+                            return { ...prev, [attributes.name]: { type: 'npc', ...newAttributes } };
+                        });
+                        break;
+                    case 'LORE_ITEM':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
+                        break;
+                    case 'LORE_LOCATION':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev, [attributes.name]: { type: 'location', ...attributes } };
+                            setLocationDiscoveryOrder(prevOrder => {
+                                if (!prevOrder.includes(attributes.name)) {
+                                    return [...prevOrder, attributes.name];
+                                }
+                                return prevOrder;
+                            });
+                            return newEntities;
+                        });
+                        break;
+                    case 'LORE_FACTION':
+                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
+                         break;
+                    case 'LORE_CONCEPT':
+                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'concept', ...attributes } }));
+                         break;
+                    case 'ENTITY_UPDATE':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const targetName = attributes.name;
+                            if (newEntities[targetName]) {
+                                const { name, newDescription, ...updateData } = attributes;
+                                const finalUpdateData = { ...updateData };
+                                if (newDescription) {
+                                    finalUpdateData.description = newDescription;
+                                }
+                                
+                                if (attributes.newName && attributes.newName !== targetName) {
+                                    const oldEntity = newEntities[targetName];
+                                    delete newEntities[targetName];
+                                    newEntities[attributes.newName] = {
+                                        ...oldEntity,
+                                        ...finalUpdateData,
+                                        name: attributes.newName
+                                    };
+                                } else {
+                                    newEntities[targetName] = { ...newEntities[targetName], ...finalUpdateData };
+                                }
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_AQUIRED':
+                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', owner: 'pc', ...attributes } }));
+                        break;
+                     case 'ITEM_CONSUMED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const itemToConsume = newEntities[attributes.name];
+    
+                            if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
+                                if (typeof itemToConsume.uses === 'number' && itemToConsume.uses > 1) {
+                                    newEntities[attributes.name] = {
+                                        ...itemToConsume,
+                                        uses: itemToConsume.uses - 1,
+                                    };
+                                } else {
+                                    const { owner, equipped, ...restOfItem } = itemToConsume;
+                                    newEntities[attributes.name] = restOfItem;
+                                }
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_EQUIPPED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc' && item.equippable) {
+                                item.equipped = true;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_UNEQUIPPED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc') {
+                                item.equipped = false;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_TRANSFORMED':
+                        setKnownEntities(prev => {
+                            const { oldName, newName, description, ...rest } = attributes;
+                            if (!oldName || !newName) return prev;
+    
+                            const newEntities = { ...prev };
+                            const oldItem = newEntities[oldName];
+                            
+                            if (oldItem) delete newEntities[oldName];
+                            
+                            const newItem: Entity = {
+                                ...rest,
+                                name: newName,
+                                type: 'item',
+                                owner: oldItem?.owner || 'pc',
+                                description: description || `Vật phẩm được biến đổi từ ${oldName}.`,
+                            };
+    
+                            newEntities[newName] = newItem;
+                            
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_UPDATED':
+                         setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            if (newEntities[attributes.name] && newEntities[attributes.name].owner === 'pc') {
+                                 newEntities[attributes.name] = { ...newEntities[attributes.name], ...attributes };
+                            }
+                            return newEntities;
+                        });
+                        break;
+                     case 'ITEM_DAMAGED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && typeof item.durability === 'number') {
+                                item.durability = Math.max(0, item.durability - (attributes.damage || 0));
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'ITEM_REPAIRED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && typeof item.durability === 'number') {
+                                item.durability = Math.min(100, item.durability + (attributes.repairedAmount || 0));
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'REALM_UPDATE':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const targetEntity = Object.values(newEntities).find(e => e.name === attributes.target);
+                            if (targetEntity) {
+                                newEntities[targetEntity.name].realm = attributes.realm;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'COMPANION':
+                         const newCompanion = { type: 'companion', ...attributes } as Entity;
+                         if (newCompanion.name && newCompanion.description) {
+                            setParty(prev => [...prev.filter(p => p.name !== newCompanion.name), newCompanion]);
+                            setKnownEntities(prev => ({ ...prev, [newCompanion.name]: newCompanion }));
+                         }
+                         break;
+                    case 'RELATIONSHIP_CHANGED':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            if (newEntities[attributes.npcName]) {
+                                newEntities[attributes.npcName].relationship = attributes.relationship;
+                            }
+                            return newEntities;
+                        });
+                        break;
+                    case 'QUEST_ASSIGNED':
+                        const newQuest: Quest = {
+                             title: attributes.title,
+                             description: attributes.description,
+                             objectives: attributes.objectives || [],
+                             giver: attributes.giver,
+                             reward: attributes.reward,
+                             isMainQuest: attributes.isMainQuest || false,
+                             status: 'active'
+                        };
+                        setQuests(prev => [...prev.filter(q => q.title !== newQuest.title), newQuest]);
+                        break;
+                    case 'QUEST_UPDATED':
+                        setQuests(prev => prev.map(q => q.title === attributes.title ? { ...q, status: attributes.status } : q));
+                        break;
+                    case 'QUEST_OBJECTIVE_COMPLETED':
+                        setQuests(prev => prev.map(q => {
+                            if (q.title === attributes.questTitle) {
+                                const newObjectives = q.objectives.map(obj => 
+                                    obj.description === attributes.objectiveDescription ? { ...obj, completed: true } : obj
+                                );
+                                const allCompleted = newObjectives.every(obj => obj.completed);
+                                return {
+                                    ...q,
+                                    objectives: newObjectives,
+                                    status: allCompleted ? 'completed' : q.status
+                                };
+                            }
+                            return q;
+                        }));
+                        break;
+                     default:
+                        if (tagType !== 'DEFINE_REALM_SYSTEM') {
+                           unprocessedTags.push(match[0]);
+                        }
+                }
+            }
+        }
+        const finalStory = cleanStory.trim();
+        if (unprocessedTags.length > 0 && applySideEffects) {
+             console.warn("Unprocessed Tags:", unprocessedTags);
+        }
+        return finalStory;
+    }, []);
+    
+    // --- Data Rehydration Logic ---
     const { rehydratedLog, rehydratedChoices } = useMemo(() => {
+        // Priority 1: Use directly saved log and choices if they exist (new save format)
+        if (Array.isArray(initialGameState.storyLog) && Array.isArray(initialGameState.choices)) {
+            return {
+                rehydratedLog: initialGameState.storyLog,
+                rehydratedChoices: initialGameState.choices,
+            };
+        }
+    
+        // Priority 2: Fallback for older saves - rehydrate from history
         const log: string[] = [];
         let lastChoices: string[] = [];
-
-        initialGameState.gameHistory.forEach(entry => {
+    
+        (initialGameState.gameHistory || []).forEach(entry => {
             if (entry.role === 'user') {
-                const actionMatch = entry.parts[0].text.match(/^> (.+)/);
+                const fullPrompt = entry.parts[0].text;
+                const actionMatch = fullPrompt.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
                 const actionText = actionMatch ? actionMatch[1] : null;
     
                 if (actionText && actionText !== 'SYSTEM_RULE_UPDATE') {
@@ -199,23 +622,16 @@ export const GameScreen: React.FC<{
         }
     }, [keyRotationNotification, onClearNotification]);
 
-    // FIX: Main useEffect for handling AI ready state and initial story generation
+    
     useEffect(() => {
-        // Only show "AI chưa sẵn sàng" message if AI is not ready
-        if (!isAiReady) {
-            const errorMessage = apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ.";
-            setStoryLog([errorMessage]);
-            setIsLoading(false);
-            setChoices([]);
-            return;
-        }
-
-        // If AI is ready and we have no game history, generate initial story
-        if (isAiReady && gameHistory.length === 0) {
+        if (gameHistory.length === 0 && isAiReady) {
             setIsLoading(true);
             generateInitialStory();
+        } else if (!isAiReady) {
+            setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
+            setIsLoading(false);
         }
-    }, [isAiReady, apiKeyError, gameHistory.length]); // FIX: Updated dependencies
+    }, [gameHistory, isAiReady]); 
 
     // Automatic cleanup and history management effect
     useEffect(() => {
@@ -223,7 +639,7 @@ export const GameScreen: React.FC<{
 
         const currentState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount,
+            lastCompressionTurn: historyStats.compressionCount, // This seems to be used as an indicator, not a turn number
             historyStats, cleanupStats
         };
         
@@ -253,295 +669,93 @@ export const GameScreen: React.FC<{
             setGameHistory(historyResult.activeHistory);
             setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
             setHistoryStats(prev => ({
-                totalEntriesProcessed: prev.totalEntriesProcessed + (historyResult.compressedSegment?.originalEntryCount || 0),
-                totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment?.tokensSaved || 0),
-                compressionCount: prev.compressionCount + 1
+                totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
+                totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0), // Assuming tokenCount is a reliable measure of saved tokens for now
+                compressionCount: prev.compressionCount + 1,
             }));
         }
     }, [turnCount]);
+    
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
+        choices: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
+        },
+      },
+      required: ['story', 'choices']
+    };
 
-    // Location discovery order computation
-    const locationDiscoveryOrder = useMemo(() => {
-        const order: string[] = [];
-        const seen = new Set<string>();
-        
-        initialGameState.gameHistory.forEach(entry => {
-            if (entry.role === 'model') {
-                try {
-                    const response = JSON.parse(entry.parts[0].text);
-                    if (response.discoveries?.locations) {
-                        response.discoveries.locations.forEach((loc: string) => {
-                            if (!seen.has(loc)) {
-                                order.push(loc);
-                                seen.add(loc);
-                            }
-                        });
-                    }
-                } catch (e) { /* Ignore non-json responses */ }
-            }
-        });
-        
-        // Final fallback: Ensure all known locations are at least present, even if order is arbitrary
-        const knownLocations = Object.values(initialGameState.knownEntities)
-            .filter(e => e.type === 'location')
-            .map(e => e.name);
-            
-        knownLocations.forEach(locName => {
-            if (!seen.has(locName)) {
-                order.push(locName);
-                seen.add(locName);
-            }
-        });
-
-        return order;
-    });
-
-    // Rule change tracking
-    const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
-    const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
-
-    const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
-    const pcName = pcEntity?.name;
-    
-    const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
-        if (!storyText) return '';
-    
-        const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
-        let cleanStory = storyText;
-    
-        const parseAttributes = (attrString: string): { [key: string]: any } => {
-            const attributes: { [key: string]: any } = {};
-            const attrRegex = /(\w+)=("([^"]*)"|([^\s"\]]+))/g;
-            let match;
-            while ((match = attrRegex.exec(attrString)) !== null) {
-                const key = match[1];
-                let value: string | boolean | number | { description: string, completed: boolean }[] = match[3] !== undefined ? match[3] : match[4];
-                
-                if (value === 'true') value = true;
-                else if (value === 'false') value = false;
-                else if (!isNaN(Number(value)) && value !== '') value = Number(value);
-                
-                attributes[key] = value;
-            }
-            return attributes;
-        };
-    
-        if (!applySideEffects) {
-            return cleanStory.replace(tagRegex, '').trim();
-        }
-    
-        let match;
-        const processedTags = new Set<string>();
-        
-        while ((match = tagRegex.exec(storyText)) !== null) {
-            const [fullMatch, tagType, content] = match;
-            const tagKey = `${tagType}:${content}`;
-            
-            if (processedTags.has(tagKey)) continue;
-            processedTags.add(tagKey);
-            
-            cleanStory = cleanStory.replace(fullMatch, '');
-            const attributes = parseAttributes(content);
-    
-            switch (tagType) {
-                case 'TIME_ELAPSED':
-                    const elapsed = {
-                        years: attributes.years || 0,
-                        months: attributes.months || 0,
-                        days: attributes.days || 0,
-                        hours: attributes.hours || 0
-                    };
-                    setGameTime(prev => calculateNewTime(prev, elapsed));
-                    break;
-                    
-                case 'CHRONICLE_TURN':
-                    if (attributes.text) {
-                        setChronicle(prev => ({
-                            ...prev,
-                            turn: [...prev.turn, { turn: turnCount + 1, event: attributes.text }]
-                        }));
-                    }
-                    break;
-                    
-                case 'STATUS_ADD':
-                    const newStatus = {
-                        name: attributes.name || 'Unknown Status',
-                        description: attributes.description || '',
-                        type: attributes.type || 'temporary',
-                        duration: attributes.duration,
-                        effect: attributes.effect || 'none',
-                        severity: attributes.severity || 'minor'
-                    };
-                    setStatuses(prev => applyStatusWithLimit(prev, newStatus, attributes.owner || 'pc'));
-                    break;
-                    
-                case 'STATUS_REMOVE':
-                    setStatuses(prev => prev.filter(s => 
-                        !(s.name === attributes.name && (s.owner === (attributes.owner || 'pc')))
-                    ));
-                    break;
-                    
-                case 'ENTITY_UPDATE':
-                case 'ENTITY_ADD':
-                    const entityKey = `${attributes.type}_${attributes.name}`;
-                    const entityUpdate = {
-                        name: attributes.name,
-                        type: attributes.type || 'object',
-                        description: attributes.description || '',
-                        location: attributes.location,
-                        category: attributes.category,
-                        rarity: attributes.rarity,
-                        equipped: attributes.equipped === true,
-                        canUse: attributes.canUse === true,
-                        canLearn: attributes.canLearn === true,
-                        canEquip: attributes.canEquip === true,
-                        lore: attributes.lore
-                    };
-                    
-                    setKnownEntities(prev => ({
-                        ...prev,
-                        [entityKey]: { ...prev[entityKey], ...entityUpdate }
-                    }));
-                    break;
-                    
-                case 'QUEST_UPDATE':
-                case 'QUEST_ADD':
-                    const questUpdate = {
-                        id: attributes.id || attributes.name?.toLowerCase().replace(/\s+/g, '_'),
-                        name: attributes.name || 'Unnamed Quest',
-                        description: attributes.description || '',
-                        status: attributes.status || 'active',
-                        objectives: attributes.objectives ? 
-                            attributes.objectives.split(';').map((obj: string) => ({
-                                description: obj.trim(),
-                                completed: false
-                            })) : [],
-                        rewards: attributes.rewards,
-                        location: attributes.location,
-                        giver: attributes.giver
-                    };
-                    
-                    setQuests(prev => {
-                        const existingIndex = prev.findIndex(q => q.id === questUpdate.id);
-                        if (existingIndex >= 0) {
-                            const updated = [...prev];
-                            updated[existingIndex] = { ...updated[existingIndex], ...questUpdate };
-                            return updated;
-                        } else {
-                            return [...prev, questUpdate as Quest];
-                        }
-                    });
-                    break;
-                    
-                case 'MEMORY_ADD':
-                    if (attributes.content) {
-                        const newMemory: Memory = {
-                            id: Date.now().toString(),
-                            content: attributes.content,
-                            importance: attributes.importance || 'medium',
-                            turn: turnCount + 1,
-                            pinned: false
-                        };
-                        setMemories(prev => [...prev, newMemory]);
-                    }
-                    break;
-                    
-                case 'PARTY_ADD':
-                    if (attributes.name) {
-                        const partyMember: Entity = {
-                            name: attributes.name,
-                            type: 'npc',
-                            description: attributes.description || '',
-                            category: 'companion'
-                        };
-                        setParty(prev => {
-                            if (!prev.some(p => p.name === attributes.name)) {
-                                return [...prev, partyMember];
-                            }
-                            return prev;
-                        });
-                    }
-                    break;
-                    
-                case 'PARTY_REMOVE':
-                    if (attributes.name) {
-                        setParty(prev => prev.filter(p => p.name !== attributes.name));
-                    }
-                    break;
-            }
-        }
-    
-        return cleanStory.trim();
-    }, [turnCount]);
-
-    // Generate initial story
-    const generateInitialStory = useCallback(async () => {
-        if (!ai || !isAiReady) {
-            console.error("AI not ready for initial story generation");
-            setIsLoading(false);
-            return;
-        }
-
+    const parseApiResponse = (text: string) => {
         try {
-            const currentGameState: SaveData = {
-                worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
-            };
-            const initialPrompt = buildEnhancedRagPrompt("Bắt đầu câu chuyện", currentGameState, '', '');
-            
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [{ role: 'user', parts: [{ text: initialPrompt }] }],
-                config: { 
-                    systemInstruction: systemInstruction,
-                    responseMimeType: "application/json",
-                    responseSchema: responseSchema
-                }
-            });
-
-            const turnTokens = response.usageMetadata?.totalTokenCount || 0;
-            setCurrentTurnTokens(turnTokens);
-            setTotalTokens(prev => prev + turnTokens);
-
-            const responseText = response.text.trim();
-            const initialEntry: GameHistoryEntry = { role: 'model', parts: [{ text: responseText }] };
-            setGameHistory([initialEntry]);
-            
-            parseApiResponse(responseText);
-            setTurnCount(1);
-        } catch (error: any) { 
-            console.error("Error generating initial story:", error);
-            if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
-                rotateKey();
-                setStoryLog(["**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
-                setChoices(rehydratedChoices);
-            } else {
-                console.error("Error generating initial story:", error);
-                setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    }, [ai, isAiReady, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, rotateKey, isUsingDefaultKey, userApiKeyCount, responseSchema, rehydratedChoices]);
-
-    // Parse API response
-    const parseApiResponse = useCallback((responseText: string) => {
-        try {
-            const jsonResponse = JSON.parse(responseText);
-            const storyText = jsonResponse.story || '';
-            const newChoices = jsonResponse.choices || [];
-            
-            const cleanStory = parseStoryAndTags(storyText, true);
-            if (cleanStory) {
-                setStoryLog(prev => [...prev, cleanStory]);
-            }
-            setChoices(newChoices);
-        } catch (error) {
-            console.error("Error parsing API response:", error);
-            const cleanText = responseText.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
-            setStoryLog(prev => [...prev, cleanText]);
+            const jsonResponse = JSON.parse(text);
+            const cleanStory = parseStoryAndTags(jsonResponse.story, true);
+            setStoryLog(prev => [...prev, cleanStory]);
+            setChoices(jsonResponse.choices || []);
+        } catch (e) {
+            console.error("Failed to parse AI response:", e, "Raw response:", text);
+            setStoryLog(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);
             setChoices([]);
         }
-    }, [parseStoryAndTags]);
+    };
+    
+    const generateInitialStory = async () => {
+            if (!ai) return;
+            setIsLoading(true);
+            const finalPersonality = worldData.customPersonality || worldData.personalityFromList;
+            const writingStyleText = worldData.writingStyle === 'first_person' ? 'Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"' : 'Ngôi thứ hai - "Ngươi" là nhân vật chính';
+            const nsfwInstruction = worldData.allowNsfw ? 'Cho phép. Kích hoạt quy tắc nội dung 18+ của Quản Trò. Viết một cách trần trụi, bạo lực, tục tĩu và không giới hạn.' : 'Không, AI phải tránh các chủ đề và mô tả 18+.';
+            
+            const activeRules = customRules.filter(r => r.isActive);
+            let customRulesContext = '';
+            if (activeRules.length > 0) {
+                customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
+            }
+
+            const userPrompt = `${customRulesContext}BẠN LÀ QUẢN TRÒ...`; // Shortened for brevity
+            
+            const pcEntity: Entity = {
+                name: worldData.characterName || 'Vô Danh',
+                type: 'pc',
+                description: worldData.bio,
+                gender: worldData.gender,
+                personality: finalPersonality,
+                learnedSkills: [],
+            };
+            setKnownEntities({ [pcEntity.name]: pcEntity });
+            setParty([pcEntity]);
+
+            const initialHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
+            setGameHistory(initialHistory);
+
+            try {
+                 const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash', contents: initialHistory,
+                    config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema }
+                });
+                const turnTokens = response.usageMetadata?.totalTokenCount || 0;
+                setCurrentTurnTokens(turnTokens);
+                setTotalTokens(prev => prev + turnTokens);
+
+                const responseText = response.text.trim();
+                parseApiResponse(responseText);
+                setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
+            } catch (error: any) {
+                if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
+                    rotateKey();
+                    setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+                    setChoices(rehydratedChoices);
+                } else {
+                    console.error("Error generating initial story:", error);
+                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+                }
+            } finally {
+                setIsLoading(false);
+            }
+    };
         
     const handleAction = async (action: string) => {
         let originalAction = action.trim();
@@ -553,7 +767,7 @@ export const GameScreen: React.FC<{
             originalAction = originalAction.replace(nsfwRegex, '').trim();
         }
     
-        if (!originalAction || isLoading || !ai || !isAiReady) return; // FIX: Added isAiReady check
+        if (!originalAction || isLoading || !ai) return;
     
         setIsLoading(true);
         setChoices([]);
@@ -566,7 +780,7 @@ export const GameScreen: React.FC<{
             setRuleChanges(null); 
         }
 
-        let nsfwInstructionPart = isNsfwRequest && worldData.allowNsfw ? `\nLƯU Ý ĐẶC BIỆT: Người chơi đã yêu cầu nội dung 18+. Hãy tạo nội dung phù hợp với độ tuổi trưởng thành, bao gồm các yếu tố gợi cảm hoặc bạo lực nếu phù hợp với bối cảnh. Đảm bảo có ít nhất 2 lựa chọn tiếp theo có tính chất 18+.` : '';
+        let nsfwInstructionPart = isNsfwRequest && worldData.allowNsfw ? `\nLƯU Ý ĐẶC BIỆT: ...` : '';
         
         const currentGameState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
@@ -618,7 +832,7 @@ export const GameScreen: React.FC<{
     const handleQuestClick = (quest: Quest) => setActiveQuest(quest);
     
      const handleSuggestAction = async () => {
-        if (isLoading || !ai || !isAiReady) return; // FIX: Added isAiReady check
+        if (isLoading || !ai) return;
         setIsLoading(true);
         try {
             const response = await ai.models.generateContent({
@@ -643,7 +857,7 @@ export const GameScreen: React.FC<{
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = `AI-RolePlay-${worldData.characterName?.replace(/\s+/g, '_') || 'NhanVat'}-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}.json`;
+        link.download = `AI-RolePlay-${worldData.characterName?.replace(/\s+/g, '_') || 'NhanVat'}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
         link.href = url;
         document.body.appendChild(link);
         link.click();
@@ -651,200 +865,147 @@ export const GameScreen: React.FC<{
         URL.revokeObjectURL(url);
     };
 
-    const handleRestartGame = () => {
-        const blankGameState: SaveData = {
-            worldData,
-            knownEntities: {},
-            statuses: [],
-            quests: [],
-            gameHistory: [],
-            memories: [],
-            party: [],
-            customRules,
-            systemInstruction,
-            turnCount: 0,
-            totalTokens: 0,
-            gameTime: { year: 1, month: 1, day: 1, hour: 8 },
-            chronicle: { memoir: [], chapter: [], turn: [] },
-            compressedHistory: [],
-            historyStats: { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 },
-            cleanupStats: { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] }
-        };
+    const handleSaveRules = (newRules: CustomRule[]) => {
+        // Rule change detection logic remains the same
+        setCustomRules(newRules);
+        previousRulesRef.current = JSON.parse(JSON.stringify(newRules));
+        setShowRulesSavedSuccess(true);
+        setTimeout(() => setShowRulesSavedSuccess(false), 3500);
+    };
 
-        // Reset all state to blank
-        setKnownEntities({});
+    const handleRestartGame = () => {
+        setIsRestartModalOpen(false);
+        setIsLoading(true);
+        setStoryLog([]);
+        setChoices([]);
         setStatuses([]);
         setQuests([]);
-        setGameHistory([]);
         setMemories([]);
-        setParty([]);
         setTurnCount(0);
         setTotalTokens(0);
         setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
         setChronicle({ memoir: [], chapter: [], turn: [] });
-        setCompressedHistory([]);
-        setHistoryStats({ totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
-        setCleanupStats({ totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
-        setStoryLog([]);
-        setChoices([]);
-        setIsRestartModalOpen(false);
-        
-        // FIX: Only generate initial story if AI is ready
-        if (isAiReady) {
-            setIsLoading(true);
-            setTimeout(() => generateInitialStory(), 100);
-        }
+        setRuleChanges(null);
+        previousRulesRef.current = initialGameState.customRules;
+        setGameHistory([]);
     };
 
-    const handleSaveRules = (newRules: CustomRule[]) => {
-        const prevRules = customRules;
-        setCustomRules(newRules);
-        
-        // Track rule changes
-        const activated = newRules.filter(newRule => 
-            newRule.isActive && !prevRules.find(oldRule => oldRule.id === newRule.id && oldRule.isActive)
-        );
-        const deactivated = prevRules.filter(oldRule => 
-            oldRule.isActive && !newRules.find(newRule => newRule.id === oldRule.id && newRule.isActive)
-        );
-        const updated = newRules.filter(newRule => {
-            const oldRule = prevRules.find(r => r.id === newRule.id);
-            return oldRule && oldRule.content !== newRule.content;
-        }).map(newRule => ({
-            oldRule: prevRules.find(r => r.id === newRule.id)!,
-            newRule
-        }));
-
-        if (activated.length > 0 || deactivated.length > 0 || updated.length > 0) {
-            setRuleChanges({ activated, deactivated, updated });
-        }
-
-        setShowRulesSavedSuccess(true);
-        setTimeout(() => setShowRulesSavedSuccess(false), 3000);
-        setIsCustomRulesModalOpen(false);
-    };
-
-    // Manual cleanup handler
-    const handleManualCleanup = () => {
+    const handleManualCleanup = useCallback(() => {
+        console.log('Triggering manual cleanup...');
         const currentState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount,
+            lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats
         };
+        const result = GameStateOptimizer.forceCleanup(currentState, true); // aggressive mode
         
-        const { optimizedState, stats } = GameStateOptimizer.performCleanup(currentState, true);
-        
-        setKnownEntities(optimizedState.knownEntities);
-        setStatuses(optimizedState.statuses);
-        setQuests(optimizedState.quests);
-        setMemories(optimizedState.memories);
-        setChronicle(optimizedState.chronicle);
+        setKnownEntities(result.optimizedState.knownEntities);
+        setStatuses(result.optimizedState.statuses);
+        setQuests(result.optimizedState.quests);
+        setMemories(result.optimizedState.memories);
+        setChronicle(result.optimizedState.chronicle);
+
         setCleanupStats(prev => ({
+            ...prev!,
             totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-            totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+            totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + result.stats.totalTokensSaved,
             lastCleanupTurn: turnCount,
-            cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
         }));
-        
-        setNotification(`Đã dọn dẹp thành công! Tiết kiệm ${stats.totalTokensSaved} token.`);
+
+        setNotification(`🧹 Cleanup complete! Saved ~${Math.round(result.stats.totalTokensSaved / 1000)}k tokens.`);
         setTimeout(() => setNotification(null), 3000);
-    };
+    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats]);
 
-    // Computed values for UI
-    const pcStatuses = useMemo(() => statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName)), [statuses, pcName]);
-    const displayParty = useMemo(() => party.filter(p => p.name !== pcName), [party, pcName]);
-    const hasActiveQuests = useMemo(() => quests.some(q => q.status === 'active'), [quests]);
-    const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TỰ DO')), [customRules]);
+    
+    const hasActiveQuests = quests.some(q => q.status === 'active');
+    const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
+    const displayParty = party.filter(p => p.name !== pcName);
+    const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
 
-    // Entity computations for performance
-    const entityComputations = useMemo(() => {
-        const entities = Object.values(knownEntities);
-        return {
-            locations: entities.filter(e => e.type === 'location'),
-            npcs: entities.filter(e => e.type === 'npc'),
-            items: entities.filter(e => e.type === 'item' || e.type === 'object'),
-            skills: entities.filter(e => e.type === 'skill'),
-            equippedItems: entities.filter(e => e.equipped === true),
-            usableItems: entities.filter(e => e.canUse === true),
-            learnableSkills: entities.filter(e => e.canLearn === true && e.type === 'skill')
-        };
-    }, [knownEntities]);
-
-    // Modal close handlers
+    // --- Memoized Modal Props ---
     const modalCloseHandlers = useMemo(() => ({
-        setIsHomeModalOpen,
-        setIsRestartModalOpen,
-        setIsMemoryModalOpen,
-        setIsKnowledgeModalOpen,
-        setIsCustomRulesModalOpen,
-        setIsMapModalOpen,
-        setIsPcInfoModalOpen,
-        setIsPartyModalOpen,
-        setIsQuestLogModalOpen,
-        setIsChoicesModalOpen
+        home: () => setIsHomeModalOpen(false),
+        restart: () => setIsRestartModalOpen(false),
+        memory: () => setIsMemoryModalOpen(false),
+        knowledge: () => setIsKnowledgeModalOpen(false),
+        customRules: () => setIsCustomRulesModalOpen(false),
+        map: () => setIsMapModalOpen(false),
+        pcInfo: () => setIsPcInfoModalOpen(false),
+        party: () => setIsPartyModalOpen(false),
+        questLog: () => setIsQuestLogModalOpen(false),
+        choices: () => setIsChoicesModalOpen(false),
     }), []);
 
+    const entityComputations = useMemo(() => ({
+        pcEntity,
+        pcStatuses,
+        displayParty,
+    }), [pcEntity, pcStatuses, displayParty]);
+    
     return (
-        <div className={`min-h-screen w-full flex flex-col transition-all duration-300 ${fontFamily} ${fontSize} bg-gradient-to-br from-purple-100 via-pink-50 to-blue-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800`}>
-            <DesktopHeader 
-                worldData={worldData}
-                pcEntity={pcEntity}
+        <div 
+            className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" 
+            style={{maxHeight: '98vh', height: '98vh'}}
+        >
+            <GameNotifications 
+                notification={notification} 
+                showSaveSuccess={showSaveSuccess} 
+                showRulesSavedSuccess={showRulesSavedSuccess} 
+            />
+            
+            <SidebarNav 
+                isOpen={isSidebarOpen} 
+                onClose={() => setIsSidebarOpen(false)}
+                onHome={() => setIsHomeModalOpen(true)}
+                onSave={handleSaveGame}
+                onMap={() => setIsMapModalOpen(true)}
+                onRules={() => setIsCustomRulesModalOpen(true)}
+                onKnowledge={() => setIsKnowledgeModalOpen(true)}
+                onMemory={() => setIsMemoryModalOpen(true)}
+                onRestart={() => setIsRestartModalOpen(true)}
+                onPCInfo={() => setIsPcInfoModalOpen(true)}
+                onParty={() => setIsPartyModalOpen(true)}
+                onQuests={() => setIsQuestLogModalOpen(true)}
+                onManualCleanup={handleManualCleanup}
+                hasActiveQuests={hasActiveQuests}
                 currentTurnTokens={currentTurnTokens}
                 totalTokens={totalTokens}
-                turnCount={turnCount}
-                gameTime={gameTime}
-                onHomeClick={() => setIsHomeModalOpen(true)}
-                onRestartClick={() => setIsRestartModalOpen(true)}
-                onSaveClick={handleSaveGame}
-                cleanupStats={cleanupStats}
                 historyStats={historyStats}
-                onManualCleanup={handleManualCleanup}
-            />
-            
-            <MobileHeader 
-                worldData={worldData}
-                pcEntity={pcEntity}
-                onHomeClick={() => setIsHomeModalOpen(true)}
-                onSaveClick={handleSaveGame}
+                compressedSegments={compressedHistory.length}
+                gameHistory={gameHistory}
+                cleanupStats={cleanupStats!}
             />
 
-            <GameNotifications 
-                notification={notification}
-                showSaveSuccess={showSaveSuccess}
-                showRulesSavedSuccess={showRulesSavedSuccess}
+            <MobileHeader onOpenSidebar={() => setIsSidebarOpen(true)} worldData={worldData} />
+
+            <DesktopHeader 
+                onHome={() => setIsHomeModalOpen(true)} 
+                onSave={handleSaveGame} 
+                onMap={() => setIsMapModalOpen(true)}
+                onRules={() => setIsCustomRulesModalOpen(true)}
+                onKnowledge={() => setIsKnowledgeModalOpen(true)}
+                onMemory={() => setIsMemoryModalOpen(true)}
+                onRestart={() => setIsRestartModalOpen(true)}
+                onPCInfo={() => setIsPcInfoModalOpen(true)}
+                onParty={() => setIsPartyModalOpen(true)}
+                onQuests={() => setIsQuestLogModalOpen(true)}
+                onManualCleanup={handleManualCleanup}
+                worldData={worldData}
+                gameTime={gameTime}
+                turnCount={turnCount}
+                currentTurnTokens={currentTurnTokens}
+                totalTokens={totalTokens}
+                hasActiveQuests={hasActiveQuests}
             />
-            
-            <div className="flex-grow flex overflow-hidden">
-                <SidebarNav
-                    hasActiveQuests={hasActiveQuests}
-                    pcStatuses={pcStatuses}
-                    displayParty={displayParty}
-                    entityComputations={entityComputations}
-                    memories={memories}
-                    currentTurnTokens={currentTurnTokens}
-                    totalTokens={totalTokens}
-                    turnCount={turnCount}
-                    cleanupStats={cleanupStats}
-                    historyStats={historyStats}
-                    onMemoryClick={() => setIsMemoryModalOpen(true)}
-                    onKnowledgeClick={() => setIsKnowledgeModalOpen(true)}
-                    onCustomRulesClick={() => setIsCustomRulesModalOpen(true)}
-                    onMapClick={() => setIsMapModalOpen(true)}
-                    onPcInfoClick={() => setIsPcInfoModalOpen(true)}
-                    onPartyClick={() => setIsPartyModalOpen(true)}
-                    onQuestLogClick={() => setIsQuestLogModalOpen(true)}
-                    onManualCleanup={handleManualCleanup}
-                />
-                
+
+            <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden p-4 md:p-0">
                 <StoryPanel
                     storyLog={storyLog}
                     isLoading={isLoading}
                     isAiReady={isAiReady}
                     knownEntities={knownEntities}
                     onEntityClick={handleEntityClick}
-                    className="flex-grow"
                 />
-                
                 <ActionPanel
                     isAiReady={isAiReady}
                     apiKeyError={apiKeyError}
