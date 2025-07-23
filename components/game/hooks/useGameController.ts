@@ -3,9 +3,9 @@ import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'r
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { AIContext } from '../../../App.tsx';
 import type { SaveData, Entity, Status, CustomRule, GameHistoryEntry } from '../../types.ts';
-import { buildEnhancedRagPrompt } from '../../promptBuilder.ts';
-import { HistoryManager } from '../../HistoryManager.ts';
-import { GameStateOptimizer } from '../../GameStateOptimizer.ts';
+import { buildEnhancedRagPrompt } from '../../enhanced-rag-system';
+import { HistoryManager } from '../../HistoryManager';
+import { GameStateOptimizer } from '../../GameStateOptimizer';
 
 const calculateNewTime = (
     currentTime: { year: number; month: number; day: number; hour: number; },
