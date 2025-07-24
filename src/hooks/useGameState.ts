@@ -1,66 +1,22 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Type } from '@google/genai';
 import { 
-    Entity, 
+    SaveData, 
+    KnownEntities, 
     Status, 
     Quest, 
-    Memory, 
-    CustomRule, 
     GameHistoryEntry, 
-    SaveData,
-    KnownEntities,
-    FormData
+    Memory, 
+    Entity, 
+    CustomRule
 } from '../types';
-
-// Import utilities (these would need to be created/imported from the actual codebase)
-interface Chronicle {
-    memoir: string[];
-    chapter: string[];
-    turn: string[];
-}
-
-interface GameTime {
-    year: number;
-    month: number;
-    day: number;
-    hour: number;
-}
-
-interface CompressedHistorySegment {
-    summary: string;
-    tokenCount: number;
-    turnRange: { start: number; end: number };
-}
-
-interface CleanupStats {
-    totalTokensSaved: number;
-    totalCleanupsPerformed: number;
-    lastCleanupTurn: number;
-    cleanupHistory: any[];
-}
-
-interface CleanupConfig {
-    maxUnpinnedMemories: number;
-    maxTotalMemories: number;
-    maxMemoirEntries: number;
-    maxChapterEntries: number;
-    maxTurnEntries: number;
-    maxCompletedQuests: number;
-    questRetentionTurns: number;
-    maxStatusesPerEntity: number;
-    removeExpiredStatuses: boolean;
-    maxInactiveEntities: number;
-    entityInactivityThreshold: number;
-    cleanupInterval: number;
-}
+import { parseStoryAndTags } from '../utils/StoryParser';
 
 interface UseGameStateProps {
     initialGameState: SaveData;
     ai: any; // GoogleGenAI instance
     isAiReady: boolean;
-    systemInstruction: string;
-    isUsingDefaultKey: boolean;
-    userApiKeyCount: number;
-    rotateKey: () => void;
+    apiKeyError?: string;
 }
 
 interface UseGameStateReturn {
