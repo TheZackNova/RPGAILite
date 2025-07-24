@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Type } from '@google/genai';
 import { 
     SaveData, 
@@ -12,11 +12,42 @@ import {
 } from '../types';
 import { parseStoryAndTags } from '../utils/StoryParser';
 
+// Add missing type definitions
+interface Chronicle {
+    entries: string[];
+    lastUpdated: number;
+}
+
+interface GameTime {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+}
+
+interface CleanupStats {
+    totalTokensSaved: number;
+    totalCleanupsPerformed: number;
+    lastCleanupTurn: number;
+    cleanupHistory: any[];
+}
+
+interface CompressedHistorySegment {
+    turnRange: string;
+    summary: string;
+    keyEvents: string[];
+    tokensOriginal: number;
+    tokensCompressed: number;
+}
+
 interface UseGameStateProps {
     initialGameState: SaveData;
     ai: any; // GoogleGenAI instance
     isAiReady: boolean;
     apiKeyError?: string;
+    isUsingDefaultKey?: boolean;
+    userApiKeyCount?: number;
+    rotateKey?: () => void;
 }
 
 interface UseGameStateReturn {
@@ -128,13 +159,16 @@ interface UseGameStateReturn {
     handleSaveRules: (rules: CustomRule[]) => void;
     handleManualCleanup: (aggressive?: boolean) => void;
     handleSuggestAction: () => Promise<void>;
+    
+    // Refs and computed values
+    storyContainerRef: React.RefObject<HTMLDivElement>;
 }
 
 export const useGameState = ({
     initialGameState,
     ai,
     isAiReady,
-    systemInstruction: initialSystemInstruction,
+    apiKeyError,
     isUsingDefaultKey,
     userApiKeyCount,
     rotateKey
@@ -155,7 +189,10 @@ export const useGameState = ({
     const [party, setParty] = useState<Entity[]>(initialGameState.party);
     const [customRules, setCustomRules] = useState<CustomRule[]>(initialGameState.customRules);
     const [systemInstruction, setSystemInstruction] = useState<string>(initialGameState.systemInstruction);
-    const [chronicle, setChronicle] = useState<Chronicle>(initialGameState.chronicle as Chronicle);
+    const [chronicle, setChronicle] = useState<Chronicle>({
+        entries: [],
+        lastUpdated: Date.now()
+    });
     const [gameTime, setGameTime] = useState(initialGameState.gameTime || { year: 1, month: 1, day: 1, hour: 8 });
     const [currentTurnTokens, setCurrentTurnTokens] = useState<number>(0);
     const [totalTokens, setTotalTokens] = useState<number>(initialGameState.totalTokens || 0);
@@ -285,6 +322,9 @@ export const useGameState = ({
     // Rule change tracking
     const [ruleChanges, setRuleChanges] = useState<any>(null);
     const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
+    
+    // Refs
+    const storyContainerRef = useRef<HTMLDivElement>(null);
 
     // Utility functions that would need to be imported from actual utilities
     const buildEnhancedRagPrompt = (action: string, gameState: SaveData, ruleContext: string, nsfwInstruction: string) => {
@@ -521,7 +561,7 @@ export const useGameState = ({
         setTurnCount(0);
         setTotalTokens(0);
         setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
-        setChronicle({ memoir: [], chapter: [], turn: [] });
+        setChronicle({ entries: [], lastUpdated: Date.now() });
         setRuleChanges(null);
         previousRulesRef.current = initialGameState.customRules;
         setGameHistory([]);
@@ -668,6 +708,9 @@ export const useGameState = ({
         handleRestartGame,
         handleSaveRules,
         handleManualCleanup,
-        handleSuggestAction
+        handleSuggestAction,
+        
+        // Additional refs and computed values
+        storyContainerRef
     };
 };

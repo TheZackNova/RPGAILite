@@ -1,0 +1,25 @@
+/* Custom CSS for the RPG AI application */
+
+/* Am-kim special text effect for golden items/skills */
+.am-kim {
+    background: linear-gradient(135deg, #ca8a04, #eab308, #fde047);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: bold;
+    animation: am-kim-shine 3s linear infinite;
+    background-size: 200% 200%;
+}
+
+.dark .am-kim {
+    background: linear-gradient(135deg, #fde047, #a2830e, #fde047);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+@keyframes am-kim-shine {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Additional component-specific styles can be added here */
