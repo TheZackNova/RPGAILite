@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import MenuButton from '../../../components/MenuButton';
 import { PlayIcon, FileIcon, ChartIcon, SettingsIcon } from '../../../components/Icons';
 
@@ -16,6 +16,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
     isUsingDefaultKey 
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showChangelog, setShowChangelog] = useState(false);
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -64,6 +65,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
                 <MenuButton 
                     text="Xem Cập Nhật Game" 
                     icon={<ChartIcon />}
+                    onClick={() => setShowChangelog(true)}
                     colorClass="bg-green-500"
                     hoverClass="hover:bg-green-600"
                     focusClass="focus:ring-green-400"
@@ -82,6 +84,36 @@ export const MainMenu: React.FC<MainMenuProps> = ({
                 <p>{isUsingDefaultKey ? 'Đang dùng Gemini AI mặc định.' : 'Đang dùng API Key của bạn.'}</p>
                 <p className="mt-1">UserID: 000000000</p>
             </footer>
+
+            {/* Changelog Modal */}
+            {showChangelog && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Cập Nhật Game</h2>
+                            <button
+                                onClick={() => setShowChangelog(false)}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="text-gray-700 dark:text-gray-300 space-y-4">
+                            <div>
+                                <h3 className="text-lg font-semibold mb-2">Phiên bản mới nhất</h3>
+                                <ul className="list-disc list-inside space-y-2">
+                                    <li>Cải thiện giao diện người dùng</li>
+                                    <li>Thêm tính năng lưu và tải game</li>
+                                    <li>Tối ưu hóa hiệu suất</li>
+                                    <li>Sửa lỗi và cải thiện trải nghiệm</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
