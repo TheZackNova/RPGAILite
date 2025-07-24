@@ -1,6 +1,6 @@
 import React from 'react';
 import { Memory } from '../../types';
-import { PinIcon } from '../Icons';
+import { PinIcon } from '../../../components/Icons';
 
 interface MemoryModalProps {
     isOpen: boolean;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SparklesIcon } from '../Icons';
+import { SparklesIcon } from '../../../components/Icons';
 
 interface ApiSettingsModalProps {
     isOpen: boolean;

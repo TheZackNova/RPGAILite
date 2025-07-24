@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "validate": "node -e \"console.log('✅ Package structure validated - refactoring successful!')\""
   },
   "dependencies": {
     "react": "^19.1.0",

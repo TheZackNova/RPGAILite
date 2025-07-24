@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import MenuButton from '../../../components/MenuButton';
-import { PlayIcon, FileIcon, ChartIcon, SettingsIcon } from '../Icons';
+import { PlayIcon, FileIcon, ChartIcon, SettingsIcon } from '../../../components/Icons';
 
 interface MainMenuProps {
     onStartNewAdventure: () => void;

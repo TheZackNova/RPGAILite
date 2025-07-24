@@ -3,7 +3,13 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(touch:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(timeout 10s npm run dev)",
+      "Bash(npm run validate:*)",
+      "Bash(node:*)",
+      "Bash(timeout 5s npm run dev)"
     ],
     "deny": []
   }

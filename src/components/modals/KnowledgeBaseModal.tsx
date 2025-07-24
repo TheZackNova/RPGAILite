@@ -1,7 +1,7 @@
 import React from 'react';
 import { Entity, KnownEntities } from '../../types';
-import * as GameIcons from '../GameIcons';
-import { BrainIcon, CrossIcon } from '../Icons';
+import * as GameIcons from '../../../components/GameIcons';
+import { BrainIcon, CrossIcon } from '../../../components/Icons';
 
 interface KnowledgeBaseModalProps {
     isOpen: boolean;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Quest } from '../../types';
-import * as GameIcons from '../GameIcons';
-import { CrossIcon } from '../Icons';
+import * as GameIcons from '../../../components/GameIcons';
+import { CrossIcon } from '../../../components/Icons';
 
 interface QuestDetailModalProps {
     quest: Quest | null;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Status } from '../../types';
-import * as GameIcons from '../GameIcons';
+import * as GameIcons from '../../../components/GameIcons';
 
 interface StatusDetailModalProps {
     status: Status | null;

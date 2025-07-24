@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { CustomRule } from '../../types';
-import { DocumentAddIcon, PlusIcon, SaveIcon, FileIcon } from '../Icons';
+import { DocumentAddIcon, PlusIcon, SaveIcon, FileIcon } from '../../../components/Icons';
 
 interface CustomRulesModalProps {
     isOpen: boolean;

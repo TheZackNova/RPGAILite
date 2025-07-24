@@ -2,8 +2,9 @@
 // Organized by category for better maintainability
 
 // === COMMON COMPONENTS ===
-export { default as MenuButton } from './MenuButton';
+export { default as MenuButton } from '../../components/MenuButton';
 export { ConfirmationModal, SuggestionModal, FormLabel, SuggestButton, CustomSelect } from './common';
+export { InteractiveText } from './common';
 
 // === ICONS ===
 export {
@@ -11,8 +12,8 @@ export {
     UserIcon, PencilIcon, DiamondIcon, TargetIcon, BuildingLibraryIcon, PlusIcon,
     SpinnerIcon, HomeIcon, ArchiveIcon, BrainIcon, MemoryIcon, InfoIcon, RefreshIcon, SparklesIcon,
     PinIcon, ExclamationIcon, CrossIcon, DocumentAddIcon
-} from './Icons';
-export * as GameIcons from './GameIcons';
+} from '../../components/Icons';
+export * as GameIcons from '../../components/GameIcons';
 
 // === MODALS ===
 export {
@@ -33,9 +34,11 @@ export { GameScreen } from './game';
 
 // === LAYOUT COMPONENTS ===
 export { CustomizationFooter } from './layout';
+export { TopNavigation, TabNavigation } from './layout';
 
 // === CONTEXTS ===
 export { AIContext } from '../contexts';
 
 // === HOOKS ===
 export { useLocalStorage } from './hooks';
+export { useAI, useGameState } from '../hooks';

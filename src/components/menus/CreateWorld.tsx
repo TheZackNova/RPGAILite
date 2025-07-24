@@ -3,7 +3,7 @@ import { Type } from '@google/genai';
 import { AIContext } from '../../contexts/AIContext';
 import { FormData } from '../../types';
 import { FormLabel, SuggestButton, CustomSelect, SuggestionModal } from '../common';
-import { BookOpenIcon, ArrowLeftIcon, UserIcon, SpinnerIcon, SparklesIcon, PencilIcon, DiamondIcon } from '../Icons';
+import { BookOpenIcon, ArrowLeftIcon, UserIcon, SpinnerIcon, SparklesIcon, PencilIcon, DiamondIcon } from '../../../components/Icons';
 
 interface CreateWorldProps {
     onBack: () => void;

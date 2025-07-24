@@ -1,7 +1,7 @@
 import React from 'react';
 import { Entity, Status, Quest } from '../types';
 import * as GameIcons from '../../components/GameIcons';
-import { BrainIcon, InfoIcon, CrossIcon } from 'lucide-react';
+import { BrainIcon, InfoIcon, CrossIcon } from '../../components/Icons';
 
 // --- Icon Factory ---
 export const getIconForEntity = (entity: Entity): React.ReactNode => {

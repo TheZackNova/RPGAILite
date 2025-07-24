@@ -1,7 +1,7 @@
 import React from 'react';
 import { Entity, Status, EntityType } from '../../types';
-import * as GameIcons from '../GameIcons';
-import { BrainIcon } from '../Icons';
+import * as GameIcons from '../../../components/GameIcons';
+import { BrainIcon } from '../../../components/Icons';
 
 interface EntityInfoModalProps {
     entity: Entity | null;
