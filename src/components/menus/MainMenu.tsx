@@ -102,7 +102,15 @@ export const MainMenu: React.FC<MainMenuProps> = ({
                         </div>
                         <div className="text-gray-700 dark:text-gray-300 space-y-4">
                             <div>
-                                <h3 className="text-lg font-semibold mb-2">Phiên bản mới nhất</h3>
+                                <h3 className="text-lg font-semibold mb-2">Phiên bản 1.0.0 - 24/07/2025</h3>
+                                <ul className="list-disc list-inside space-y-2">
+                                    <li>Sửa lỗi thiếu export TopNavigation trong layout components</li>
+                                    <li>Sửa lỗi thiếu export TabNavigation trong layout components</li>
+                                    <li>Khắc phục lỗi SyntaxError ngăn game khởi động đúng cách</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold mb-2">Các phiên bản trước</h3>
                                 <ul className="list-disc list-inside space-y-2">
                                     <li>Cải thiện giao diện người dùng</li>
                                     <li>Thêm tính năng lưu và tải game</li>
