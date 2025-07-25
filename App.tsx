@@ -274,6 +274,7 @@ export const AIContext = createContext<AIContextType>({
     isUsingDefaultKey: true,
     userApiKeyCount: 0,
     rotateKey: () => {},
+    selectedModel: 'gemini-2.5-flash',
 });
 
 export default function App() {
@@ -294,6 +295,9 @@ export default function App() {
   });
   const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => {
       return localStorage.getItem('isUsingDefaultKey') !== 'false'; // Default to true
+  });
+  const [selectedAiModel, setSelectedAiModel] = useState(() => {
+      return localStorage.getItem('selectedAiModel') || 'gemini-2.5-flash';
   });
 
   // --- Memoized AI Instance ---
@@ -339,6 +343,11 @@ export default function App() {
   const handleUseDefaultKey = () => {
       setIsUsingDefaultKey(true);
       localStorage.setItem('isUsingDefaultKey', 'true');
+  };
+
+  const handleModelChange = (model: string) => {
+      setSelectedAiModel(model);
+      localStorage.setItem('selectedAiModel', model);
   };
 
   const handleRotateKey = () => {
@@ -487,15 +496,15 @@ export default function App() {
                 onBackToMenu={navigateToMenu} 
                 keyRotationNotification={keyRotationNotification}
                 onClearNotification={() => setKeyRotationNotification(null)}
-              /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onQuickPlay={quickPlay} hasLastWorldSetup={!!getLastWorldSetup()} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
+              /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onQuickPlay={quickPlay} hasLastWorldSetup={!!getLastWorldSetup()} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog} selectedAiModel={selectedAiModel}/>;
           case 'menu':
           default:
-              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onQuickPlay={quickPlay} hasLastWorldSetup={!!getLastWorldSetup()} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
+              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onQuickPlay={quickPlay} hasLastWorldSetup={!!getLastWorldSetup()} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog} selectedAiModel={selectedAiModel}/>;
       }
   }
 
   return (
-    <AIContext.Provider value={{ ai, isAiReady, apiKeyError, isUsingDefaultKey, userApiKeyCount: userApiKeys.length, rotateKey: handleRotateKey }}>
+    <AIContext.Provider value={{ ai, isAiReady, apiKeyError, isUsingDefaultKey, userApiKeyCount: userApiKeys.length, rotateKey: handleRotateKey, selectedModel: selectedAiModel }}>
       <style>{`
         .am-kim {
             background: linear-gradient(135deg, #ca8a04, #eab308, #fde047);
@@ -527,6 +536,8 @@ export default function App() {
           isUsingDefault={isUsingDefaultKey}
           onSave={handleSaveApiKeys}
           onUseDefault={handleUseDefaultKey}
+          selectedModel={selectedAiModel}
+          onModelChange={handleModelChange}
         />
         <ChangelogModal
             isOpen={isChangelogModalOpen}

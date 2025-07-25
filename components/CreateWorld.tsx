@@ -10,7 +10,7 @@ import {
 } from './Icons.tsx';
 
 export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: FormData) => void; }> = ({ onBack, onStartGame }) => {
-    const { ai, isAiReady, apiKeyError } = useContext(AIContext);
+    const { ai, isAiReady, apiKeyError, selectedModel } = useContext(AIContext);
     const [formData, setFormData] = useState<FormData>({
         storyName: '',
         genre: '',
@@ -102,7 +102,7 @@ export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: For
         
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: selectedModel,
                 contents: prompt,
             });
             const text = response.text.trim();
@@ -135,7 +135,7 @@ export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: For
         
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: selectedModel,
                 contents: prompt,
             });
             const text = response.text.trim();
@@ -186,7 +186,7 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
 
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: selectedModel,
                 contents: prompt,
                 config: {
                     responseMimeType: "application/json",

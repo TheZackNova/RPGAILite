@@ -9,10 +9,13 @@ export const ApiSettingsModal: React.FC<{
     isUsingDefault: boolean;
     onSave: (keys: string[]) => void;
     onUseDefault: () => void;
-}> = ({ isOpen, onClose, userApiKeys, isUsingDefault, onSave, onUseDefault }) => {
+    selectedModel: string;
+    onModelChange: (model: string) => void;
+}> = ({ isOpen, onClose, userApiKeys, isUsingDefault, onSave, onUseDefault, selectedModel, onModelChange }) => {
     if (!isOpen) return null;
     
     const [keys, setKeys] = useState<string[]>(userApiKeys);
+    const [currentModel, setCurrentModel] = useState<string>(selectedModel);
 
     const handleKeyChange = (index: number, value: string) => {
         const newKeys = [...keys];
@@ -31,6 +34,7 @@ export const ApiSettingsModal: React.FC<{
 
     const handleSaveClick = () => {
         onSave(keys);
+        onModelChange(currentModel);
         onClose();
     };
 
@@ -44,6 +48,19 @@ export const ApiSettingsModal: React.FC<{
             <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h2 className="text-3xl font-bold mb-4 text-center text-purple-600 dark:text-purple-300" style={{ textShadow: '0 0 8px rgba(192, 132, 252, 0.5)' }}>Thiết Lập Nguồn AI</h2>
                 <div className="bg-white/90 dark:bg-[#252945]/90 backdrop-blur-sm border border-slate-300 dark:border-slate-700 rounded-lg shadow-xl p-6 space-y-6">
+
+                    {/* AI Model Selection */}
+                    <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-4">
+                        <p className="font-semibold text-sm mb-3 text-slate-800 dark:text-gray-300">Lựa chọn Model AI:</p>
+                        <select
+                            value={currentModel}
+                            onChange={(e) => setCurrentModel(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-white dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75"
+                        >
+                            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+                        </select>
+                    </div>
 
                     {/* Default AI Section */}
                     <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-4">

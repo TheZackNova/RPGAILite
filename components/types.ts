@@ -176,4 +176,5 @@ export interface AIContextType {
     isUsingDefaultKey: boolean;
     userApiKeyCount: number;
     rotateKey: () => void;
+    selectedModel: string;
 }

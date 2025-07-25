@@ -3,6 +3,17 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.28.0',
+    date: '2025-07-25',
+    changes: [
+      { type: 'feature', text: 'Thêm tính năng lựa chọn Model AI trong Thiết Lập API Key - người dùng có thể chọn giữa gemini-2.5-flash và gemini-2.5-flash-lite.' },
+      { type: 'feature', text: 'Hiển thị Model AI hiện tại đang sử dụng tại màn hình menu chính để người chơi dễ dàng theo dõi.' },
+      { type: 'improvement', text: 'Cập nhật giao diện Thiết Lập API Key với dropdown lựa chọn model thay vì button cố định.' },
+      { type: 'improvement', text: 'Tích hợp việc lưu trữ và khôi phục lựa chọn model AI vào localStorage để duy trì settings giữa các phiên chơi.' },
+      { type: 'improvement', text: 'Cập nhật toàn bộ hệ thống AI (GameScreen, CreateWorld) để sử dụng model được chọn thay vì hardcode gemini-2.5-flash.' },
+    ],
+  },
+  {
     version: '1.27.0',
     date: '2025-07-25',
     changes: [

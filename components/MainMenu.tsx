@@ -11,7 +11,8 @@ export const MainMenu: React.FC<{
     onLoadGameFromFile: (file: File) => void;
     isUsingDefaultKey: boolean;
     onOpenChangelog: () => void;
-}> = ({ onStartNewAdventure, onQuickPlay, hasLastWorldSetup, onOpenApiSettings, onLoadGameFromFile, isUsingDefaultKey, onOpenChangelog }) => {
+    selectedAiModel: string;
+}> = ({ onStartNewAdventure, onQuickPlay, hasLastWorldSetup, onOpenApiSettings, onLoadGameFromFile, isUsingDefaultKey, onOpenChangelog, selectedAiModel }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,6 +86,12 @@ export const MainMenu: React.FC<{
             focusClass="focus:ring-slate-500"
           />
         </main>
+        
+        <footer className="mt-6 text-center">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            Model AI hiện tại: <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedAiModel}</span>
+          </p>
+        </footer>
       </div>
     );
 };

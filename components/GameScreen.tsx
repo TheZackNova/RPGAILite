@@ -111,7 +111,7 @@ export const GameScreen: React.FC<{
     keyRotationNotification: string | null;
     onClearNotification: () => void;
 }> = ({ initialGameState, onBackToMenu, keyRotationNotification, onClearNotification }) => {
-    const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount } = useContext(AIContext);
+    const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount, selectedModel } = useContext(AIContext);
     const [worldData, setWorldData] = useState(initialGameState.worldData);
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
     const [hasGeneratedInitialStory, setHasGeneratedInitialStory] = useState<boolean>(false);
@@ -846,7 +846,7 @@ export const GameScreen: React.FC<{
 
             try {
                  const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash', contents: initialHistory,
+                    model: selectedModel, contents: initialHistory,
                     config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema }
                 });
                 const turnTokens = response.usageMetadata?.totalTokenCount || 0;
@@ -914,7 +914,7 @@ export const GameScreen: React.FC<{
     
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash', contents: updatedHistory,
+                model: selectedModel, contents: updatedHistory,
                 config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema, }
             });
             const turnTokens = response.usageMetadata?.totalTokenCount || 0;
@@ -965,7 +965,7 @@ export const GameScreen: React.FC<{
         setIsLoading(true);
         try {
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: selectedModel,
                 contents: `Bối cảnh: "${storyLog.slice(-1)[0]}". Gợi ý một hành động sáng tạo.`,
             });
             setCustomAction(response.text?.trim() || 'Không thể nhận gợi ý lúc này.');
