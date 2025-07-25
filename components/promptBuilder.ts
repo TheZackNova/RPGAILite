@@ -3,9 +3,9 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
 // Enhanced Token Management with Stricter Controls
 const TOKEN_CONFIG = {
-    MAX_TOKENS_PER_TURN: 75000,  // Giảm từ 70k xuống 75k để có buffer an toàn
+    MAX_TOKENS_PER_TURN: 120000,  // Giảm từ 70k xuống 75k để có buffer an toàn
     TOKEN_BUFFER: 8000,          // Tăng buffer từ 5k lên 8k
-    CHARS_PER_TOKEN: 0.8,        // Tăng từ 0.75 lên 0.8 để ước tính chặt chẽ hơn
+    CHARS_PER_TOKEN: 1.0,        // Tăng từ 0.75 lên 0.8 để ước tính chặt chẽ hơn
     
     // Tái phân bổ để ưu tiên nội dung quan trọng
     ALLOCATION: {

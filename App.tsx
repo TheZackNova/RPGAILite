@@ -157,7 +157,7 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 --- QUY TẮC TƯƠNG TÁC ---
 
 **1. LỰA CHỌN HÀNH ĐỘNG:**
-- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu, nsfw (nếu được bật)
+- Tạo 4-6 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu, nsfw (nếu được bật)
 - Tận dụng kỹ năng và vật phẩm của nhân vật
 - Cần có lựa chọn rủi ro cao/thưởng cao
 

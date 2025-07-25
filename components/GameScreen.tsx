@@ -748,7 +748,7 @@ export const GameScreen: React.FC<{
         choices: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
-          description: "Một mảng gồm 4-5 lựa chọn cho người chơi."
+          description: "Một mảng gồm 4-6 lựa chọn cho người chơi."
         },
       },
       required: ['story', 'choices']
