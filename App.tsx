@@ -340,10 +340,6 @@ export default function App() {
       localStorage.setItem('isUsingDefaultKey', 'false');
   };
   
-  const handleUseDefaultKey = () => {
-      setIsUsingDefaultKey(true);
-      localStorage.setItem('isUsingDefaultKey', 'true');
-  };
 
   const handleModelChange = (model: string) => {
       setSelectedAiModel(model);
@@ -535,7 +531,6 @@ export default function App() {
           userApiKeys={userApiKeys}
           isUsingDefault={isUsingDefaultKey}
           onSave={handleSaveApiKeys}
-          onUseDefault={handleUseDefaultKey}
           selectedModel={selectedAiModel}
           onModelChange={handleModelChange}
         />
