@@ -13,7 +13,7 @@ export const MobileHeader: React.FC<{
                 <MenuIcon className="w-6 h-6" />
             </button>
             <h1 className="text-lg font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider truncate mx-2">
-                {worldData.genre || "MANH MUONG TAM QUỐC"}
+                {worldData.storyName || "MANH MUONG TAM QUỐC"}
             </h1>
              <div className="w-6 h-6 p-2 -mr-2" />
         </div>

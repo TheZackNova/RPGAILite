@@ -102,11 +102,11 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 {/* Center: Game Title & Token Counter */}
                 <div className="flex items-center gap-6">
                     <div className="text-center">
-                        <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={worldData.genre || "Phiêu Lưu Ký"}>
-                            {worldData.genre || "Phiêu Lưu Ký"}
+                        <div className="text-lg font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={worldData.storyName || "Phiêu Lưu Ký"}>
+                            {worldData.storyName || "Phiêu Lưu Ký"}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]" title={`${worldData.customPersonality || worldData.personalityFromList || 'Chưa xác định'}`}>
-                            {worldData.customPersonality || worldData.personalityFromList || 'Chưa xác định'}
+                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]" title={worldData.genre || 'Chưa xác định'}>
+                            {worldData.genre || 'Chưa xác định'}
                         </div>
                     </div>
                     
