@@ -3,6 +3,30 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.27.0',
+    date: '2025-07-25',
+    changes: [
+      { type: 'feature', text: 'Thêm hệ thống bookmarking trong Knowledge Base - đánh dấu entities quan trọng với biểu tượng ⭐ để truy cập nhanh.' },
+      { type: 'feature', text: 'Triển khai search debouncing với delay 300ms trong Knowledge Base để cải thiện performance khi tìm kiếm.' },
+      { type: 'feature', text: 'Thêm virtual scrolling cho danh sách entities lớn (15+ items) - tự động tối ưu hiệu suất hiển thị.' },
+      { type: 'feature', text: 'Thêm chức năng collapsible categories - click header để thu gọn/mở rộng các danh mục trong Knowledge Base.' },
+      { type: 'feature', text: 'Triển khai hệ thống theo dõi usage analytics - hiển thị entities được truy cập gần đây và thường xuyên.' },
+      { type: 'feature', text: 'Thêm keyboard shortcut "K" và "Ctrl+K" để mở Knowledge Base nhanh chóng từ bất kỳ đâu trong game.' },
+      { type: 'improvement', text: 'Knowledge Base giờ không tự động đóng khi click vào interactive text - cho phép khám phá liên tục nhiều entities.' },
+      { type: 'improvement', text: 'Cải thiện thuật toán search - tìm kiếm cả trong tên và mô tả entities, ưu tiên bookmarked items.' },
+      { type: 'improvement', text: 'Thêm categories mới "Đã Đánh Dấu" và "Gần Đây" ở đầu Knowledge Base để truy cập nhanh.' },
+      { type: 'improvement', text: 'Hiển thị số lượng items và usage count cho mỗi entity, cùng loading indicator khi đang search.' },
+      { type: 'improvement', text: 'Thêm visual indicators cho keyboard shortcuts trong menu (Desktop: "K", Mobile sidebar: "K").' },
+      { type: 'fix', text: 'Sửa lỗi 404 favicon.ico - loại bỏ reference đến vite.svg không tồn tại trong index.html.' },
+      { type: 'fix', text: 'Khắc phục cảnh báo Tailwind CDN production - thay thế bằng local Tailwind CSS v3 với PostCSS processing.' },
+      { type: 'fix', text: 'Sửa lỗi React static flag compatibility với React 19 - refactor tất cả components sang pattern memo() mới.' },
+      { type: 'fix', text: 'Khắc phục z-index conflict - EntityInfoModal, StatusDetailModal, QuestDetailModal giờ hiển thị trên Knowledge Base.' },
+      { type: 'technical', text: 'Cấu hình Tailwind CSS v3 với custom config, PostCSS processing và optimized build pipeline.' },
+      { type: 'technical', text: 'Refactor KnowledgeBaseModal architecture với component separation và performance optimization.' },
+      { type: 'technical', text: 'Triển khai useDebounce và useVirtualizedList hooks cho enhanced UX và performance.' },
+    ],
+  },
+  {
     version: '1.26.0',
     date: '2025-07-25',
     changes: [

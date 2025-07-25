@@ -1038,6 +1038,25 @@ export const GameScreen: React.FC<{
         document.documentElement.style.setProperty('--game-font-family', gameSettings.fontFamily);
     }, [gameSettings.fontSize, gameSettings.fontFamily]);
 
+    // Global keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Prevent shortcuts when typing in input fields
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
+            // Knowledge Base shortcut: K key or Ctrl+K
+            if (e.key === 'k' || e.key === 'K' || (e.ctrlKey && e.key === 'k')) {
+                e.preventDefault();
+                setIsKnowledgeModalOpen(true);
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
     const handleManualCleanup = useCallback(() => {
         const timestamp = new Date().toLocaleTimeString();
         console.log(`🧹 [${timestamp}] Manual Cleanup Started:`, {

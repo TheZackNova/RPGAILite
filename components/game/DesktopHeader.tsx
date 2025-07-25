@@ -179,6 +179,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     </button>
                     <button onClick={() => { onKnowledge(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
                         <BrainIcon className="w-4 h-4" /> Tri Thức
+                        <span className="ml-auto text-xs text-slate-400">K</span>
                     </button>
                     <button onClick={() => { onMemory(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
                         <MemoryIcon className="w-4 h-4" /> Ký Ức

@@ -321,7 +321,7 @@ const StatusButton = memo<{
 StatusButton.displayName = 'StatusButton';
 
 // ===== MEMOIZED ALL MODALS WRAPPER =====
-export const MemoizedModals = memo<MemoizedModalsProps>(({ 
+const MemoizedModalsComponent = ({ 
     isHomeModalOpen,
     isRestartModalOpen,
     isMemoryModalOpen,
@@ -359,7 +359,7 @@ export const MemoizedModals = memo<MemoizedModalsProps>(({
     turnCount,
     locationDiscoveryOrder,
     entityComputations
-}) => {
+}: MemoizedModalsProps) => {
 
     return (
         <>
@@ -483,6 +483,8 @@ export const MemoizedModals = memo<MemoizedModalsProps>(({
             />
         </>
     );
-});
+};
 
+// Export memoized version
+export const MemoizedModals = memo(MemoizedModalsComponent);
 MemoizedModals.displayName = 'MemoizedModals';
