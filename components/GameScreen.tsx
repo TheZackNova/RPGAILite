@@ -58,17 +58,8 @@ const calculateNewTime = (
 };
 
 const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, owner: string): Status[] => {
-    console.log('🔧 applyStatusWithLimit called:', {
-        statusName: newStatusAttributes.name,
-        requestedOwner: owner,
-        attributes: newStatusAttributes,
-        currentStatusCount: prevStatuses.length,
-        currentStatuses: prevStatuses.map(s => `${s.name}(${s.owner})`)
-    });
-
     const newStatusType = newStatusAttributes.type;
     if (!newStatusType) {
-        console.log('🔧 No type found, adding status directly');
         // Failsafe for statuses without a type, just add it.
         return [...prevStatuses, { ...newStatusAttributes, owner } as Status];
     }
@@ -92,12 +83,10 @@ const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, 
         // If limit is reached or exceeded, keep only the newest (limit - 1) statuses.
         // The oldest ones are at the beginning of the array.
         finalOwnerStatusesOfType = ownerStatusesOfType.slice(ownerStatusesOfType.length - (maxStatusesPerType - 1));
-        console.log('🔧 Status limit reached, removing oldest statuses');
     }
     
     // 5. Create the new status object to add.
     const newStatusToAdd: Status = { ...newStatusAttributes, owner: owner };
-    console.log('🔧 Creating new status:', newStatusToAdd);
     
     // 6. Reconstruct and return the new status list.
     const finalResult = [
@@ -125,6 +114,8 @@ export const GameScreen: React.FC<{
     const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount } = useContext(AIContext);
     const [worldData, setWorldData] = useState(initialGameState.worldData);
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
+    const [hasGeneratedInitialStory, setHasGeneratedInitialStory] = useState<boolean>(false);
+    const isGeneratingRef = useRef<boolean>(false);
     const [customAction, setCustomAction] = useState('');
     
     // Game State
@@ -254,6 +245,7 @@ export const GameScreen: React.FC<{
     
         const tagRegex = /\[([A-Z_]+):\s*([^\]]+)\]/g;
         let cleanStory = storyText;
+        let chronicleTurnContent = ''; // Collect Chronicle turn content to append
     
         const parseAttributes = (attrString: string): { [key: string]: any } => {
             const attributes: { [key: string]: any } = {};
@@ -287,19 +279,8 @@ export const GameScreen: React.FC<{
                 
                 const attributes = parseAttributes(rawContent);
                 
-                // Only log for status-related tags to reduce console spam
-                if (tagType.includes('STATUS')) {
-                    console.log('🏷️ Parsing status tag:', {
-                        fullTag: match[0],
-                        tagType: tagType,
-                        rawContent: rawContent,
-                        attributes: attributes
-                    });
-                }
-                if (tagType === 'MEMORY_ADD' && attributes.text) {
-                    setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
-                    continue;
-                }
+                // Removed MEMORY_ADD auto-processing to prevent excessive memory creation
+                // Only CHRONICLE_TURN will create memories automatically
                 if (Object.keys(attributes).length === 0) {
                      unprocessedTags.push(match[0]);
                      continue;
@@ -320,50 +301,29 @@ export const GameScreen: React.FC<{
                     case 'CHRONICLE_TURN':
                         if (attributes.text) {
                             setChronicle(prev => ({ ...prev, turn: [...prev.turn, attributes.text] }));
+                            // Collect Chronicle turn content to append to story
+                            chronicleTurnContent += (chronicleTurnContent ? '\n\n' : '') + attributes.text;
+                            // Automatically create memory from Chronicle turn content - store original content
+                            setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
                         }
                         break;
                     case 'CHRONICLE_CHAPTER':
                         if (attributes.text) {
                             setChronicle(prev => ({ ...prev, chapter: [...prev.chapter, attributes.text] }));
+                            // Chronicle chapter content stored but not auto-added to memories
                         }
                         break;
                     case 'CHRONICLE_MEMOIR':
                          if (attributes.text) {
                             setChronicle(prev => ({ ...prev, memoir: [...prev.memoir, attributes.text] }));
+                            // Chronicle memoir content stored but not auto-added to memories
                         }
                         break;
                     case 'STATUS_APPLIED_SELF':
-                        console.log('🔥 STATUS_APPLIED_SELF Debug:', {
-                            statusName: attributes.name,
-                            owner: 'pc',
-                            allAttributes: attributes
-                        });
-                        setStatuses(prev => {
-                            const newStatuses = applyStatusWithLimit(prev, attributes, 'pc');
-                            console.log('🔥 After STATUS_APPLIED_SELF:', {
-                                previousCount: prev.length,
-                                newCount: newStatuses.length,
-                                addedStatus: newStatuses.find(s => s.name === attributes.name && s.owner === 'pc')
-                            });
-                            return newStatuses;
-                        });
+                        setStatuses(prev => applyStatusWithLimit(prev, attributes, 'pc'));
                         break;
                     case 'STATUS_APPLIED_NPC':
-                        console.log('🔥 STATUS_APPLIED_NPC Debug:', {
-                            statusName: attributes.name,
-                            npcName: attributes.npcName,
-                            owner: attributes.npcName,
-                            allAttributes: attributes
-                        });
-                        setStatuses(prev => {
-                            const newStatuses = applyStatusWithLimit(prev, attributes, attributes.npcName);
-                            console.log('🔥 After STATUS_APPLIED_NPC:', {
-                                previousCount: prev.length,
-                                newCount: newStatuses.length,
-                                addedStatus: newStatuses.find(s => s.name === attributes.name && s.owner === attributes.npcName)
-                            });
-                            return newStatuses;
-                        });
+                        setStatuses(prev => applyStatusWithLimit(prev, attributes, attributes.npcName));
                         break;
                     case 'STATUS_CURED_SELF':
                         setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
@@ -629,7 +589,13 @@ export const GameScreen: React.FC<{
                 }
             }
         }
-        const finalStory = cleanStory.trim();
+        let finalStory = cleanStory.trim();
+        
+        // Append Chronicle turn content if any
+        if (chronicleTurnContent && applySideEffects) {
+            finalStory += (finalStory ? '\n\n' : '') + chronicleTurnContent;
+        }
+        
         if (unprocessedTags.length > 0 && applySideEffects) {
              console.warn("Unprocessed Tags:", unprocessedTags);
         }
@@ -695,14 +661,16 @@ export const GameScreen: React.FC<{
 
     
     useEffect(() => {
-        if (gameHistory.length === 0 && isAiReady) {
+        if (gameHistory.length === 0 && isAiReady && storyLog.length === 0 && !hasGeneratedInitialStory && !isGeneratingRef.current) {
             setIsLoading(true);
+            setHasGeneratedInitialStory(true);
+            isGeneratingRef.current = true;
             generateInitialStory();
         } else if (!isAiReady) {
             setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
             setIsLoading(false);
         }
-    }, [gameHistory, isAiReady]); 
+    }, [isAiReady, hasGeneratedInitialStory]); 
 
     // Automatic cleanup and history management effect
     useEffect(() => {
@@ -737,10 +705,24 @@ export const GameScreen: React.FC<{
 
         // Automatic history compression logic (only if enabled in settings)
         if (gameSettings.historyAutoCompress) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`🔄 [${timestamp}] Auto History Check:`, {
+                turn: turnCount,
+                autoCompressEnabled: true,
+                currentHistorySize: gameHistory.length
+            });
+            
             const historyManagerTargetState = optimizerResult?.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
             const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
             if (historyResult.shouldCompress && historyResult.compressedSegment) {
-                console.log("Compressing history...");
+                console.log(`📦 [${timestamp}] Auto Compression Triggered:`, {
+                    turn: turnCount,
+                    newActiveHistorySize: historyResult.activeHistory.length,
+                    compressedSegmentRange: historyResult.compressedSegment.turnRange,
+                    compressedSegmentTokens: historyResult.compressedSegment.tokenCount,
+                    totalCompressedSegments: compressedHistory.length + 1
+                });
+                
                 setGameHistory(historyResult.activeHistory);
                 setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
                 setHistoryStats(prev => ({
@@ -749,6 +731,13 @@ export const GameScreen: React.FC<{
                     compressionCount: prev.compressionCount + 1,
                 }));
             }
+        } else {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`⏸️ [${timestamp}] Auto History Compression Disabled:`, {
+                turn: turnCount,
+                currentHistorySize: gameHistory.length,
+                autoCompressEnabled: false
+            });
         }
     }, [turnCount]);
     
@@ -767,7 +756,54 @@ export const GameScreen: React.FC<{
 
     const parseApiResponse = (text: string) => {
         try {
-            const jsonResponse = JSON.parse(text);
+            // Check if response is empty or whitespace only
+            if (!text || text.trim().length === 0) {
+                console.error("Empty AI response received");
+                setStoryLog(prev => [...prev, "Lỗi: AI trả về phản hồi trống. Hãy thử lại."]);
+                setChoices([]);
+                return;
+            }
+            
+            // Clean the response text to remove any non-JSON content
+            let cleanText = text.trim();
+            
+            // If response starts with markdown code block, extract JSON
+            if (cleanText.startsWith('```json')) {
+                const jsonMatch = cleanText.match(/```json\s*([\s\S]*?)\s*```/);
+                if (jsonMatch) {
+                    cleanText = jsonMatch[1].trim();
+                }
+            } else if (cleanText.startsWith('```')) {
+                const jsonMatch = cleanText.match(/```\s*([\s\S]*?)\s*```/);
+                if (jsonMatch) {
+                    cleanText = jsonMatch[1].trim();
+                }
+            }
+            
+            // Try to find JSON object if response has extra text
+            const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                cleanText = jsonMatch[0];
+            }
+            
+            // Final check if cleanText is valid before parsing
+            if (!cleanText || cleanText.length === 0) {
+                console.error("No valid JSON found in response");
+                setStoryLog(prev => [...prev, "Lỗi: Không tìm thấy JSON hợp lệ trong phản hồi. Hãy thử lại."]);
+                setChoices([]);
+                return;
+            }
+            
+            const jsonResponse = JSON.parse(cleanText);
+            
+            // Validate required fields
+            if (!jsonResponse.story) {
+                console.error("Missing story field in JSON response");
+                setStoryLog(prev => [...prev, "Lỗi: Phản hồi thiếu nội dung câu chuyện. Hãy thử lại."]);
+                setChoices([]);
+                return;
+            }
+            
             const cleanStory = parseStoryAndTags(jsonResponse.story, true);
             setStoryLog(prev => [...prev, cleanStory]);
             setChoices(jsonResponse.choices || []);
@@ -778,6 +814,7 @@ export const GameScreen: React.FC<{
         }
     };
     
+
     const generateInitialStory = async () => {
             if (!ai) return;
             setIsLoading(true);
@@ -817,6 +854,14 @@ export const GameScreen: React.FC<{
                 setTotalTokens(prev => prev + turnTokens);
 
                 const responseText = response.text?.trim() || '';
+                
+                if (!responseText) {
+                    console.error("API returned empty response text");
+                    setStoryLog(prev => [...prev, "Lỗi: API không trả về nội dung. Hãy thử lại."]);
+                    setChoices([]);
+                    return;
+                }
+                
                 parseApiResponse(responseText);
                 setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
             } catch (error: any) {
@@ -830,6 +875,7 @@ export const GameScreen: React.FC<{
                 }
             } finally {
                 setIsLoading(false);
+                isGeneratingRef.current = false;
             }
     };
         
@@ -876,6 +922,13 @@ export const GameScreen: React.FC<{
             setTotalTokens(prev => prev + turnTokens);
 
             const responseText = response.text?.trim() || '';
+            
+            if (!responseText) {
+                console.error("API returned empty response text in handleAction");
+                setStoryLog(prev => [...prev, "Lỗi: AI không trả về nội dung. Hãy thử lại."]);
+                return;
+            }
+            
             setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
             parseApiResponse(responseText);
             setTurnCount(prev => prev + 1); 
@@ -957,6 +1010,8 @@ export const GameScreen: React.FC<{
         setStatuses([]);
         setQuests([]);
         setMemories([]);
+        setKnownEntities({});
+        setParty([]);
         setTurnCount(0);
         setTotalTokens(0);
         setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
@@ -964,6 +1019,8 @@ export const GameScreen: React.FC<{
         setRuleChanges(null);
         previousRulesRef.current = initialGameState.customRules;
         setGameHistory([]);
+        setHasGeneratedInitialStory(false);
+        isGeneratingRef.current = false;
     };
 
     const handleSettingsChange = (newSettings: GameSettings) => {
@@ -982,7 +1039,19 @@ export const GameScreen: React.FC<{
     }, [gameSettings.fontSize, gameSettings.fontFamily]);
 
     const handleManualCleanup = useCallback(() => {
-        console.log('Triggering manual cleanup...');
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`🧹 [${timestamp}] Manual Cleanup Started:`, {
+            turn: turnCount,
+            beforeCleanup: {
+                entities: Object.keys(knownEntities).length,
+                statuses: statuses.length,
+                quests: quests.length,
+                memories: memories.length,
+                historyEntries: gameHistory.length,
+                chronicleEntries: `memoir:${chronicle.memoir.length}, chapter:${chronicle.chapter.length}, turn:${chronicle.turn.length}`
+            }
+        });
+        
         const currentState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
@@ -1003,9 +1072,68 @@ export const GameScreen: React.FC<{
             lastCleanupTurn: turnCount,
         }));
 
+        console.log(`🧹 [${timestamp}] Manual Cleanup Completed:`, {
+            turn: turnCount,
+            afterCleanup: {
+                entities: Object.keys(result.optimizedState.knownEntities).length,
+                statuses: result.optimizedState.statuses.length,
+                quests: result.optimizedState.quests.length,
+                memories: result.optimizedState.memories.length,
+                chronicleEntries: `memoir:${result.optimizedState.chronicle.memoir.length}, chapter:${result.optimizedState.chronicle.chapter.length}, turn:${result.optimizedState.chronicle.turn.length}`
+            },
+            cleanupStats: {
+                entitiesRemoved: Object.keys(knownEntities).length - Object.keys(result.optimizedState.knownEntities).length,
+                statusesRemoved: statuses.length - result.optimizedState.statuses.length,
+                questsRemoved: quests.length - result.optimizedState.quests.length,
+                memoriesRemoved: memories.length - result.optimizedState.memories.length,
+                tokensEstimatedSaved: result.stats.totalTokensSaved
+            }
+        });
+
         setNotification(`🧹 Cleanup complete! Saved ~${Math.round(result.stats.totalTokensSaved / 1000)}k tokens.`);
         setTimeout(() => setNotification(null), 3000);
     }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats]);
+
+    // Debug function to show current system status
+    const debugSystemStatus = useCallback(() => {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`🔍 [${timestamp}] System Status Debug:`, {
+            gameInfo: {
+                currentTurn: turnCount,
+                totalTokens: totalTokens,
+                currentTurnTokens: currentTurnTokens
+            },
+            historySystem: {
+                autoCompressionEnabled: gameSettings.historyAutoCompress,
+                activeHistoryEntries: gameHistory.length,
+                compressedSegments: compressedHistory.length,
+                historyStats: historyStats,
+                lastCompression: historyStats.compressionCount > 0 ? `Segment ${historyStats.compressionCount}` : 'Never'
+            },
+            memoryCleanup: {
+                totalCleanupsPerformed: cleanupStats?.totalCleanupsPerformed || 0,
+                totalTokensSaved: cleanupStats?.totalTokensSavedFromCleanup || 0,
+                lastCleanupTurn: cleanupStats?.lastCleanupTurn || 'Never'
+            },
+            gameState: {
+                entities: Object.keys(knownEntities).length,
+                statuses: statuses.length,
+                quests: quests.length,
+                memories: memories.length,
+                chronicleMemoir: chronicle.memoir.length,
+                chronicleChapter: chronicle.chapter.length,
+                chronicleTurn: chronicle.turn.length
+            }
+        });
+    }, [turnCount, totalTokens, currentTurnTokens, gameSettings.historyAutoCompress, gameHistory.length, compressedHistory.length, historyStats, cleanupStats, knownEntities, statuses, quests, memories, chronicle]);
+
+    // Expose debug function to window for manual testing
+    React.useEffect(() => {
+        (window as any).debugGameSystems = debugSystemStatus;
+        return () => {
+            delete (window as any).debugGameSystems;
+        };
+    }, [debugSystemStatus]);
 
     
     const hasActiveQuests = quests.some(q => q.status === 'active');

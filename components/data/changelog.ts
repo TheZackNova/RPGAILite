@@ -3,6 +3,38 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.26.0',
+    date: '2025-07-25',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi JSON parsing "Unexpected end of JSON input" khi AI trả về phản hồi không hoàn chỉnh hoặc trống.' },
+      { type: 'fix', text: 'Khắc phục lỗi game tự động tạo story trùng lặp sau lần đầu tiên generate initial story.' },
+      { type: 'fix', text: 'Sửa lỗi nút "Bắt Đầu Lại" không hoạt động do thiếu reset các state flags cần thiết.' },
+      { type: 'improvement', text: 'Hạn chế tạo memory tự động - chỉ CHRONICLE_TURN tạo memory, loại bỏ CHRONICLE_CHAPTER, CHRONICLE_MEMOIR và MEMORY_ADD để giảm spam.' },
+      { type: 'improvement', text: 'Cập nhật system instruction: Chronicle Turn chỉ bắt buộc từ lượt 2 trở đi, không tạo ở lượt đầu tiên.' },
+      { type: 'improvement', text: 'Cải thiện error handling với validation cho empty responses và missing required fields trong JSON.' },
+      { type: 'improvement', text: 'Loại bỏ tất cả debug logs và status debuggers khỏi console để clean up development experience.' },
+      { type: 'fix', text: 'Sửa lỗi restart game không parse concepts vào knowledge base do thiếu reset knownEntities và party states.' },
+    ],
+  },
+  {
+    version: '1.25.0',
+    date: '2025-01-25',
+    changes: [
+      { type: 'improvement', text: 'Redesign hoàn toàn giao diện header desktop thành thiết kế minimalist với dropdown menu, giảm visual clutter và cải thiện UX.' },
+      { type: 'improvement', text: 'Token counter được đưa lên vị trí trung tâm, luôn hiển thị với color-coding và progress bar để người chơi dễ dàng theo dõi.' },
+      { type: 'fix', text: 'Sửa lỗi "Cannot read properties of undefined (reading \'trim\')" trong Enhanced RAG system bằng cách thêm proper null checking.' },
+      { type: 'improvement', text: 'Tích hợp và tối ưu hóa RAG system: Loại bỏ enhanced-rag-system.ts duplicate và sử dụng promptBuilder.ts làm single source of truth.' },
+      { type: 'improvement', text: 'Dọn dẹp codebase: Xóa 13+ component files trùng lặp trong thư mục game/, panels/, modals/, và ui/.' },
+      { type: 'feature', text: 'Thêm comprehensive debugging system cho HistoryCompressed và Manual Memory Cleanup với timestamped logs và detailed statistics.' },
+      { type: 'improvement', text: 'Enhanced HistoryManager với better compression tracking, before/after state comparison, và performance monitoring.' },
+      { type: 'feature', text: 'Thêm global debug function window.debugGameSystems() để monitoring real-time system status và performance metrics.' },
+      { type: 'improvement', text: 'Cải thiện Manual Cleanup system với detailed logging about entities/statuses/quests removed và token savings achieved.' },
+      { type: 'fix', text: 'Sửa lỗi dropdown menu bị che khuất bởi story panel bằng React Portals và proper z-index management.' },
+      { type: 'fix', text: 'Sửa lỗi Chronicle turn content không được append vào story content cuối mỗi lượt.' },
+      { type: 'improvement', text: 'Tự động tạo memories từ Chronicle content: turn events, chapter summaries (📖), và memoir entries (📜 - tự động ghim).' },
+    ],
+  },
+  {
     version: '1.24.0',
     date: '2025-01-22',
     changes: [

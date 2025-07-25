@@ -42,26 +42,11 @@ export const EntityInfoModal: React.FC<{
     const isUsableItem = isPcsItem && entity.usable;
     const isEquippableItem = isPcsItem && entity.equippable;
     
-    // DEBUG: Enhanced status filtering with mobile-friendly debugging
     const characterStatuses = statuses.filter(s => {
         const isOwnerMatch = s.owner === entity.name;
         const isPcMatch = entity.type === 'pc' && s.owner === 'pc';
         return isOwnerMatch || isPcMatch;
     });
-
-    // DEBUG: Prepare debug info for mobile display
-    const debugInfo = (entity.type === 'npc' || entity.type === 'pc') ? {
-        entityName: entity.name,
-        entityType: entity.type,
-        totalStatuses: statuses.length,
-        filteredStatuses: characterStatuses.length,
-        allStatusOwners: statuses.map(s => `${s.name}(owner:${s.owner})`),
-        matchedStatuses: characterStatuses.map(s => `${s.name}(owner:${s.owner},type:${s.type})`),
-        statusOwnersUnique: [...new Set(statuses.map(s => s.owner))],
-        exactNameMatches: statuses.filter(s => s.owner === entity.name).map(s => s.name),
-        ownerNameLength: entity.name.length,
-        firstStatusOwnerLength: statuses.length > 0 ? statuses[0].owner.length : 0
-    } : null;
     
     // Helper function to get relationship status color
     const getRelationshipColor = (relationship: string): string => {
@@ -108,51 +93,6 @@ export const EntityInfoModal: React.FC<{
                 </div>
                 
                 <div className="p-5 space-y-3 text-slate-700 dark:text-gray-300 max-h-[70vh] overflow-y-auto">
-                    {/* MOBILE DEBUG INFO - Always visible for NPCs and PC */}
-                    {debugInfo && (
-                        <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-600 rounded-lg text-xs space-y-1">
-                            <div className="font-bold text-yellow-800 dark:text-yellow-200">🔍 DEBUG INFO (Mobile)</div>
-                            <div><strong>Entity:</strong> "{debugInfo.entityName}" (Type: {debugInfo.entityType})</div>
-                            <div><strong>Entity Name Length:</strong> {debugInfo.ownerNameLength} chars</div>
-                            <div><strong>Total Statuses in Game:</strong> {debugInfo.totalStatuses}</div>
-                            <div><strong>Filtered for This Entity:</strong> {debugInfo.filteredStatuses}</div>
-                            
-                            {debugInfo.totalStatuses > 0 && (
-                                <>
-                                    <div><strong>All Status Owners:</strong> [{debugInfo.statusOwnersUnique.join(', ')}]</div>
-                                    <div><strong>All Statuses:</strong></div>
-                                    <div className="max-h-20 overflow-y-auto bg-white dark:bg-gray-800 p-1 rounded text-xs">
-                                        {debugInfo.allStatusOwners.map((status, i) => (
-                                            <div key={i}>{i+1}. {status}</div>
-                                        ))}
-                                    </div>
-                                    
-                                    {debugInfo.exactNameMatches.length > 0 && (
-                                        <div><strong>✅ Exact Matches Found:</strong> {debugInfo.exactNameMatches.join(', ')}</div>
-                                    )}
-                                    
-                                    {debugInfo.matchedStatuses.length > 0 && (
-                                        <>
-                                            <div><strong>✅ Final Matched:</strong></div>
-                                            <div className="bg-green-100 dark:bg-green-900/20 p-1 rounded">
-                                                {debugInfo.matchedStatuses.map((status, i) => (
-                                                    <div key={i}>• {status}</div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                    
-                                    {debugInfo.exactNameMatches.length === 0 && (
-                                        <div className="text-red-600 dark:text-red-400"><strong>❌ No exact name matches!</strong></div>
-                                    )}
-                                </>
-                            )}
-                            
-                            {debugInfo.totalStatuses === 0 && (
-                                <div className="text-red-600 dark:text-red-400"><strong>❌ No statuses in game at all!</strong></div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Basic Information */}
                     <div className="space-y-2">
@@ -260,18 +200,6 @@ export const EntityInfoModal: React.FC<{
                     {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && (
                         <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700/60">
                             <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái hiện tại:</strong>
-                            
-                            {/* MOBILE DEBUG for Status Section */}
-                            <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded text-xs">
-                                <strong>📱 Status Check Result:</strong><br/>
-                                Expected owner name: "{entity.name}"<br/>
-                                Found {characterStatuses.length} matching status(es)<br/>
-                                {characterStatuses.length > 0 ? (
-                                    <span className="text-green-600 dark:text-green-400">✅ Should display statuses below</span>
-                                ) : (
-                                    <span className="text-red-600 dark:text-red-400">❌ No statuses to display</span>
-                                )}
-                            </div>
                             
                             {characterStatuses.length > 0 ? (
                                 <div className="flex flex-wrap gap-2 mt-2">

@@ -44,6 +44,15 @@ export class HistoryManager {
         
         // Nếu chưa vượt threshold, không cần compress
         if (originalSize <= config.compressionThreshold) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`📊 [${timestamp}] History Check:`, {
+                turnNumber: turnCount,
+                currentEntries: originalSize,
+                threshold: config.compressionThreshold,
+                compressionNeeded: false,
+                message: `${originalSize}/${config.compressionThreshold} entries - no compression needed`
+            });
+            
             return {
                 activeHistory: currentHistory,
                 shouldCompress: false,
@@ -67,11 +76,15 @@ export class HistoryManager {
             config
         );
 
-        console.log(`📦 History Management:`, {
-            original: originalSize,
-            compressed: toCompress.length,
-            kept: activeHistory.length,
-            saved: toCompress.length + ' entries'
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`📦 [${timestamp}] History Compression:`, {
+            turnNumber: turnCount,
+            originalEntries: originalSize,
+            entriesToCompress: toCompress.length,
+            keptActive: activeHistory.length,
+            threshold: config.compressionThreshold,
+            maxActive: config.maxActiveEntries,
+            compressionTriggered: true
         });
 
         return {
@@ -133,6 +146,15 @@ export class HistoryManager {
         
         // Estimate token count
         const tokenCount = this.estimateTokens(summary + keyActions.join(' ') + importantEvents.join(' '));
+        
+        console.log(`📄 Compressed Segment Created:`, {
+            turnRange: `${startTurn}-${endTurn}`,
+            entriesCompressed: entries.length,
+            keyActionsFound: keyActions.length,
+            importantEventsFound: importantEvents.length,
+            summaryLength: summary.length,
+            estimatedTokens: tokenCount
+        });
 
         return {
             turnRange: `${startTurn}-${endTurn}`,

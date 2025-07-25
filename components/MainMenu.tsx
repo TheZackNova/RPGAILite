@@ -34,8 +34,8 @@ export const MainMenu: React.FC<{
         />
         <header className="text-center mb-10">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-wider text-slate-900 dark:text-white">
-            <span className="dark:text-purple-400">ĐÂY LÀ GAME </span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400">BẠN CÓ THỂ COOK MỌI THỨ</span>
+            <span className="dark:text-purple-400">HÃY VIẾT LÊN </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400">CÂU TRUYỆN CỦA BẠN</span>
           </h1>
         </header>
         

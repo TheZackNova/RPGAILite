@@ -393,7 +393,7 @@ export const MapModal: React.FC<{
                                         <g 
                                             key={loc.name} 
                                             transform={`translate(${pos.x}, ${pos.y})`} 
-                                            className="cursor-pointer transition-transform hover:scale-110"
+                                            className={`cursor-pointer transition-transform ${isCurrent ? '' : 'hover:scale-110'}`}
                                             onClick={() => handleLocationClick(loc)}
                                         >
                                             <circle 
