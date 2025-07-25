@@ -35,10 +35,29 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 
 **A. LUÔN LUÔN SỬ DỤNG CÁC THẺ SAU:**
 
-1. **TIME_ELAPSED (BẮT BUỘC MỖI LƯỢT):**
-   \`[TIME_ELAPSED: hours=X, days=X, months=X, years=X]\`
-   - Thậm chí nếu chỉ vài phút, hãy dùng hours=0
-   - Ví dụ: Cuộc trò chuyện ngắn = hours=0, Đi bộ = hours=1, Chiến đấu = hours=2
+1. **⚠️ QUY TẮC BẮT BUỘC VỀ THỜI GIAN:**
+   
+   **MỌI HÀNH ĐỘNG CỦA NGƯỜI CHƠI BẮT BUỘC PHẢI TÍNH THỜI GIAN TRÔI QUA.**
+   
+   **YÊU CẦU CHO TẤT CẢ PHẢN HỒI:**
+   - **LUÔN LUÔN sử dụng thẻ [TIME_ELAPSED]** - KHÔNG CÓ NGOẠI LỆ
+   - **Tính toán thời gian hợp lý** dựa trên độ phức tạp hành động:
+     * Trò chuyện đơn giản/quan sát: hours=0 
+     * Đi bộ/di chuyển: hours=1-2
+     * Chiến đấu/luyện tập: hours=2-4
+     * Công việc phức tạp: hours=4+
+     * Hoạt động dài hạn: days=1+
+   
+   **VÍ DỤ:**
+   - Người chơi nói "Nhìn xung quanh" → \`[TIME_ELAPSED: hours=0]\`
+   - Người chơi nói "Đi đến chợ" → \`[TIME_ELAPSED: hours=1]\` 
+   - Người chơi nói "Luyện võ công" → \`[TIME_ELAPSED: hours=3]\`
+   - Người chơi nói "Đi đến thành phố tiếp theo" → \`[TIME_ELAPSED: days=1]\`
+   
+   **❌ TUYỆT ĐỐI KHÔNG phản hồi mà không có thẻ [TIME_ELAPSED]**
+   **✅ LUÔN cân nhắc hành động đó sẽ mất bao nhiều thời gian thực tế**
+   
+   Ngay cả hành động tức thì cũng dùng \`hours=0\` để thể hiện ý thức về thời gian.
 
 2. **CHRONICLE_TURN (BẮT BUỘC TỪ LƯỢT 2):**
    \`[CHRONICLE_TURN: text="⭐Tóm tắt ngắn gọn sự kiện chính của lượt này⭐"]\`
@@ -386,7 +405,7 @@ export default function App() {
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
         turnCount: 0,
         totalTokens: 0,
-        gameTime: { year: 1, month: 1, day: 1, hour: 8 },
+        gameTime: { year: data.worldTime.year, month: data.worldTime.month, day: data.worldTime.day, hour: 8 },
         chronicle: {
             memoir: [],
             chapter: [],

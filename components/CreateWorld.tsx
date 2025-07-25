@@ -12,8 +12,10 @@ import {
 export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: FormData) => void; }> = ({ onBack, onStartGame }) => {
     const { ai, isAiReady, apiKeyError } = useContext(AIContext);
     const [formData, setFormData] = useState<FormData>({
+        storyName: '',
         genre: '',
         worldDetail: '',
+        worldTime: { day: 1, month: 1, year: 1000 },
         writingStyle: 'second_person',
         difficulty: 'normal',
         allowNsfw: false,
@@ -166,6 +168,7 @@ export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: For
         const finalPersonality = formData.customPersonality || formData.personalityFromList;
         const prompt = `Dựa trên thông tin nhân vật sau, hãy tạo một tiểu sử và kỹ năng khởi đầu phù hợp cho game nhập vai văn bản:
 - Tên nhân vật (do người dùng đặt): '${formData.characterName || 'Chưa có'}'
+- Tên truyện: '${formData.storyName || 'Chưa có'}'
 - Thể loại: '${formData.genre || 'Chưa có'}'
 - Bối cảnh: '${formData.worldDetail || 'Chưa có'}'
 - Giới tính: '${formData.gender}'
@@ -241,7 +244,7 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                 const text = e.target?.result;
                 if (typeof text === 'string') {
                     const loadedData = JSON.parse(text);
-                    if (loadedData.genre !== undefined && loadedData.characterName !== undefined && loadedData.bio !== undefined) {
+                    if (loadedData.storyName !== undefined && loadedData.characterName !== undefined && loadedData.bio !== undefined) {
                         const newFormData: FormData = {
                             ...formData, 
                             ...loadedData,
@@ -388,9 +391,13 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                         <BookOpenIcon className="w-5 h-5 mr-3 text-pink-600 dark:text-pink-400" /> Bối Cảnh Truyện
                     </h2>
                     <div>
-                        <FormLabel htmlFor="genre">Thể loại:</FormLabel>
+                        <FormLabel htmlFor="storyName">Tên Truyện:</FormLabel>
+                        <input id="storyName" name="storyName" type="text" value={formData.storyName} onChange={handleInputChange} placeholder="VD: Truyền Thuyết Thần Kiếm, Đại Đạo Tranh Phong..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="genre">Thể Loại:</FormLabel>
                         <div className="flex items-center">
-                            <input id="genre" name="genre" type="text" value={formData.genre} onChange={handleInputChange} placeholder="VD: Tiên hiệp, Huyền huyễn..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                            <input id="genre" name="genre" type="text" value={formData.genre} onChange={handleInputChange} placeholder="VD: Tiên hiệp, Huyền huyễn, Kiếm hiệp..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
                             <SuggestButton onClick={handleGenreSuggestion} isLoading={loadingStates.genre} disabled={isAnySuggestionLoading} colorClass="bg-pink-500 hover:bg-pink-600" />
                         </div>
                     </div>
@@ -399,6 +406,52 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                         <div className="flex items-center">
                             <textarea id="worldDetail" name="worldDetail" value={formData.worldDetail} onChange={handleInputChange} placeholder="VD: Đại Lục Phong Vân..." rows={3} className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
                             <SuggestButton onClick={handleWorldDetailSuggestion} isLoading={loadingStates.worldDetail} disabled={isAnySuggestionLoading} colorClass="bg-pink-500 hover:bg-pink-600" />
+                        </div>
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="worldTime">Thời Gian Bắt Đầu:</FormLabel>
+                        <div className="grid grid-cols-3 gap-2">
+                            <div>
+                                <label className="block text-xs text-slate-600 dark:text-gray-400 mb-1">Ngày</label>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max="30" 
+                                    value={formData.worldTime.day} 
+                                    onChange={(e) => setFormData(prev => ({ 
+                                        ...prev, 
+                                        worldTime: { ...prev.worldTime, day: parseInt(e.target.value) || 1 } 
+                                    }))} 
+                                    className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-600 dark:text-gray-400 mb-1">Tháng</label>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max="12" 
+                                    value={formData.worldTime.month} 
+                                    onChange={(e) => setFormData(prev => ({ 
+                                        ...prev, 
+                                        worldTime: { ...prev.worldTime, month: parseInt(e.target.value) || 1 } 
+                                    }))} 
+                                    className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-600 dark:text-gray-400 mb-1">Năm</label>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    value={formData.worldTime.year} 
+                                    onChange={(e) => setFormData(prev => ({ 
+                                        ...prev, 
+                                        worldTime: { ...prev.worldTime, year: parseInt(e.target.value) || 1000 } 
+                                    }))} 
+                                    className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

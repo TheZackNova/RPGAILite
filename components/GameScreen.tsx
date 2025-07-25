@@ -1014,7 +1014,7 @@ export const GameScreen: React.FC<{
         setParty([]);
         setTurnCount(0);
         setTotalTokens(0);
-        setGameTime({ year: 1, month: 1, day: 1, hour: 8 });
+        setGameTime({ year: worldData.worldTime?.year || 1, month: worldData.worldTime?.month || 1, day: worldData.worldTime?.day || 1, hour: 8 });
         setChronicle({ memoir: [], chapter: [], turn: [] });
         setRuleChanges(null);
         previousRulesRef.current = initialGameState.customRules;

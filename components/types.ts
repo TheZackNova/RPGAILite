@@ -46,8 +46,10 @@ export interface CustomRule {
 }
 
 export interface FormData {
-    genre: string;
+    storyName: string; // Changed from 'genre' 
+    genre: string; // New field for story genre
     worldDetail: string;
+    worldTime: { day: number; month: number; year: number }; // New field for world start time
     writingStyle: string;
     difficulty: string;
     allowNsfw: boolean;
