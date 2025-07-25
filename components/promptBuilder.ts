@@ -155,6 +155,10 @@ export class EnhancedRAGSystem {
     private buildEntityGraph(entities: KnownEntities) {
         this.entityGraph.clear();
         
+        if (!entities || typeof entities !== 'object') {
+            return;
+        }
+        
         for (const [name, entity] of Object.entries(entities)) {
             const connections = new Set<string>();
             
@@ -171,7 +175,7 @@ export class EnhancedRAGSystem {
             }
             
             // Special handling for NPCs with skills
-            if (entity.skills) {
+            if (entity.skills && Array.isArray(entity.skills)) {
                 entity.skills.forEach(skill => connections.add(skill));
             }
             
@@ -189,17 +193,19 @@ export class EnhancedRAGSystem {
         const relevanceScores: EntityRelevance[] = [];
         
         // Always include party members with high relevance
-        party.forEach(member => {
-            relevanceScores.push({
-                entity: member,
-                score: 100,
-                reason: ['Party member']
+        if (Array.isArray(party)) {
+            party.forEach(member => {
+                relevanceScores.push({
+                    entity: member,
+                    score: 100,
+                    reason: ['Party member']
+                });
             });
-        });
+        }
 
         // Score all other entities
         for (const [name, entity] of Object.entries(knownEntities)) {
-            if (party.some(p => p.name === name)) continue;
+            if (Array.isArray(party) && party.some(p => p.name === name)) continue;
             
             let score = 0;
             const reasons: string[] = [];

@@ -94,7 +94,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     const containerRef = useRef<HTMLDivElement>(null);
     const [virtualState, setVirtualState] = useState<VirtualScrollState>({
         scrollTop: 0,
-        containerHeight: 400,
+        containerHeight: window.innerHeight * 0.6, // Use 60% of viewport height initially
         isScrolling: false,
         shouldAutoScroll: true
     });
@@ -303,7 +303,6 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                         ref={scrollElementRef}
                         className="h-full overflow-y-auto pr-2 p-4 md:pb-4 pb-40"
                         onScroll={onScroll}
-                        style={{ height: virtualState.containerHeight }}
                     >
                         <div
                             style={{

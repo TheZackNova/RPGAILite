@@ -73,11 +73,6 @@ export const MainMenu: React.FC<{
             focusClass="focus:ring-slate-500"
           />
         </main>
-    
-        <footer className="text-center mt-10 text-xs text-slate-600 dark:text-gray-400">
-          <p>{isUsingDefaultKey ? 'Đang dùng Gemini AI mặc định.' : 'Đang dùng API Key của bạn.'}</p>
-          <p className="mt-1">UserID: 000000000</p>
-        </footer>
       </div>
     );
 };

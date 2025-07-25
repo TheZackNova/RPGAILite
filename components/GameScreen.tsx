@@ -10,6 +10,7 @@ import { buildEnhancedRagPrompt } from './promptBuilder.ts';
 
 // Modal Imports
 import { MemoizedModals } from './MemoizedModals.tsx';
+import { GameSettingsModal, GameSettings } from './GameSettingsModal.tsx';
 
 // UI Components
 import { DesktopHeader } from './game/DesktopHeader.tsx';
@@ -57,8 +58,17 @@ const calculateNewTime = (
 };
 
 const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, owner: string): Status[] => {
+    console.log('🔧 applyStatusWithLimit called:', {
+        statusName: newStatusAttributes.name,
+        requestedOwner: owner,
+        attributes: newStatusAttributes,
+        currentStatusCount: prevStatuses.length,
+        currentStatuses: prevStatuses.map(s => `${s.name}(${s.owner})`)
+    });
+
     const newStatusType = newStatusAttributes.type;
     if (!newStatusType) {
+        console.log('🔧 No type found, adding status directly');
         // Failsafe for statuses without a type, just add it.
         return [...prevStatuses, { ...newStatusAttributes, owner } as Status];
     }
@@ -82,28 +92,36 @@ const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, 
         // If limit is reached or exceeded, keep only the newest (limit - 1) statuses.
         // The oldest ones are at the beginning of the array.
         finalOwnerStatusesOfType = ownerStatusesOfType.slice(ownerStatusesOfType.length - (maxStatusesPerType - 1));
+        console.log('🔧 Status limit reached, removing oldest statuses');
     }
     
     // 5. Create the new status object to add.
     const newStatusToAdd: Status = { ...newStatusAttributes, owner: owner };
+    console.log('🔧 Creating new status:', newStatusToAdd);
     
     // 6. Reconstruct and return the new status list.
-    return [
+    const finalResult = [
         ...otherOwnersStatuses, 
         ...ownerStatusesOfOtherTypes,
         ...finalOwnerStatusesOfType, 
         newStatusToAdd
     ];
+    
+    console.log('🔧 Final result:', {
+        totalCount: finalResult.length,
+        newStatusAdded: finalResult.find(s => s.name === newStatusAttributes.name && s.owner === owner),
+        allStatuses: finalResult.map(s => `${s.name}(${s.owner})`)
+    });
+    
+    return finalResult;
 };
 
 export const GameScreen: React.FC<{ 
     initialGameState: SaveData, 
     onBackToMenu: () => void,
-    fontFamily: string,
-    fontSize: string,
     keyRotationNotification: string | null;
     onClearNotification: () => void;
-}> = ({ initialGameState, onBackToMenu, fontFamily, fontSize, keyRotationNotification, onClearNotification }) => {
+}> = ({ initialGameState, onBackToMenu, keyRotationNotification, onClearNotification }) => {
     const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount } = useContext(AIContext);
     const [worldData, setWorldData] = useState(initialGameState.worldData);
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
@@ -148,6 +166,25 @@ export const GameScreen: React.FC<{
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
     const [notification, setNotification] = useState<string | null>(null);
+    const [isGameSettingsModalOpen, setIsGameSettingsModalOpen] = useState(false);
+    
+    // Game Settings State
+    const [gameSettings, setGameSettings] = useState<GameSettings>(() => {
+        const saved = localStorage.getItem('gameSettings');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch {
+                // Fall back to defaults if parse fails
+            }
+        }
+        return {
+            fontSize: 16,
+            fontFamily: 'Inter',
+            memoryAutoClean: true,
+            historyAutoCompress: true,
+        };
+    });
     
     // Map State
     const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
@@ -249,6 +286,16 @@ export const GameScreen: React.FC<{
                 const rawContent = match[2];
                 
                 const attributes = parseAttributes(rawContent);
+                
+                // Only log for status-related tags to reduce console spam
+                if (tagType.includes('STATUS')) {
+                    console.log('🏷️ Parsing status tag:', {
+                        fullTag: match[0],
+                        tagType: tagType,
+                        rawContent: rawContent,
+                        attributes: attributes
+                    });
+                }
                 if (tagType === 'MEMORY_ADD' && attributes.text) {
                     setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
                     continue;
@@ -286,13 +333,37 @@ export const GameScreen: React.FC<{
                         }
                         break;
                     case 'STATUS_APPLIED_SELF':
-                        setStatuses(prev => applyStatusWithLimit(prev, attributes, 'pc'));
+                        console.log('🔥 STATUS_APPLIED_SELF Debug:', {
+                            statusName: attributes.name,
+                            owner: 'pc',
+                            allAttributes: attributes
+                        });
+                        setStatuses(prev => {
+                            const newStatuses = applyStatusWithLimit(prev, attributes, 'pc');
+                            console.log('🔥 After STATUS_APPLIED_SELF:', {
+                                previousCount: prev.length,
+                                newCount: newStatuses.length,
+                                addedStatus: newStatuses.find(s => s.name === attributes.name && s.owner === 'pc')
+                            });
+                            return newStatuses;
+                        });
                         break;
                     case 'STATUS_APPLIED_NPC':
-                        if (attributes.npcName) {
-                            const { npcName, ...statusData } = attributes;
-                            setStatuses(prev => applyStatusWithLimit(prev, statusData, npcName));
-                        }
+                        console.log('🔥 STATUS_APPLIED_NPC Debug:', {
+                            statusName: attributes.name,
+                            npcName: attributes.npcName,
+                            owner: attributes.npcName,
+                            allAttributes: attributes
+                        });
+                        setStatuses(prev => {
+                            const newStatuses = applyStatusWithLimit(prev, attributes, attributes.npcName);
+                            console.log('🔥 After STATUS_APPLIED_NPC:', {
+                                previousCount: prev.length,
+                                newCount: newStatuses.length,
+                                addedStatus: newStatuses.find(s => s.name === attributes.name && s.owner === attributes.npcName)
+                            });
+                            return newStatuses;
+                        });
                         break;
                     case 'STATUS_CURED_SELF':
                         setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
@@ -643,36 +714,41 @@ export const GameScreen: React.FC<{
             historyStats, cleanupStats
         };
         
-        // Automatic cleanup logic
-        const optimizerResult = GameStateOptimizer.performCleanup(currentState);
-        if (optimizerResult.shouldRunCleanup) {
-            console.log("Applying auto cleanup...");
-            const { optimizedState, stats } = optimizerResult;
-            setKnownEntities(optimizedState.knownEntities);
-            setStatuses(optimizedState.statuses);
-            setQuests(optimizedState.quests);
-            setMemories(optimizedState.memories);
-            setChronicle(optimizedState.chronicle);
-            setCleanupStats(prev => ({
-                totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-                totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
-                lastCleanupTurn: turnCount,
-                cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
-            }));
+        // Automatic cleanup logic (only if enabled in settings)
+        let optimizerResult = null;
+        if (gameSettings.memoryAutoClean) {
+            optimizerResult = GameStateOptimizer.performCleanup(currentState);
+            if (optimizerResult.shouldRunCleanup) {
+                console.log("Applying auto cleanup...");
+                const { optimizedState, stats } = optimizerResult;
+                setKnownEntities(optimizedState.knownEntities);
+                setStatuses(optimizedState.statuses);
+                setQuests(optimizedState.quests);
+                setMemories(optimizedState.memories);
+                setChronicle(optimizedState.chronicle);
+                setCleanupStats(prev => ({
+                    totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+                    totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+                    lastCleanupTurn: turnCount,
+                    cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
+                }));
+            }
         }
 
-        // Automatic history compression logic
-        const historyManagerTargetState = optimizerResult.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
-        const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
-        if (historyResult.shouldCompress && historyResult.compressedSegment) {
-            console.log("Compressing history...");
-            setGameHistory(historyResult.activeHistory);
-            setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
-            setHistoryStats(prev => ({
-                totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
-                totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0), // Assuming tokenCount is a reliable measure of saved tokens for now
-                compressionCount: prev.compressionCount + 1,
-            }));
+        // Automatic history compression logic (only if enabled in settings)
+        if (gameSettings.historyAutoCompress) {
+            const historyManagerTargetState = optimizerResult?.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
+            const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
+            if (historyResult.shouldCompress && historyResult.compressedSegment) {
+                console.log("Compressing history...");
+                setGameHistory(historyResult.activeHistory);
+                setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
+                setHistoryStats(prev => ({
+                    totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
+                    totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0), // Assuming tokenCount is a reliable measure of saved tokens for now
+                    compressionCount: prev.compressionCount + 1,
+                }));
+            }
         }
     }, [turnCount]);
     
@@ -740,7 +816,7 @@ export const GameScreen: React.FC<{
                 setCurrentTurnTokens(turnTokens);
                 setTotalTokens(prev => prev + turnTokens);
 
-                const responseText = response.text.trim();
+                const responseText = response.text?.trim() || '';
                 parseApiResponse(responseText);
                 setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
             } catch (error: any) {
@@ -799,7 +875,7 @@ export const GameScreen: React.FC<{
             setCurrentTurnTokens(turnTokens);
             setTotalTokens(prev => prev + turnTokens);
 
-            const responseText = response.text.trim();
+            const responseText = response.text?.trim() || '';
             setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
             parseApiResponse(responseText);
             setTurnCount(prev => prev + 1); 
@@ -839,7 +915,7 @@ export const GameScreen: React.FC<{
                 model: 'gemini-2.5-flash',
                 contents: `Bối cảnh: "${storyLog.slice(-1)[0]}". Gợi ý một hành động sáng tạo.`,
             });
-            setCustomAction(response.text.trim());
+            setCustomAction(response.text?.trim() || 'Không thể nhận gợi ý lúc này.');
         } catch (error) {
             console.error("Error suggesting action:", error);
             setCustomAction("Không thể nhận gợi ý lúc này.");
@@ -889,6 +965,21 @@ export const GameScreen: React.FC<{
         previousRulesRef.current = initialGameState.customRules;
         setGameHistory([]);
     };
+
+    const handleSettingsChange = (newSettings: GameSettings) => {
+        setGameSettings(newSettings);
+        localStorage.setItem('gameSettings', JSON.stringify(newSettings));
+        
+        // Apply font settings to document root
+        document.documentElement.style.setProperty('--game-font-size', `${newSettings.fontSize}px`);
+        document.documentElement.style.setProperty('--game-font-family', newSettings.fontFamily);
+    };
+
+    // Apply font settings on component mount
+    useEffect(() => {
+        document.documentElement.style.setProperty('--game-font-size', `${gameSettings.fontSize}px`);
+        document.documentElement.style.setProperty('--game-font-family', gameSettings.fontFamily);
+    }, [gameSettings.fontSize, gameSettings.fontFamily]);
 
     const handleManualCleanup = useCallback(() => {
         console.log('Triggering manual cleanup...');
@@ -944,8 +1035,13 @@ export const GameScreen: React.FC<{
     
     return (
         <div 
-            className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col font-sans text-slate-900 dark:text-white relative" 
-            style={{maxHeight: '98vh', height: '98vh'}}
+            className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col text-slate-900 dark:text-white relative" 
+            style={{
+                maxHeight: '98vh', 
+                height: '98vh',
+                fontSize: 'var(--game-font-size, 16px)',
+                fontFamily: 'var(--game-font-family, Inter)'
+            }}
         >
             <GameNotifications 
                 notification={notification} 
@@ -957,6 +1053,7 @@ export const GameScreen: React.FC<{
                 isOpen={isSidebarOpen} 
                 onClose={() => setIsSidebarOpen(false)}
                 onHome={() => setIsHomeModalOpen(true)}
+                onSettings={() => setIsGameSettingsModalOpen(true)}
                 onSave={handleSaveGame}
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
@@ -980,6 +1077,7 @@ export const GameScreen: React.FC<{
 
             <DesktopHeader 
                 onHome={() => setIsHomeModalOpen(true)} 
+                onSettings={() => setIsGameSettingsModalOpen(true)}
                 onSave={handleSaveGame} 
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
@@ -1069,6 +1167,13 @@ export const GameScreen: React.FC<{
                 turnCount={turnCount}
                 locationDiscoveryOrder={locationDiscoveryOrder}
                 entityComputations={entityComputations}
+            />
+
+            <GameSettingsModal
+                isOpen={isGameSettingsModalOpen}
+                onClose={() => setIsGameSettingsModalOpen(false)}
+                settings={gameSettings}
+                onSettingsChange={handleSettingsChange}
             />
         </div>
     );

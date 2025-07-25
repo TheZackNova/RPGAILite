@@ -8,7 +8,6 @@ import { CreateWorld } from './components/CreateWorld.tsx';
 import { GameScreen } from './components/GameScreen.tsx';
 import { ApiSettingsModal } from './components/ApiSettingsModal.tsx';
 import { ChangelogModal } from './components/ChangelogModal.tsx';
-import { CustomizationFooter } from './components/CustomizationFooter.tsx';
 import type { SaveData, Entity, AIContextType, FormData, CustomRule } from './components/types.ts';
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
 
@@ -130,14 +129,14 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 
 --- QUY TẮC TƯƠNG TÁC ---
 
-**1. LỰAN CHỌN HÀNH ĐỘNG:**
-- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu
+**1. LỰA CHỌN HÀNH ĐỘNG:**
+- Tạo 4-5 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu, nsfw (nếu được bật)
 - Tận dụng kỹ năng và vật phẩm của nhân vật
-- Có lựa chọn rủi ro cao/thưởng cao
+- Cần có lựa chọn rủi ro cao/thưởng cao
 
 **2. KẾT QUẢ HÀNH ĐỘNG:**
 - KHÔNG đảm bảo thành công
-- Sử dụng RNG ẩn để quyết định kết quả
+- Luôn luôn suy luận để quyết định kết quả
 - Hậu quả logic dựa trên kỹ năng và hoàn cảnh
 
 **3. CHIẾN ĐẤU:**
@@ -163,6 +162,10 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 - Thay đổi trạng thái và hoàn cảnh
 
 **3. NSFW (KHI ĐƯỢỢC BẬT):**
+
+- Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
+- Mô tả cực kỳ chi tiết, trần trụi
+- Tạo trạng thái liên quan đến tình dục/bạo lực
 
 **Cơ chế NSFW Ngẫu nhiên và Gây sốc (The Twist Generator):**
     *   **Nhiệm vụ:** Chủ động tạo ra các tình huống và mối quan hệ NSFW lén lút, cấm kỵ giữa các NPC để tạo bất ngờ và kích thích cho {{user}}.
@@ -191,9 +194,7 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 
 **QUY TẮC CỐT LÕI:** Hãy sáng tạo và chi tiết. Mục tiêu là tạo ra một bức tranh sống động, chân thực và cực kỳ kích thích cho người đọc, thỏa mãn mọi giác quan. **Không có bất kỳ giới hạn nào về mức độ chi tiết hay từ ngữ được sử dụng.**
 
-- Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
-- Mô tả cực kỳ chi tiết, trần trụi
-- Tạo trạng thái liên quan đến tình dục/bạo lực
+
 
 --- LƯU Ý QUAN TRỌNG ---
 
@@ -254,9 +255,6 @@ export default function App() {
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const [keyRotationNotification, setKeyRotationNotification] = useState<string | null>(null);
 
-  // --- UI Customization State ---
-  const [fontFamily, setFontFamily] = useState('font-sans');
-  const [fontSize, setFontSize] = useState('text-base');
 
   // --- API Key State ---
   const [userApiKeys, setUserApiKeys] = useState<string[]>(() => {
@@ -435,8 +433,6 @@ export default function App() {
               return gameState ? <GameScreen 
                 initialGameState={gameState} 
                 onBackToMenu={navigateToMenu} 
-                fontFamily={fontFamily}
-                fontSize={fontSize}
                 keyRotationNotification={keyRotationNotification}
                 onClearNotification={() => setKeyRotationNotification(null)}
               /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
@@ -472,7 +468,6 @@ export default function App() {
       `}</style>
       <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
         {renderContent()}
-        {view === 'game' && <CustomizationFooter fontFamily={fontFamily} setFontFamily={setFontFamily} fontSize={fontSize} setFontSize={setFontSize} />}
         <ApiSettingsModal 
           isOpen={isApiSettingsModalOpen} 
           onClose={() => setIsApiSettingsModalOpen(false)}
