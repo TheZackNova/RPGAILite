@@ -68,9 +68,12 @@ const MapLegend = ({ isCollapsed, onToggle }: { isCollapsed: boolean; onToggle: 
                         </div>
                         <div className="space-y-1">
                             {colorLegend.map(item => (
-                                <div key={item.label} className="flex items-center text-xs">
-                                    <span className="w-3 h-3 mr-2 rounded-full border border-white/20" style={{ backgroundColor: item.color }}></span>
-                                    <span className="text-white truncate">{item.label}</span>
+                                <div key={item.label} className={`flex items-center text-xs ${item.label === 'Vị trí hiện tại' ? 'font-bold text-orange-300' : ''}`}>
+                                    <span 
+                                        className={`w-3 h-3 mr-2 rounded-full border ${item.label === 'Vị trí hiện tại' ? 'border-orange-300' : 'border-white/20'}`} 
+                                        style={{ backgroundColor: item.color }}
+                                    ></span>
+                                    <span className="text-white truncate">{item.label === 'Vị trí hiện tại' ? '📍 Vị trí hiện tại' : item.label}</span>
                                 </div>
                             ))}
                         </div>
@@ -92,9 +95,12 @@ const MapLegend = ({ isCollapsed, onToggle }: { isCollapsed: boolean; onToggle: 
                 <h3 className="font-bold text-lg text-purple-300 mb-4">Chú giải Màu sắc</h3>
                 <ul className="space-y-2">
                     {colorLegend.map(item => (
-                        <li key={item.label} className="flex items-center text-sm">
-                            <span className="w-4 h-4 mr-3 rounded-full border border-white/20" style={{ backgroundColor: item.color }}></span>
-                            <span>{item.label}</span>
+                        <li key={item.label} className={`flex items-center text-sm ${item.label === 'Vị trí hiện tại' ? 'font-bold text-orange-300 animate-pulse' : ''}`}>
+                            <span 
+                                className={`w-4 h-4 mr-3 rounded-full border ${item.label === 'Vị trí hiện tại' ? 'border-orange-300 shadow-lg' : 'border-white/20'}`} 
+                                style={{ backgroundColor: item.color }}
+                            ></span>
+                            <span>{item.label === 'Vị trí hiện tại' ? '📍 Vị trí hiện tại' : item.label}</span>
                         </li>
                     ))}
                 </ul>
@@ -109,7 +115,8 @@ export const MapModal: React.FC<{
     locations: Entity[];
     currentLocationName: string;
     discoveryOrder: string[];
-}> = ({ isOpen, onClose, locations, currentLocationName, discoveryOrder }) => {
+    onLocationClick?: (locationName: string) => void;
+}> = ({ isOpen, onClose, locations, currentLocationName, discoveryOrder, onLocationClick }) => {
     if (!isOpen) return null;
     
     const svgRef = useRef<SVGSVGElement>(null);
@@ -121,6 +128,10 @@ export const MapModal: React.FC<{
     // Interaction state
     const [isDragging, setIsDragging] = useState(false);
     const [startDrag, setStartDrag] = useState({ x: 0, y: 0 });
+    const isDraggingRef = useRef(false);
+    const startDragRef = useRef({ x: 0, y: 0 });
+    const [mouseDownPos, setMouseDownPos] = useState<{ x: number, y: number } | null>(null);
+    const DRAG_THRESHOLD = 5; // pixels
     const [isLegendCollapsed, setIsLegendCollapsed] = useState(true);
     
     // Touch and gesture state
@@ -173,7 +184,6 @@ export const MapModal: React.FC<{
 
     // Touch event handlers
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
-        e.preventDefault();
         const touchPoints = getTouchPoints(e.nativeEvent);
         setTouches(touchPoints);
 
@@ -194,7 +204,6 @@ export const MapModal: React.FC<{
     }, [view]);
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
-        e.preventDefault();
         const touchPoints = getTouchPoints(e.nativeEvent);
 
         if (touchPoints.length === 1 && isDragging) {
@@ -232,7 +241,7 @@ export const MapModal: React.FC<{
 
     // Mouse event handlers (for desktop)
     const handleWheel = useCallback((e: React.WheelEvent) => {
-        e.preventDefault();
+        e.stopPropagation();
         const scaleAmount = -e.deltaY * 0.001;
         const newScale = Math.min(Math.max(0.1, view.scale + scaleAmount), 3);
         
@@ -253,18 +262,57 @@ export const MapModal: React.FC<{
     }, [view]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        setIsDragging(true);
-        setStartDrag({ x: e.clientX - view.x, y: e.clientY - view.y });
-    }, [view]);
+        // Only allow drag from background rect, not from location elements
+        const isBackgroundClick = (e.target as Element).tagName === 'rect';
+        if (!isBackgroundClick) {
+            return;
+        }
 
-    const handleMouseMove = useCallback((e: React.MouseEvent) => {
-        if (!isDragging) return;
-        setView(prev => ({ ...prev, x: e.clientX - startDrag.x, y: e.clientY - startDrag.y }));
-    }, [isDragging, startDrag]);
-
-    const handleMouseUp = useCallback(() => {
-        setIsDragging(false);
-    }, []);
+        const startPos = { x: e.clientX, y: e.clientY };
+        const dragStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+        
+        setMouseDownPos(startPos);
+        setStartDrag(dragStart);
+        startDragRef.current = dragStart;
+        
+        // Document-level mouse move handler
+        const handleDocumentMouseMove = (event: MouseEvent) => {
+            const distance = Math.sqrt(
+                Math.pow(event.clientX - startPos.x, 2) + 
+                Math.pow(event.clientY - startPos.y, 2)
+            );
+            
+            // Only start dragging if we've moved beyond the threshold
+            if (distance > DRAG_THRESHOLD && !isDraggingRef.current) {
+                isDraggingRef.current = true;
+                setIsDragging(true);
+            }
+            
+            // If we are dragging, update the view
+            if (isDraggingRef.current) {
+                const newX = event.clientX - dragStart.x;
+                const newY = event.clientY - dragStart.y;
+                setView(prev => ({ 
+                    ...prev, 
+                    x: newX, 
+                    y: newY 
+                }));
+            }
+        };
+        
+        // Document-level mouse up handler
+        const handleDocumentMouseUp = () => {
+            document.removeEventListener('mousemove', handleDocumentMouseMove);
+            document.removeEventListener('mouseup', handleDocumentMouseUp);
+            setMouseDownPos(null);
+            isDraggingRef.current = false;
+            setIsDragging(false);
+        };
+        
+        // Attach document-level listeners
+        document.addEventListener('mousemove', handleDocumentMouseMove);
+        document.addEventListener('mouseup', handleDocumentMouseUp);
+    }, [view, DRAG_THRESHOLD]);
 
     // Utility functions
     const zoom = useCallback((factor: number) => {
@@ -304,14 +352,37 @@ export const MapModal: React.FC<{
         }
     }, [isOpen, resetView]);
 
+    // Cleanup document event listeners on unmount
+    useEffect(() => {
+        return () => {
+            // Clean up any lingering document event listeners
+            const cleanup = () => {
+                isDraggingRef.current = false;
+                setIsDragging(false);
+                setMouseDownPos(null);
+            };
+            cleanup();
+        };
+    }, []);
+
     const discoveredLocations = new Set(discoveryOrder);
 
-    // Handle location click for mobile info panel
-    const handleLocationClick = useCallback((location: Entity) => {
-        if (window.innerWidth < 768) {
-            setSelectedLocation(location);
+    // Handle location click for both mobile and desktop
+    const handleLocationClick = useCallback((location: Entity, event?: React.MouseEvent) => {
+        if (event) {
+            event.stopPropagation();
         }
-    }, []);
+        
+        if (window.innerWidth < 768) {
+            // Mobile: show local info panel
+            setSelectedLocation(location);
+        } else {
+            // Desktop: use callback to show EntityInfoModal
+            if (onLocationClick) {
+                onLocationClick(location.name);
+            }
+        }
+    }, [onLocationClick]);
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[70] p-2 md:p-4" onClick={onClose}>
@@ -327,7 +398,7 @@ export const MapModal: React.FC<{
                     </h3>
                     <div className="flex items-center gap-2">
                         {/* Current location indicator on mobile */}
-                        <div className="md:hidden text-xs text-purple-300 truncate max-w-[120px]">
+                        <div className="md:hidden text-xs bg-orange-500/20 text-orange-300 px-2 py-1 rounded-md border border-orange-400/30 truncate max-w-[120px] animate-pulse">
                             📍 {currentLocationName}
                         </div>
                         <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -337,23 +408,30 @@ export const MapModal: React.FC<{
                 </div>
 
                 {/* Main content */}
-                <div className="flex-grow flex overflow-hidden relative">
+                <div className="flex-grow flex overflow-hidden relative" style={{ overflowX: 'hidden', overflowY: 'hidden' }}>
                     {/* Map area */}
-                    <div className="flex-grow relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-slate-950">
+                    <div className="flex-grow relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-slate-950" style={{ touchAction: 'none' }}>
                         <svg
                             ref={svgRef}
                             className="w-full h-full select-none"
                             onWheel={handleWheel}
-                            onMouseDown={handleMouseDown}
-                            onMouseMove={handleMouseMove}
-                            onMouseUp={handleMouseUp}
-                            onMouseLeave={handleMouseUp}
                             onTouchStart={handleTouchStart}
                             onTouchMove={handleTouchMove}
                             onTouchEnd={handleTouchEnd}
-                            style={{ touchAction: 'none' }}
+                            style={{ touchAction: 'none', overflow: 'hidden' }}
                         >
-                            <g style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transition: isDragging ? 'none' : 'transform 0.1s linear' }}>
+                            {/* Invisible background for drag detection */}
+                            <rect
+                                x="0"
+                                y="0"
+                                width="100%"
+                                height="100%"
+                                fill="transparent"
+                                onMouseDown={handleMouseDown}
+                                style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+                            />
+                            
+                            <g style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
                                 {/* Connection lines */}
                                 {discoveryOrder.slice(0, -1).map((name, i) => {
                                     const start = nodePositions[name];
@@ -393,15 +471,40 @@ export const MapModal: React.FC<{
                                         <g 
                                             key={loc.name} 
                                             transform={`translate(${pos.x}, ${pos.y})`} 
-                                            className={`cursor-pointer transition-transform ${isCurrent ? '' : 'hover:scale-110'}`}
-                                            onClick={() => handleLocationClick(loc)}
+                                            className={`transition-transform`}
+                                            onClick={(e) => handleLocationClick(loc, e)}
+                                            style={{ cursor: 'pointer' }}
                                         >
+                                            {/* Current location highlight effects */}
+                                            {isCurrent && (
+                                                <>
+                                                    {/* Pulsing outer glow */}
+                                                    <circle 
+                                                        r={nodeSize + 8} 
+                                                        fill="none" 
+                                                        stroke="rgb(249, 115, 22)" 
+                                                        strokeWidth="3"
+                                                        opacity="0.6"
+                                                        className="animate-pulse"
+                                                    />
+                                                    {/* Static outer ring */}
+                                                    <circle 
+                                                        r={nodeSize + 4} 
+                                                        fill="none" 
+                                                        stroke="rgb(255, 255, 255)" 
+                                                        strokeWidth="2"
+                                                        opacity="0.8"
+                                                    />
+                                                </>
+                                            )}
+                                            
+                                            {/* Main location circle */}
                                             <circle 
                                                 r={nodeSize} 
                                                 fill={color} 
-                                                stroke="rgba(255,255,255,0.4)" 
-                                                strokeWidth="2"
-                                                className="drop-shadow-lg"
+                                                stroke={isCurrent ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)"} 
+                                                strokeWidth={isCurrent ? "3" : "2"}
+                                                className={isCurrent ? "drop-shadow-2xl" : "drop-shadow-lg"}
                                             />
                                             <foreignObject 
                                                 x={-iconSize/2} 
@@ -417,17 +520,17 @@ export const MapModal: React.FC<{
                                             <text 
                                                 y={nodeSize + 15} 
                                                 textAnchor="middle" 
-                                                fill="white" 
-                                                fontSize={window.innerWidth < 768 ? "12" : "14"} 
-                                                className="font-semibold pointer-events-none" 
+                                                fill={isCurrent ? "rgb(255, 204, 102)" : "white"} 
+                                                fontSize={isCurrent ? (window.innerWidth < 768 ? "13" : "15") : (window.innerWidth < 768 ? "12" : "14")} 
+                                                className={`${isCurrent ? 'font-bold' : 'font-semibold'} pointer-events-none`} 
                                                 style={{
                                                     paintOrder: "stroke", 
-                                                    stroke: "black", 
-                                                    strokeWidth: "3px", 
+                                                    stroke: isCurrent ? "rgb(139, 69, 19)" : "black", 
+                                                    strokeWidth: isCurrent ? "4px" : "3px", 
                                                     strokeLinejoin: "round"
                                                 }}
                                             >
-                                                {loc.name}
+                                                {isCurrent ? `📍 ${loc.name}` : loc.name}
                                             </text>
                                         </g>
                                     );
@@ -467,8 +570,12 @@ export const MapModal: React.FC<{
                                 className="bg-slate-800/90 backdrop-blur-sm text-white text-sm border border-slate-600 rounded-lg px-3 py-2 max-w-[150px]"
                             >
                                 {discoveryOrder.map(locName => (
-                                    <option key={locName} value={locName} className="bg-slate-800">
-                                        {locName}
+                                    <option 
+                                        key={locName} 
+                                        value={locName} 
+                                        className={locName === currentLocationName ? "bg-orange-600 text-white" : "bg-slate-800"}
+                                    >
+                                        {locName === currentLocationName ? `📍 ${locName} (Hiện tại)` : locName}
                                     </option>
                                 ))}
                             </select>

@@ -389,7 +389,8 @@ const MemoizedModalsComponent = ({
                 onEquipItem={handleEquipItem} 
                 onUnequipItem={handleUnequipItem} 
                 statuses={statuses} 
-                onStatusClick={handleStatusClick} 
+                onStatusClick={handleStatusClick}
+                onLocationAction={handleAction}
             />
             
             <StatusDetailModal 
@@ -432,6 +433,7 @@ const MemoizedModalsComponent = ({
                 locations={Object.values(knownEntities).filter((e): e is Entity => e.type === 'location')}
                 currentLocationName={entityComputations.pcEntity?.location || ''}
                 discoveryOrder={locationDiscoveryOrder}
+                onLocationClick={handleEntityClick}
             />
 
             {/* Info Panel Modals */}

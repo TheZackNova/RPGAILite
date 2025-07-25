@@ -3,10 +3,21 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.28.1',
+    date: '2025-07-25',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi drifting (trôi dạt) nghiêm trọng trên Bản Đồ Thế Giới - bản đồ không còn bị trôi không kiểm soát khi hover chuột qua các địa điểm.' },
+      { type: 'fix', text: 'Khắc phục lỗi click vào địa điểm không hoạt động sau các lần sửa lỗi drifting trước đó.' },
+      { type: 'improvement', text: 'Tối ưu hóa hệ thống drag detection: Chỉ cho phép kéo bản đồ khi click vào vùng trống, không phản ứng với hover/click trên địa điểm.' },
+      { type: 'improvement', text: 'Loại bỏ hover effects có thể gây xung đột với hệ thống drag (như hover:scale-110 transform).' },
+      { type: 'technical', text: 'Cải thiện logic mouse event handling: Phân biệt rõ ràng giữa drag operations và location clicks để tránh xung đột.' },
+    ],
+  },
+  {
     version: '1.28.0',
     date: '2025-07-25',
     changes: [
-      { type: 'feature', text: 'Thêm tính năng lựa chọn Model AI trong Thiết Lập API Key - người dùng có thể chọn giữa gemini-2.5-flash và gemini-2.5-flash-lite.' },
+      { type: 'feature', text: 'Thêm tính năng lựa chọn Model AI trong Thiết Lập API Key - người dùng có thể chọn giữa gemini-2.5-flash và gemini-2.5-flash-preview-05-20.' },
       { type: 'feature', text: 'Hiển thị Model AI hiện tại đang sử dụng tại màn hình menu chính để người chơi dễ dàng theo dõi.' },
       { type: 'improvement', text: 'Cập nhật giao diện Thiết Lập API Key với dropdown lựa chọn model thay vì button cố định.' },
       { type: 'improvement', text: 'Tích hợp việc lưu trữ và khôi phục lựa chọn model AI vào localStorage để duy trì settings giữa các phiên chơi.' },

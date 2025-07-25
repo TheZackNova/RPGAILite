@@ -13,7 +13,8 @@ export const EntityInfoModal: React.FC<{
     onUnequipItem: (itemName: string) => void;
     statuses: Status[];
     onStatusClick: (status: Status) => void;
-}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick }) => {
+    onLocationAction?: (action: string) => void;
+}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick, onLocationAction }) => {
     if (!entity) return null;
 
     const typeColors: { [key in EntityType | string]: string } = {
@@ -75,9 +76,9 @@ export const EntityInfoModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[70] p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[80] p-4" onClick={onClose}>
             <div 
-                className={`bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 ${borderColor[entity.type] || 'border-slate-600'} rounded-lg shadow-2xl w-full max-w-lg text-slate-900 dark:text-white`} 
+                className={`bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 ${borderColor[entity.type] || 'border-slate-600'} rounded-lg shadow-2xl w-full ${entity.type === 'location' ? 'max-w-2xl' : 'max-w-lg'} text-slate-900 dark:text-white`} 
                 onClick={e => e.stopPropagation()}
             >
                 <div className={`p-4 border-b-2 ${borderColor[entity.type] || 'border-slate-600'} flex justify-between items-center`}>
@@ -96,7 +97,7 @@ export const EntityInfoModal: React.FC<{
 
                     {/* Basic Information */}
                     <div className="space-y-2">
-                        <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type === 'pc' ? 'Nhân vật chính' : entity.type}</span></p>
+                        <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Loại:</strong> <span className="capitalize">{entity.type === 'pc' ? 'Nhân vật chính' : entity.type === 'location' ? 'Địa điểm' : entity.type}</span></p>
                         
                         {/* Character-like info */}
                         {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && (
@@ -142,6 +143,41 @@ export const EntityInfoModal: React.FC<{
                                             {` ${MBTI_PERSONALITIES[entity.personalityMbti].title} (${entity.personalityMbti}) - `}
                                             <span className="italic">{`"${MBTI_PERSONALITIES[entity.personalityMbti].description}"`}</span>
                                         </p>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Location specific info */}
+                        {entity.type === 'location' && (
+                            <>
+                                {/* Location Safety Status */}
+                                <div className="flex items-center gap-2">
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Tình trạng an toàn:</strong>
+                                    {entity.description?.toLowerCase().includes('an toàn') ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-sm font-medium rounded-full border border-green-300 dark:border-green-700">
+                                            🛡️ An toàn
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-sm font-medium rounded-full border border-yellow-300 dark:border-yellow-700">
+                                            ⚠️ Chưa rõ
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Location Discovery Status */}
+                                <div className="flex items-center gap-2">
+                                    <strong className="font-semibold text-slate-800 dark:text-gray-100">Trạng thái khám phá:</strong>
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-sm font-medium rounded-full border border-blue-300 dark:border-blue-700">
+                                        🗺️ Đã khám phá
+                                    </span>
+                                </div>
+
+                                {/* Current Location Indicator */}
+                                {entity.location && (
+                                    <div className="flex items-center gap-2">
+                                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Thuộc khu vực:</strong>
+                                        <span className="text-slate-600 dark:text-gray-400">{entity.location}</span>
                                     </div>
                                 )}
                             </>
@@ -267,6 +303,57 @@ export const EntityInfoModal: React.FC<{
                             {entity.description || 'Chưa có mô tả.'}
                         </p>
                     </div>
+                    
+                    {/* Location Quick Actions */}
+                    {entity.type === 'location' && (
+                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700/60">
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100 mb-3 block">Hành động nhanh:</strong>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button 
+                                    onClick={() => {
+                                        onClose();
+                                        // Close modal first, then trigger map view (user will see map with location highlighted)
+                                    }}
+                                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+                                >
+                                    🗺️ Xem trên bản đồ
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (onLocationAction) {
+                                            onLocationAction(`Đi tới ${entity.name}`);
+                                        }
+                                        onClose();
+                                    }}
+                                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+                                >
+                                    📍 Đi tới đây
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (onLocationAction) {
+                                            onLocationAction(`Khám phá ${entity.name}`);
+                                        }
+                                        onClose();
+                                    }}
+                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+                                >
+                                    🔍 Khám phá
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (onLocationAction) {
+                                            onLocationAction(`Ghi chú về ${entity.name}`);
+                                        }
+                                        onClose();
+                                    }}
+                                    className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
+                                >
+                                    📝 Ghi chú
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     
                     {/* Action buttons for items */}
                     {entity.type === 'item' && isPcsItem && (
