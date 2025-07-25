@@ -6,6 +6,7 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
     version: '1.26.0',
     date: '2025-07-25',
     changes: [
+      { type: 'feature', text: 'Thêm nút "Chơi Ngay" - tự động lưu WorldSetup vào localStorage và cho phép vào game nhanh với settings đã dùng trước đó.' },
       { type: 'fix', text: 'Sửa lỗi JSON parsing "Unexpected end of JSON input" khi AI trả về phản hồi không hoàn chỉnh hoặc trống.' },
       { type: 'fix', text: 'Khắc phục lỗi game tự động tạo story trùng lặp sau lần đầu tiên generate initial story.' },
       { type: 'fix', text: 'Sửa lỗi nút "Bắt Đầu Lại" không hoạt động do thiếu reset các state flags cần thiết.' },
@@ -13,6 +14,8 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
       { type: 'improvement', text: 'Cập nhật system instruction: Chronicle Turn chỉ bắt buộc từ lượt 2 trở đi, không tạo ở lượt đầu tiên.' },
       { type: 'improvement', text: 'Cải thiện error handling với validation cho empty responses và missing required fields trong JSON.' },
       { type: 'improvement', text: 'Loại bỏ tất cả debug logs và status debuggers khỏi console để clean up development experience.' },
+      { type: 'improvement', text: 'Sửa lỗi format **⭐...⭐** bị lạm dụng cho tên skills/concepts - giờ chỉ dành cho thông báo hệ thống quan trọng.' },
+      { type: 'improvement', text: 'Bắt buộc sử dụng format ⭐...⭐ cho nội dung Chronicle Turn để dễ nhận diện trong Memory Modal.' },
       { type: 'fix', text: 'Sửa lỗi restart game không parse concepts vào knowledge base do thiếu reset knownEntities và party states.' },
     ],
   },

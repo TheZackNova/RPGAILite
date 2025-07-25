@@ -5,11 +5,13 @@ import { PlayIcon, FileIcon, ChartIcon, SettingsIcon } from './Icons.tsx';
 
 export const MainMenu: React.FC<{ 
     onStartNewAdventure: () => void; 
+    onQuickPlay?: () => void;
+    hasLastWorldSetup?: boolean;
     onOpenApiSettings: () => void; 
     onLoadGameFromFile: (file: File) => void;
     isUsingDefaultKey: boolean;
     onOpenChangelog: () => void;
-}> = ({ onStartNewAdventure, onOpenApiSettings, onLoadGameFromFile, isUsingDefaultKey, onOpenChangelog }) => {
+}> = ({ onStartNewAdventure, onQuickPlay, hasLastWorldSetup, onOpenApiSettings, onLoadGameFromFile, isUsingDefaultKey, onOpenChangelog }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +50,16 @@ export const MainMenu: React.FC<{
             hoverClass="hover:from-purple-700 hover:via-pink-600 hover:to-red-600"
             focusClass="focus:ring-pink-500"
           />
+          {hasLastWorldSetup && onQuickPlay && (
+            <MenuButton 
+              text="Chơi Ngay" 
+              icon={<PlayIcon />}
+              onClick={onQuickPlay}
+              colorClass="bg-gradient-to-r from-emerald-500 to-teal-600"
+              hoverClass="hover:from-emerald-600 hover:to-teal-700"
+              focusClass="focus:ring-emerald-500"
+            />
+          )}
           <MenuButton 
             text="Tải Game Từ Tệp (.json)" 
             icon={<FileIcon />}

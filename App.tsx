@@ -41,8 +41,9 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
    - Ví dụ: Cuộc trò chuyện ngắn = hours=0, Đi bộ = hours=1, Chiến đấu = hours=2
 
 2. **CHRONICLE_TURN (BẮT BUỘC TỪ LƯỢT 2):**
-   \`[CHRONICLE_TURN: text="Tóm tắt ngắn gọn sự kiện chính của lượt này"]\`
+   \`[CHRONICLE_TURN: text="⭐Tóm tắt ngắn gọn sự kiện chính của lượt này⭐"]\`
    - Chỉ tạo Chronicle Turn từ lượt thứ 2 trở đi, không tạo ở lượt đầu tiên
+   - Nội dung Chronicle Turn BẮT BUỘC phải có format ⭐...⭐
 
 3. **VỊ TRÍ VÀ DI CHUYỂN:**
    - Khi nhân vật di chuyển: \`[ENTITY_UPDATE: name="TênPC", location="Địa điểm mới"]\`
@@ -104,6 +105,12 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 5. Quy tắc được áp dụng đọc từ tri thức và custom rule
 \`[LORE_CONCEPT: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
 
+**🚫 QUY TẮC FORMAT TÊN QUAN TRỌNG:**
+- Tên skills, concepts, items: Sử dụng tên thường, KHÔNG dùng \`**⭐...⭐**\`
+- Format \`**⭐...⭐**\` CHỈ dành cho thông báo hệ thống quan trọng trong story
+- Ví dụ ĐÚNG: \`name="Hoàng Đế Nội Kinh"\`, \`name="Kỹ Vọng và Sợ Hãi"\`
+- Ví dụ SAI: \`name="⭐Hoàng Đế Nội Kinh⭐"\`, \`name="**⭐Kỹ Vọng⭐**"\`
+
 *   **Hệ thống Vật phẩm & Trang bị:**
         *   \`[ITEM_AQUIRED: name="..." description="..." ...]\`
         *   \`[ITEM_DAMAGED: name="Tên Item" damage="10"]\`
@@ -155,7 +162,8 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 **1. LỜI KỂ:**
 - 250-350 từ, chi tiết và sống động
 - Sử dụng \`...\` cho suy nghĩ nội tâm
-- \`**⭐...⭐**\` cho thông báo quan trọng
+- \`**⭐...⭐**\` CHỈ cho thông báo hệ thống quan trọng (KHÔNG dùng cho tên skills, concepts, statuses, hay items)
+- Format \`⭐...⭐\` (không bold) BẮT BUỘC cho nội dung Chronicle Turn
 
 **2. MÔ TẢ HÀNH ĐỘNG:**
 - Mô tả hậu quả rõ ràng
@@ -329,8 +337,32 @@ export default function App() {
       setGameState(null);
       setView('menu');
   };
+
+  const getLastWorldSetup = (): FormData | null => {
+      try {
+          const saved = localStorage.getItem('lastWorldSetup');
+          return saved ? JSON.parse(saved) : null;
+      } catch (error) {
+          console.error('Failed to load world setup from localStorage:', error);
+          return null;
+      }
+  };
+
+  const quickPlay = () => {
+      const lastSetup = getLastWorldSetup();
+      if (lastSetup) {
+          startNewGame(lastSetup);
+      }
+  };
   
   const startNewGame = (data: FormData) => {
+      // Save WorldSetup to localStorage for quick play
+      try {
+          localStorage.setItem('lastWorldSetup', JSON.stringify(data));
+      } catch (error) {
+          console.error('Failed to save world setup to localStorage:', error);
+      }
+
       const pcEntity: Entity = {
           name: data.characterName || 'Vô Danh',
           type: 'pc',
@@ -436,10 +468,10 @@ export default function App() {
                 onBackToMenu={navigateToMenu} 
                 keyRotationNotification={keyRotationNotification}
                 onClearNotification={() => setKeyRotationNotification(null)}
-              /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
+              /> : <MainMenu onStartNewAdventure={navigateToCreateWorld} onQuickPlay={quickPlay} hasLastWorldSetup={!!getLastWorldSetup()} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
           case 'menu':
           default:
-              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
+              return <MainMenu onStartNewAdventure={navigateToCreateWorld} onQuickPlay={quickPlay} hasLastWorldSetup={!!getLastWorldSetup()} onOpenApiSettings={openApiSettings} onLoadGameFromFile={handleLoadGameFromFile} isUsingDefaultKey={isUsingDefaultKey} onOpenChangelog={openChangelog}/>;
       }
   }
 
