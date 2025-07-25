@@ -179,6 +179,8 @@ export class HistoryManager {
             'đi đến', 'di chuyển', 'rời khỏi', 'về',
             // Items/Skills
             'sử dụng', 'học', 'trang bị', 'lấy',
+			// NSFW
+			'cưỡng bức', 'sờ mó', 'bóp véo',
             // Important verbs
             'quyết định', 'chọn', 'tìm kiếm', 'khám phá'
         ];

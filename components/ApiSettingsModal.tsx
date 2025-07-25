@@ -52,7 +52,7 @@ export const ApiSettingsModal: React.FC<{
                             className="w-full px-4 py-2.5 bg-white dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75"
                         >
                             <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-                            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+                            <option value="gemini-2.5-flash-preview-05-20">gemini-2.5-flash-preview-05-20</option>
                         </select>
                     </div>
 
