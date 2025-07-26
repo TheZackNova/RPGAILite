@@ -192,7 +192,7 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 
 **3. NSFW (KHI ĐƯỢỢC BẬT):**
 
-- Chủ động tạo 2+ lựa chọn 18+ đánh dấu \`(NSFW)\`
+- Chủ động tạo lựa chọn 18+ đánh dấu \`(NSFW)\` dựa trên nội dung story thích hợp.
 - Mô tả cực kỳ chi tiết, trần trụi
 - Tạo trạng thái liên quan đến tình dục/bạo lực
 
