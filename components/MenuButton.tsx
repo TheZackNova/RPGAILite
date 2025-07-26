@@ -7,16 +7,31 @@ interface MenuButtonProps {
   colorClass: string;
   hoverClass: string;
   focusClass: string;
-  onClick?: () => void;
+  onClick?: () => void | Promise<void>;
   disabled?: boolean;
 }
 
 const MenuButton: React.FC<MenuButtonProps> = ({ text, icon, colorClass, hoverClass, focusClass, onClick, disabled = false }) => {
   const disabledClasses = 'bg-slate-800 text-gray-500 cursor-not-allowed';
 
+  const handleClick = async () => {
+    console.log('🔘 MenuButton: Click received for:', text);
+    if (onClick) {
+      console.log('🔘 MenuButton: Executing onClick for:', text);
+      try {
+        await onClick();
+        console.log('🔘 MenuButton: onClick completed for:', text);
+      } catch (error) {
+        console.error('🔘 MenuButton: onClick error for:', text, error);
+      }
+    } else {
+      console.log('🔘 MenuButton: No onClick handler for:', text);
+    }
+  };
+
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled}
       className={`
         flex items-center justify-start w-80 sm:w-96 py-3 px-6 rounded-lg text-white font-semibold shadow-lg 

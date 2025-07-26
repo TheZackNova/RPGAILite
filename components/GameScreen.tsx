@@ -828,27 +828,67 @@ export const GameScreen: React.FC<{
                 customRulesContext = `\n--- TRI THỨC & LUẬT LỆ TÙY CHỈNH (ĐANG ÁP DỤNG) ---\n${activeRules.map(r => `- ${r.content}`).join('\n')}\n--- KẾT THÚC ---\n`;
             }
 
-            const userPrompt = `${customRulesContext}BẠN LÀ QUẢN TRÒ...`; // Shortened for brevity
-            
-            const pcEntity: Entity = {
-                name: worldData.characterName || 'Vô Danh',
-                type: 'pc',
-                description: worldData.bio,
-                gender: worldData.gender,
-                personality: finalPersonality,
-                learnedSkills: [],
-            };
-            setKnownEntities({ [pcEntity.name]: pcEntity });
-            setParty([pcEntity]);
+            // BƯỚC 2: SỬ DỤNG LORE_CONCEPT ĐÃ TẠO
+            const conceptEntities = Object.values(knownEntities).filter(e => e.type === 'concept');
+            let conceptContext = '';
+            if (conceptEntities.length > 0) {
+                conceptContext = `\n--- CÁC LORE_CONCEPT ĐÃ THIẾT LẬP ---\n${conceptEntities.map(c => `• ${c.name}: ${c.description}`).join('\n')}\n--- KẾT THÚC ---\n`;
+            }
+
+            const pcEntity = Object.values(knownEntities).find(e => e.type === 'pc');
+            if (!pcEntity) return;
+
+            const userPrompt = `${customRulesContext}${conceptContext}
+
+BẠN LÀ QUẢN TRÒ AI. Tạo câu chuyện mở đầu cho game RPG với yêu cầu sau:
+
+--- THÔNG TIN NHÂN VẬT CHÍNH ---
+Tên: ${pcEntity.name}
+Giới tính: ${pcEntity.gender}
+Tiểu sử: ${pcEntity.description}
+Tính cách: ${pcEntity.personality}
+
+--- THÔNG TIN THẾ GIỚI ---
+Thế giới: ${worldData.worldName}
+Mô tả: ${worldData.worldDescription}
+Thời gian: Năm ${worldData.worldTime?.year || 1}, Tháng ${worldData.worldTime?.month || 1}, Ngày ${worldData.worldTime?.day || 1}
+Phong cách viết: ${writingStyleText}
+Nội dung 18+: ${nsfwInstruction}
+
+--- YÊU CẦU VIẾT STORY ---
+1. **CHIỀU DÀI**: Chính xác 300-400 từ, chi tiết và sống động
+2. **SỬ DỤNG CONCEPT**: Phải tích hợp các LORE_CONCEPT đã thiết lập vào câu chuyện một cách tự nhiên
+3. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama
+4. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
+5. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
+6. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị
+
+Hãy tạo một câu chuyện mở đầu cuốn hút!`;
 
             const initialHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
             setGameHistory(initialHistory);
 
             try {
-                 const response = await ai.models.generateContent({
-                    model: selectedModel, contents: initialHistory,
-                    config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema }
+                console.log('📖 GenerateInitialStory: Making AI request with model:', selectedModel);
+                console.log('📖 GenerateInitialStory: System instruction length:', systemInstruction.length);
+                console.log('📖 GenerateInitialStory: Initial history:', initialHistory);
+                
+                const response = await ai.models.generateContent({
+                    model: selectedModel, 
+                    contents: initialHistory,
+                    config: { 
+                        systemInstruction: systemInstruction, 
+                        responseMimeType: "application/json", 
+                        responseSchema: responseSchema 
+                    }
                 });
+                
+                console.log('📖 GenerateInitialStory: AI response received:', {
+                    hasText: !!response.text,
+                    textLength: response.text?.length || 0,
+                    usageMetadata: response.usageMetadata
+                });
+                
                 const turnTokens = response.usageMetadata?.totalTokenCount || 0;
                 setCurrentTurnTokens(turnTokens);
                 setTotalTokens(prev => prev + turnTokens);
@@ -856,24 +896,36 @@ export const GameScreen: React.FC<{
                 const responseText = response.text?.trim() || '';
                 
                 if (!responseText) {
-                    console.error("API returned empty response text");
-                    setStoryLog(prev => [...prev, "Lỗi: API không trả về nội dung. Hãy thử lại."]);
+                    console.error("📖 GenerateInitialStory: API returned empty response text");
+                    setStoryLog(prev => [...prev, "Lỗi: AI không trả về nội dung. Hãy thử lại."]);
                     setChoices([]);
                     return;
                 }
                 
+                console.log('📖 GenerateInitialStory: Response text received, length:', responseText.length);
                 parseApiResponse(responseText);
                 setGameHistory(prev => [...prev, { role: 'model', parts: [{ text: responseText }] }]);
             } catch (error: any) {
+                console.error("📖 GenerateInitialStory: Error occurred:", {
+                    errorMessage: error.message,
+                    errorString: error.toString(),
+                    errorStack: error.stack,
+                    errorType: typeof error,
+                    isUsingDefaultKey,
+                    userApiKeyCount
+                });
+                
                 if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
+                    console.log("📖 GenerateInitialStory: Rate limit detected, rotating key...");
                     rotateKey();
                     setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
                     setChoices(rehydratedChoices);
                 } else {
-                    console.error("Error generating initial story:", error);
-                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại."]);
+                    console.error("📖 GenerateInitialStory: Non-rate-limit error, showing error message");
+                    setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại.", `Chi tiết lỗi: ${error.message || error.toString()}`]);
                 }
             } finally {
+                console.log("📖 GenerateInitialStory: Cleaning up, setting loading false");
                 setIsLoading(false);
                 isGeneratingRef.current = false;
             }

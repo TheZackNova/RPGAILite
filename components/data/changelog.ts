@@ -3,6 +3,22 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.29.0',
+    date: '2025-07-26',
+    changes: [
+      { type: 'feature', text: 'Thêm hệ thống thanh tiến độ khởi tạo thế giới - hiển thị tiến trình chi tiết khi nhấn nút "Chơi Ngay" với thông báo "Thế giới đang khởi tạo xin hãy kiên nhẫn".' },
+      { type: 'feature', text: 'Triển khai hệ thống tạo LORE_CONCEPT tự động từ Custom Rules trước khi khởi tạo story, giúp AI hiểu rõ hơn về thế giới game.' },
+      { type: 'feature', text: 'Thêm tính năng tự động tạo ngoại hình (Appearance) cho nhân vật chính bằng AI dựa trên tên, giới tính, tiểu sử và tính cách.' },
+      { type: 'improvement', text: 'Cải thiện quá trình khởi tạo game với 8 bước tiến trình rõ ràng: Tải cấu hình → Tạo PC → Tạo ngoại hình → Phân tích rules → Tạo concepts → Thiết lập game → Chuyển màn hình → Hoàn tất.' },
+      { type: 'improvement', text: 'Nâng cấp generateInitialStory để sử dụng LORE_CONCEPT đã tạo, tạo câu chuyện mở đầu 300-400 từ chi tiết và tích hợp concepts tự nhiên.' },
+      { type: 'improvement', text: 'PC EntityInfoModal giờ hiển thị trường Appearance (ngoại hình) được tạo tự động, cung cấp mô tả trực quan về nhân vật.' },
+      { type: 'fix', text: 'Sửa lỗi nút "Chơi Ngay" không hoạt động do startNewGame function chuyển thành async nhưng các component gọi chưa được cập nhật.' },
+      { type: 'fix', text: 'Khắc phục lỗi "Type is not defined" trong generateLoreConcepts function bằng cách thêm import Type từ @google/genai.' },
+      { type: 'technical', text: 'Cập nhật MenuButton component để hỗ trợ async onClick handlers với proper error handling và debugging.' },
+      { type: 'technical', text: 'Thêm comprehensive debugging system với console logs chi tiết cho toàn bộ quá trình Quick Play và khởi tạo game.' },
+    ],
+  },
+  {
     version: '1.28.1',
     date: '2025-07-25',
     changes: [

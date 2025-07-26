@@ -9,7 +9,7 @@ import {
     SaveIcon, FileIcon, DocumentAddIcon, PlusIcon
 } from './Icons.tsx';
 
-export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: FormData) => void; }> = ({ onBack, onStartGame }) => {
+export const CreateWorld: React.FC<{ onBack: () => void; onStartGame: (data: FormData) => Promise<void>; }> = ({ onBack, onStartGame }) => {
     const { ai, isAiReady, apiKeyError, selectedModel } = useContext(AIContext);
     const [formData, setFormData] = useState<FormData>({
         storyName: '',
@@ -591,7 +591,7 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                     <p className="text-red-500 dark:text-red-400 text-sm mb-4 text-center">{suggestionError}</p>
                 )}
                 <button 
-                    onClick={() => onStartGame(formData)}
+                    onClick={async () => await onStartGame(formData)}
                     disabled={!isAiReady}
                     className="w-full max-w-lg bg-[#2dd4bf] hover:bg-[#14b8a6] text-slate-900 font-bold py-3 px-6 rounded-lg shadow-lg text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:bg-slate-500 disabled:cursor-not-allowed">
                     {isAiReady ? 'Khởi Tạo Thế Giới' : 'AI chưa sẵn sàng'}

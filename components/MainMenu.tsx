@@ -5,7 +5,7 @@ import { PlayIcon, FileIcon, ChartIcon, SettingsIcon } from './Icons.tsx';
 
 export const MainMenu: React.FC<{ 
     onStartNewAdventure: () => void; 
-    onQuickPlay?: () => void;
+    onQuickPlay?: () => Promise<void>;
     hasLastWorldSetup?: boolean;
     onOpenApiSettings: () => void; 
     onLoadGameFromFile: (file: File) => void;
