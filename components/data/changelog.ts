@@ -3,6 +3,22 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.30.0',
+    date: '2025-07-26',
+    changes: [
+      { type: 'feature', text: 'Đại tu hệ thống tổ đội và đồng hành - Cải thiện mạnh mẽ việc AI sử dụng companions trong gameplay thông qua enhanced party system với relevance scoring và skill matching.' },
+      { type: 'feature', text: 'Triển khai comprehensive party debugging system - Tự động log mọi sự kiện join/leave companions, thay đổi relationship, status changes với color-coded console output.' },
+      { type: 'feature', text: 'Enhanced AI context building cho party coordination - AI ưu tiên thông tin companions với token budget allocation và skill-based relevance scoring.' },
+      { type: 'improvement', text: 'Nâng cấp UI PartyMemberTab với detailed card layout - Hiển thị status indicators, relationship colors, skill previews và buff/debuff counters.' },
+      { type: 'improvement', text: 'Enhanced COMPANION tag processing - Hỗ trợ skills parsing, default relationships và automatic party integration với debugging logs.' },
+      { type: 'improvement', text: 'Cải thiện system instructions - Thêm mandatory party coordination guidelines và enhanced COMPANION tag documentation với skill attributes.' },
+      { type: 'fix', text: 'Sửa lỗi runtime "buildEnhancedPartyContext is not a function" - Khôi phục missing method trong promptBuilder.ts sau file cleanup.' },
+      { type: 'fix', text: 'Khắc phục z-index conflicts trong EntityInfoModal - StatusDetailModal và QuestDetailModal giờ hiển thị chính xác trên EntityInfoModal.' },
+      { type: 'technical', text: 'Tích hợp partyDebugger vào command tag processing và game state monitoring - Real-time tracking cho tất cả party-related changes.' },
+      { type: 'technical', text: 'Cập nhật z-index hierarchy: StatusDetailModal (z-90), QuestDetailModal (z-85), EntityInfoModal (z-80) để đảm bảo proper modal layering.' },
+    ],
+  },
+  {
     version: '1.29.0',
     date: '2025-07-26',
     changes: [

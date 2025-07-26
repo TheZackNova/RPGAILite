@@ -1,4 +1,5 @@
 import type { Entity, Status, Quest, Memory, Chronicle } from '../types';
+import { partyDebugger } from './partyDebugger';
 
 export interface CommandTagProcessorParams {
     // State setters
@@ -15,6 +16,7 @@ export interface CommandTagProcessorParams {
     knownEntities: { [key: string]: Entity };
     statuses: Status[];
     party: Entity[];
+    turnCount?: number;
 }
 
 // Helper function to calculate new time
@@ -99,7 +101,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
     const {
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
         setQuests, setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party
+        knownEntities, statuses, party, turnCount
     } = params;
 
     const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
@@ -178,10 +180,46 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         }
                         break;
                     case 'STATUS_APPLIED_SELF':
-                        setStatuses(prev => applyStatusWithLimit(prev, attributes, 'pc'));
+                        setStatuses(prev => {
+                            const newStatuses = applyStatusWithLimit(prev, attributes, 'pc');
+                            // Log status change for PC
+                            if (turnCount && !prev.some(s => s.name === attributes.name && s.owner === 'pc')) {
+                                partyDebugger.log('STATUS_CHANGE', `✨ Status applied to PC: ${attributes.name}`, {
+                                    memberName: 'pc',
+                                    memberType: 'pc',
+                                    status: {
+                                        name: attributes.name,
+                                        type: attributes.type,
+                                        description: attributes.description,
+                                        duration: attributes.duration,
+                                        source: attributes.source
+                                    },
+                                    action: 'APPLIED'
+                                }, turnCount);
+                            }
+                            return newStatuses;
+                        });
                         break;
                     case 'STATUS_APPLIED_NPC':
-                        setStatuses(prev => applyStatusWithLimit(prev, attributes, attributes.npcName));
+                        setStatuses(prev => {
+                            const newStatuses = applyStatusWithLimit(prev, attributes, attributes.npcName);
+                            // Log status change for NPC
+                            if (turnCount && !prev.some(s => s.name === attributes.name && s.owner === attributes.npcName)) {
+                                partyDebugger.log('STATUS_CHANGE', `✨ Status applied to ${attributes.npcName}: ${attributes.name}`, {
+                                    memberName: attributes.npcName,
+                                    memberType: 'npc',
+                                    status: {
+                                        name: attributes.name,
+                                        type: attributes.type,
+                                        description: attributes.description,
+                                        duration: attributes.duration,
+                                        source: attributes.source
+                                    },
+                                    action: 'APPLIED'
+                                }, turnCount);
+                            }
+                            return newStatuses;
+                        });
                         break;
                     case 'STATUS_CURED_SELF':
                         setStatuses(prev => prev.filter(s => !(s.name === attributes.name && s.owner === 'pc')));
@@ -396,7 +434,34 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                     case 'COMPANION':
                          const newCompanion = { type: 'companion', ...attributes } as Entity;
                          if (newCompanion.name && newCompanion.description) {
-                            setParty(prev => [...prev.filter(p => p.name !== newCompanion.name), newCompanion]);
+                            // Enhanced companion processing with skill parsing
+                            if (newCompanion.skills && typeof newCompanion.skills === 'string') {
+                                (newCompanion as any).skills = (newCompanion.skills as string).split(',').map(s => s.trim());
+                            }
+                            
+                            // Ensure default relationship if not provided
+                            if (!newCompanion.relationship) {
+                                newCompanion.relationship = 'Đồng hành';
+                            }
+                            
+                            setParty(prev => {
+                                const newParty = [...prev.filter(p => p.name !== newCompanion.name), newCompanion];
+                                // Log companion join event
+                                if (turnCount && !prev.some(p => p.name === newCompanion.name)) {
+                                    partyDebugger.log('COMPANION_JOIN', `🎉 New companion joined: ${newCompanion.name}`, {
+                                        companion: {
+                                            name: newCompanion.name,
+                                            type: newCompanion.type,
+                                            relationship: newCompanion.relationship,
+                                            skills: newCompanion.skills,
+                                            realm: newCompanion.realm,
+                                            personality: newCompanion.personality
+                                        },
+                                        partySize: newParty.length
+                                    }, turnCount);
+                                }
+                                return newParty;
+                            });
                             setKnownEntities(prev => ({ ...prev, [newCompanion.name]: newCompanion }));
                          }
                          break;
@@ -404,7 +469,20 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };
                             if (newEntities[attributes.npcName]) {
+                                const oldRelationship = newEntities[attributes.npcName].relationship;
                                 newEntities[attributes.npcName].relationship = attributes.relationship;
+                                
+                                // Log relationship change
+                                if (turnCount && oldRelationship !== attributes.relationship) {
+                                    partyDebugger.log('RELATIONSHIP_CHANGE', `💕 Relationship changed: ${attributes.npcName}`, {
+                                        name: attributes.npcName,
+                                        previousRelationship: oldRelationship || 'Unknown',
+                                        newRelationship: attributes.relationship || 'Unknown',
+                                        change: oldRelationship && attributes.relationship ? 
+                                                (attributes.relationship.includes('yêu') || attributes.relationship.includes('thân') ? 'IMPROVED' : 'CHANGED') 
+                                                : 'CHANGED'
+                                    }, turnCount);
+                                }
                             }
                             return newEntities;
                         });

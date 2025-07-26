@@ -233,6 +233,15 @@ export class EnhancedRAGSystem {
             // Type relevance based on intent
             score += this.getTypeRelevanceScore(entity.type, intent);
             
+            // Enhanced companion skill matching
+            if (entity.type === 'companion' && entity.skills && Array.isArray(entity.skills)) {
+                const skillMatch = this.getCompanionSkillRelevance(entity.skills, action, intent);
+                score += skillMatch;
+                if (skillMatch > 0) {
+                    reasons.push(`Relevant skills: ${entity.skills.slice(0, 2).join(', ')}`);
+                }
+            }
+            
             // Graph connections
             const connections = this.entityGraph.get(name) || new Set();
             const connectedToRelevant = Array.from(connections).some(conn => 
@@ -351,10 +360,19 @@ export class EnhancedRAGSystem {
         context += timeInfo + "\n\n";
         usedTokens += this.estimateTokens(timeInfo);
         
-        // Add entities with detailed info
-        const tokensPerEntity = Math.floor((tokenBudget - usedTokens) / Math.max(1, entities.length));
+        // Dedicated party section for enhanced coordination  
+        const partyContext = this.buildEnhancedPartyContext(gameState, Math.floor(tokenBudget * 0.4));
+        if (partyContext) {
+            context += partyContext + "\n";
+            usedTokens += this.estimateTokens(partyContext);
+        }
         
-        entities.forEach(({ entity, score, reason }) => {
+        // Add remaining entities with detailed info
+        const remainingBudget = tokenBudget - usedTokens;
+        const nonPartyEntities = entities.filter(e => e.entity.type !== 'companion');
+        const tokensPerEntity = Math.floor(remainingBudget / Math.max(1, nonPartyEntities.length));
+        
+        nonPartyEntities.forEach(({ entity, score, reason }) => {
             const entityText = this.formatEntityWithContext(
                 entity,
                 gameState.statuses,
@@ -368,6 +386,113 @@ export class EnhancedRAGSystem {
                 usedTokens += entityTokens;
             }
         });
+        
+        return context;
+    }
+    
+    // Enhanced party coordination context for better AI understanding
+    private buildEnhancedPartyContext(gameState: SaveData, maxTokens: number): string {
+        const { party, statuses } = gameState;
+        
+        if (!party || party.length === 0) return '';
+        
+        let context = "**TỔ ĐỘI PHIỀU LƯU:**\n";
+        let usedTokens = this.estimateTokens(context);
+        
+        // Log AI context building for debugging
+        if (gameState.turnCount) {
+            import('./utils/partyDebugger').then(({ partyDebugger }) => {
+                partyDebugger.logAIContextBuild({
+                    companions: party.filter(p => p.type === 'companion'),
+                    contextLength: context.length,
+                    includesPersonalities: party.some(p => p.personality),
+                    includesSkills: party.some(p => p.skills),
+                    includesRelationships: party.some(p => p.relationship)
+                }, usedTokens, gameState.turnCount);
+            });
+        }
+        
+        // PC information first
+        const pc = party.find(p => p.type === 'pc');
+        if (pc) {
+            const pcStatuses = statuses.filter(s => s.owner === 'pc' || s.owner === pc.name);
+            let pcInfo = `[Nhân vật chính] ${pc.name}`;
+            
+            const pcDetails: string[] = [];
+            if (pc.location) pcDetails.push(`Vị trí: ${pc.location}`);
+            if (pc.realm) pcDetails.push(`Thực lực: ${pc.realm}`);
+            if (pcStatuses.length > 0) {
+                pcDetails.push(`Trạng thái: ${pcStatuses.map(s => s.name).join(', ')}`);
+            }
+            
+            if (pcDetails.length > 0) {
+                pcInfo += ` - ${pcDetails.join(', ')}`;
+            }
+            pcInfo += '\n';
+            
+            const pcTokens = this.estimateTokens(pcInfo);
+            if (usedTokens + pcTokens <= maxTokens) {
+                context += pcInfo;
+                usedTokens += pcTokens;
+            }
+        }
+        
+        // Companions with detailed coordination info
+        const companions = party.filter(p => p.type === 'companion');
+        if (companions.length > 0) {
+            companions.forEach(companion => {
+                let companionInfo = `[Đồng hành] ${companion.name}`;
+                
+                const companionDetails: string[] = [];
+                
+                // Relationship status (critical for party dynamics)
+                if (companion.relationship) {
+                    companionDetails.push(`Quan hệ: ${companion.relationship}`);
+                }
+                
+                // Power level for tactical coordination
+                if (companion.realm) {
+                    companionDetails.push(`Cảnh giới: ${companion.realm}`);
+                }
+                
+                // Key skills for party synergy
+                if (companion.skills && companion.skills.length > 0) {
+                    companionDetails.push(`Chuyên môn: ${companion.skills.slice(0, 2).join(', ')}`);
+                }
+                
+                // Active status effects
+                const companionStatuses = statuses.filter(s => s.owner === companion.name);
+                if (companionStatuses.length > 0) {
+                    companionDetails.push(`Trạng thái: ${companionStatuses.map(s => s.name).join(', ')}`);
+                }
+                
+                // Core personality for AI roleplay
+                if (companion.personality) {
+                    const personalitySnippet = companion.personality.length > 50 
+                        ? companion.personality.substring(0, 50) + '...' 
+                        : companion.personality;
+                    companionDetails.push(`Tính cách: ${personalitySnippet}`);
+                }
+                
+                if (companionDetails.length > 0) {
+                    companionInfo += ` - ${companionDetails.join(', ')}`;
+                }
+                companionInfo += '\n';
+                
+                const companionTokens = this.estimateTokens(companionInfo);
+                if (usedTokens + companionTokens <= maxTokens) {
+                    context += companionInfo;
+                    usedTokens += companionTokens;
+                }
+            });
+            
+            // Party coordination notes
+            const coordNote = "\n*Lưu ý: Hãy chú trọng đến sự tương tác và phối hợp giữa các thành viên trong tổ đội. Mỗi đồng hành có cá tính và kỹ năng riêng, hãy thể hiện điều này trong câu chuyện.*\n";
+            const noteTokens = this.estimateTokens(coordNote);
+            if (usedTokens + noteTokens <= maxTokens) {
+                context += coordNote;
+            }
+        }
         
         return context;
     }
@@ -434,15 +559,52 @@ export class EnhancedRAGSystem {
 
     private getTypeRelevanceScore(type: string, intent: ActionIntent): number {
         const relevanceMatrix: Record<string, Record<string, number>> = {
-            'combat': { 'npc': 20, 'item': 15, 'skill': 25, 'companion': 20 },
-            'social': { 'npc': 30, 'companion': 25, 'faction': 20 },
-            'item_interaction': { 'item': 30, 'skill': 10 },
-            'movement': { 'location': 30, 'npc': 10 },
-            'skill_use': { 'skill': 40, 'item': 10 },
-            'general': { 'npc': 10, 'item': 10, 'location': 10 }
+            'combat': { 'npc': 20, 'item': 15, 'skill': 25, 'companion': 35 }, // Higher for companions in combat
+            'social': { 'npc': 30, 'companion': 40, 'faction': 20 }, // Companions excel in social situations
+            'item_interaction': { 'item': 30, 'skill': 10, 'companion': 15 }, // Companions may have opinions
+            'movement': { 'location': 30, 'npc': 10, 'companion': 25 }, // Companions travel together
+            'skill_use': { 'skill': 40, 'item': 10, 'companion': 30 }, // Companions can assist with skills
+            'general': { 'npc': 10, 'item': 10, 'location': 10, 'companion': 20 } // Always include companions
         };
         
         return relevanceMatrix[intent.type]?.[type] || 0;
+    }
+
+    // NEW: Enhanced skill relevance scoring for companions
+    private getCompanionSkillRelevance(skills: string[], action: string, intent: ActionIntent): number {
+        let score = 0;
+        const actionLower = action.toLowerCase();
+        
+        // Combat skill relevance
+        const combatSkills = ['chiến đấu', 'tấn công', 'phòng thủ', 'kiếm thuật', 'võ thuật', 'magic', 'pháp thuật'];
+        if (intent.isCombat && skills.some(skill => 
+            combatSkills.some(combat => skill.toLowerCase().includes(combat)))) {
+            score += 25;
+        }
+        
+        // Social skill relevance  
+        const socialSkills = ['thuyết phục', 'giao tiếp', 'đàm phán', 'lãnh đạo', 'charm'];
+        if (intent.isSocial && skills.some(skill => 
+            socialSkills.some(social => skill.toLowerCase().includes(social)))) {
+            score += 20;
+        }
+        
+        // Direct skill mention in action
+        for (const skill of skills) {
+            if (actionLower.includes(skill.toLowerCase())) {
+                score += 30;
+                break;
+            }
+        }
+        
+        // Movement and exploration skills
+        const explorationSkills = ['do thám', 'stealth', 'survival', 'navigation', 'tracking'];
+        if (intent.isMovement && skills.some(skill => 
+            explorationSkills.some(explore => skill.toLowerCase().includes(explore)))) {
+            score += 15;
+        }
+        
+        return score;
     }
 
     private extractPotentialTargets(action: string): string[] {
@@ -504,7 +666,7 @@ export class EnhancedRAGSystem {
         return text.substring(0, charLimit) + '...';
     }
 
-    // UPDATED: Reduced entity details to save tokens
+    // ENHANCED: Special handling for party members with detailed context
     private formatEntityWithContext(
         entity: Entity,
         statuses: Status[],
@@ -515,30 +677,58 @@ export class EnhancedRAGSystem {
         
         const details: string[] = [];
         
-        // Chỉ giữ thông tin quan trọng nhất
-        if (entity.type === 'npc' || entity.type === 'companion') {
+        // Enhanced party member context
+        if (entity.type === 'companion') {
+            text += ` [ĐỒNG HÀNH]`;
+            
+            // Core personality and motivation for companions
             if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
-            // Bỏ MBTI description để tiết kiệm token
+            if (entity.personalityMbti && MBTI_PERSONALITIES[entity.personalityMbti]) {
+                details.push(`MBTI: ${entity.personalityMbti} (${MBTI_PERSONALITIES[entity.personalityMbti].title})`);
+            }
+            if (entity.motivation) details.push(`Động cơ: ${entity.motivation}`);
+            
+            // Relationship with PC (critical for party dynamics)
+            if (entity.relationship) {
+                details.push(`Quan hệ với PC: ${entity.relationship}`);
+            }
+            
+            // Skills and abilities (important for party coordination)
+            if (entity.skills?.length) {
+                details.push(`Kỹ năng: ${entity.skills.slice(0, 4).join(', ')}`);
+            }
+            
+            // Power level for tactical decisions
+            if (entity.realm) details.push(`Cảnh giới: ${entity.realm}`);
+            
+        } else if (entity.type === 'npc') {
+            // Standard NPC context (reduced for non-party members)
+            if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
             if (entity.personalityMbti) details.push(`MBTI: ${entity.personalityMbti}`);
             if (entity.motivation) details.push(`Động cơ: ${entity.motivation}`);
-            // Giảm skills từ 5 xuống 3
             if (entity.skills?.length) details.push(`Kỹ năng: ${entity.skills.slice(0, 3).join(', ')}`);
         }
         
         if (entity.location) details.push(`Vị trí: ${entity.location}`);
-        if (entity.realm) details.push(`Cảnh giới: ${entity.realm}`);
+        if (entity.realm && entity.type !== 'companion') details.push(`Cảnh giới: ${entity.realm}`);
         
-        // Status effects - chỉ tên, không mô tả
+        // Enhanced status effects for party members
         const entityStatuses = statuses.filter(s => s.owner === entity.name);
         if (entityStatuses.length > 0) {
-            details.push(`Trạng thái: ${entityStatuses.map(s => s.name).slice(0, 2).join(', ')}`); // Tối đa 2 status
+            if (entity.type === 'companion') {
+                // More detailed status for companions
+                details.push(`Trạng thái: ${entityStatuses.map(s => `${s.name} (${s.type})`).slice(0, 3).join(', ')}`);
+            } else {
+                details.push(`Trạng thái: ${entityStatuses.map(s => s.name).slice(0, 2).join(', ')}`);
+            }
         }
         
-        // Mô tả ngắn hơn
+        // Description with priority for companions
         if (entity.description) {
             const remainingTokens = Math.max(0, maxTokens - this.estimateTokens(text + details.join('; ')));
+            const threshold = entity.type === 'companion' ? 50 : 30; // Higher threshold for companions
             
-            if (remainingTokens > 30) { // Giảm threshold từ 50 xuống 30
+            if (remainingTokens > threshold) {
                 const truncatedDesc = this.aggressiveTruncation(entity.description, remainingTokens);
                 details.push(`Mô tả: ${truncatedDesc}`);
             }

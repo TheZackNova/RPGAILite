@@ -13,6 +13,7 @@ import { createGameActionHandlers } from './handlers/gameActionHandlers';
 import { createEntityHandlers } from './handlers/entityHandlers';
 import { createGameStateHandlers } from './handlers/gameStateHandlers';
 import { createCommandTagProcessor } from './utils/commandTagProcessor';
+import { partyDebugger } from './utils/partyDebugger';
 
 // Custom Hooks
 import { useGameState } from './hooks/useGameState';
@@ -149,8 +150,8 @@ export const GameScreen: React.FC<{
     const commandTagProcessor = useMemo(() => createCommandTagProcessor({
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
         setQuests, setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party
-    }), [knownEntities, statuses, party]);
+        knownEntities, statuses, party, turnCount
+    }), [knownEntities, statuses, party, turnCount]);
     
     const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
         return commandTagProcessor.parseStoryAndTags(storyText, applySideEffects);
@@ -211,6 +212,10 @@ export const GameScreen: React.FC<{
         }
     }, [keyRotationNotification, onClearNotification]);
 
+    // Monitor party changes for debugging
+    useEffect(() => {
+        partyDebugger.monitorPartyChanges(party, statuses, turnCount);
+    }, [party, statuses, turnCount]);
     
     useEffect(() => {
         if (gameHistory.length === 0 && isAiReady && storyLog.length === 0 && !hasGeneratedInitialStory && !isGeneratingRef.current) {

@@ -532,6 +532,7 @@ const MemoizedModalsComponent = ({
             >
                 <PartyMemberTab 
                     party={entityComputations.displayParty} 
+                    statuses={statuses}
                     onMemberClick={handleEntityClick}
                 />
             </MemoizedInfoPanelModal>
