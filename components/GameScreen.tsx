@@ -270,7 +270,7 @@ export const GameScreen: React.FC<{
         let unifiedCleanupResult = null;
         
         if (gameSettings.memoryAutoClean || gameSettings.historyAutoCompress) {
-            // Try unified cleanup first
+            // Try unified cleanup first with smart memory generation
             unifiedCleanupResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
                 maxActiveMemories: 50,
                 memoryCleanupThreshold: 70,
@@ -278,7 +278,18 @@ export const GameScreen: React.FC<{
                 maxActiveHistoryEntries: 30,
                 historyCompressionThreshold: 30,
                 maxTokenBudget: 8000,
-                memoryTokenRatio: 0.3
+                memoryTokenRatio: 0.3,
+                enableSmartMemoryGeneration: true,
+                smartMemoryConfig: {
+                    enableEventMemories: true,
+                    enableRelationshipMemories: true,
+                    enableDiscoveryMemories: true,
+                    enableCombatMemories: true,
+                    enableAchievementMemories: true,
+                    minImportanceThreshold: 45,
+                    maxMemoriesPerTurn: 2,
+                    lookbackTurns: 3
+                }
             });
             
             if (unifiedCleanupResult.cleanupTriggered) {
@@ -538,7 +549,7 @@ export const GameScreen: React.FC<{
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
         
-        // Use unified memory manager for coordinated cleanup
+        // Use unified memory manager for coordinated cleanup with aggressive smart memory generation
         const unifiedResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
             maxActiveMemories: 40,
             memoryCleanupThreshold: 60,
@@ -546,7 +557,18 @@ export const GameScreen: React.FC<{
             maxActiveHistoryEntries: 25,
             historyCompressionThreshold: 25,
             maxTokenBudget: 8000,
-            memoryTokenRatio: 0.35
+            memoryTokenRatio: 0.35,
+            enableSmartMemoryGeneration: true,
+            smartMemoryConfig: {
+                enableEventMemories: true,
+                enableRelationshipMemories: true,
+                enableDiscoveryMemories: true,
+                enableCombatMemories: true,
+                enableAchievementMemories: true,
+                minImportanceThreshold: 35, // Lower threshold for manual cleanup
+                maxMemoriesPerTurn: 5,      // More memories for manual cleanup
+                lookbackTurns: 10           // Longer lookback for manual cleanup
+            }
         });
         
         // Apply unified cleanup results
@@ -600,6 +622,7 @@ export const GameScreen: React.FC<{
                     memoriesArchived: unifiedResult.memoriesProcessed.archived.length,
                     memoriesEnhanced: unifiedResult.memoriesProcessed.enhanced.length,
                     memoriesKept: unifiedResult.memoriesProcessed.kept.length,
+                    smartMemoriesGenerated: unifiedResult.smartMemoriesGenerated?.memories.length || 0,
                     historyCompressed: !!unifiedResult.historyProcessed.compressed,
                     tokensSaved: unifiedResult.tokensSaved
                 },
@@ -660,13 +683,45 @@ export const GameScreen: React.FC<{
         });
     }, [turnCount, gameSettings.historyAutoCompress, gameSettings.memoryAutoClean, hasGeneratedInitialStory, isLoading]);
 
-    // Expose debug function to window for manual testing
+    // Manual smart memory generation for testing
+    const generateSmartMemories = useCallback(() => {
+        const currentState: SaveData = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            lastCompressionTurn: historyStats.compressionCount, 
+            historyStats, cleanupStats, archivedMemories, memoryStats
+        };
+        
+        const result = UnifiedMemoryManager.generateSmartMemories(currentState, {
+            enableEventMemories: true,
+            enableRelationshipMemories: true,
+            enableDiscoveryMemories: true,
+            enableCombatMemories: true,
+            enableAchievementMemories: true,
+            minImportanceThreshold: 30,
+            maxMemoriesPerTurn: 10,
+            lookbackTurns: 10
+        });
+        
+        if (result.memories.length > 0) {
+            setMemories(prev => [...prev, ...result.memories]);
+            setNotification(`🧠 Generated ${result.memories.length} smart memories! ${result.insights.join(', ')}`);
+            console.log('🧠 Smart Memory Generation Result:', result);
+        } else {
+            setNotification(`🧠 No new smart memories generated from recent events.`);
+        }
+        
+        setTimeout(() => setNotification(null), 5000);
+    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
+
+    // Expose debug functions to window for manual testing
     React.useEffect(() => {
         (window as any).debugGameSystems = debugSystemStatus;
+        (window as any).generateSmartMemories = generateSmartMemories;
         return () => {
             delete (window as any).debugGameSystems;
+            delete (window as any).generateSmartMemories;
         };
-    }, [debugSystemStatus]);
+    }, [debugSystemStatus, generateSmartMemories]);
 
     
     const hasActiveQuests = quests.some(q => q.status === 'active');

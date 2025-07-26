@@ -2,6 +2,7 @@ import type { Memory, SaveData, GameHistoryEntry } from '../types';
 import { HistoryManager, type CompressedHistorySegment } from '../HistoryManager';
 import { ImportanceScorer } from './ImportanceScorer';
 import { MemoryEnhancer } from './MemoryEnhancer';
+import { SmartMemoryGenerator, type MemoryGenerationConfig } from './SmartMemoryGenerator';
 
 export interface CleanupConfig {
     // Memory thresholds
@@ -16,6 +17,10 @@ export interface CleanupConfig {
     // Token management
     maxTokenBudget: number;           // Total token budget for memory + history
     memoryTokenRatio: number;         // Ratio of tokens allocated to memories (0-1)
+    
+    // Smart memory generation
+    enableSmartMemoryGeneration: boolean;
+    smartMemoryConfig: MemoryGenerationConfig;
 }
 
 export interface CleanupResult {
@@ -31,6 +36,11 @@ export interface CleanupResult {
         originalSize: number;
         newSize: number;
     };
+    smartMemoriesGenerated?: {
+        memories: Memory[];
+        insights: string[];
+        stats: any;
+    };
     tokensSaved: number;
     cleanupTriggered: boolean;
 }
@@ -43,7 +53,18 @@ export class UnifiedMemoryManager {
         maxActiveHistoryEntries: 30,
         historyCompressionThreshold: 30,
         maxTokenBudget: 8000,
-        memoryTokenRatio: 0.3
+        memoryTokenRatio: 0.3,
+        enableSmartMemoryGeneration: true,
+        smartMemoryConfig: {
+            enableEventMemories: true,
+            enableRelationshipMemories: true,
+            enableDiscoveryMemories: true,
+            enableCombatMemories: true,
+            enableAchievementMemories: true,
+            minImportanceThreshold: 40,
+            maxMemoriesPerTurn: 3,
+            lookbackTurns: 5
+        }
     };
 
     /**
@@ -75,19 +96,39 @@ export class UnifiedMemoryManager {
             }
         );
 
-        // 2. Process memory optimization
-        const memoryResult = this.optimizeMemories(gameState.memories, gameState, config);
+        // 2. Generate smart memories from recent events
+        let smartMemoryResult;
+        if (config.enableSmartMemoryGeneration) {
+            smartMemoryResult = SmartMemoryGenerator.generateMemoriesFromHistory(
+                gameState, 
+                config.smartMemoryConfig
+            );
+            
+            if (smartMemoryResult.memories.length > 0) {
+                console.log(`🧠 Smart Memory Generation: Added ${smartMemoryResult.memories.length} memories`, 
+                    smartMemoryResult.stats);
+            }
+        }
 
-        // 3. Calculate token savings
+        // 3. Process memory optimization (including new smart memories)
+        const allMemories = smartMemoryResult ? 
+            [...gameState.memories, ...smartMemoryResult.memories] : 
+            gameState.memories;
+        const memoryResult = this.optimizeMemories(allMemories, gameState, config);
+
+        // 4. Calculate token savings
         const tokensSaved = this.calculateTokenSavings(historyResult, memoryResult);
 
-        const cleanupTriggered = historyResult.shouldCompress || memoryResult.totalProcessed > 0;
+        const cleanupTriggered = historyResult.shouldCompress || 
+                                 memoryResult.totalProcessed > 0 || 
+                                 (smartMemoryResult && smartMemoryResult.memories.length > 0);
 
         if (cleanupTriggered) {
             console.log(`✅ [${timestamp}] Unified Cleanup Completed:`, {
                 memoriesArchived: memoryResult.archived.length,
                 memoriesEnhanced: memoryResult.enhanced.length,
                 memoriesKept: memoryResult.kept.length,
+                smartMemoriesGenerated: smartMemoryResult?.memories.length || 0,
                 historyCompressed: historyResult.shouldCompress,
                 tokensSaved,
                 newMemoryCount: memoryResult.kept.length + memoryResult.enhanced.length,
@@ -103,6 +144,7 @@ export class UnifiedMemoryManager {
                 originalSize: historyResult.stats.originalSize,
                 newSize: historyResult.stats.newSize
             },
+            smartMemoriesGenerated: smartMemoryResult,
             tokensSaved,
             cleanupTriggered
         };
@@ -389,5 +431,20 @@ export class UnifiedMemoryManager {
         terms.push(...recentLocations);
 
         return [...new Set(terms)]; // Remove duplicates
+    }
+
+    /**
+     * Generate smart memories independently (without cleanup)
+     */
+    public static generateSmartMemories(
+        gameState: SaveData,
+        config?: MemoryGenerationConfig
+    ): {
+        memories: Memory[];
+        insights: string[];
+        stats: any;
+    } {
+        const smartConfig = config || this.DEFAULT_CONFIG.smartMemoryConfig;
+        return SmartMemoryGenerator.generateMemoriesFromHistory(gameState, smartConfig);
     }
 }
