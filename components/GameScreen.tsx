@@ -194,7 +194,7 @@ export const GameScreen: React.FC<{
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
         compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
-        setKnownEntities, setParty, setTurnCount, setTotalTokens, setGameTime, setChronicle,
+        setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
     }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder]);
@@ -392,7 +392,6 @@ export const GameScreen: React.FC<{
 
     const handleSaveRules = useCallback((newRules: CustomRule[]) => {
         gameStateHandlers.handleSaveRules(newRules, setShowRulesSavedSuccess);
-        setCustomRules(newRules);
     }, [gameStateHandlers]);
 
     const handleRestartGame = useCallback(() => {

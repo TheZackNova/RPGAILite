@@ -496,6 +496,7 @@ Trả về JSON với format đã chỉ định.`;
       console.log('🎮 StartNewGame: Beginning game creation...');
       console.log('🎮 StartNewGame: AI Ready:', isAiReady, 'AI exists:', !!ai);
       
+      setIsInitializing(true);
       setInitProgress(10);
       setInitCurrentStep('Đang lưu cấu hình thế giới...');
       
@@ -709,7 +710,14 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
   const renderContent = () => {
       switch(view) {
           case 'create-world':
-              return <CreateWorld onBack={navigateToMenu} onStartGame={startNewGame} />;
+              return <CreateWorld 
+                onBack={navigateToMenu} 
+                onStartGame={startNewGame}
+                isInitializing={isInitializing}
+                initProgress={initProgress}
+                initCurrentStep={initCurrentStep}
+                initSubStep={initSubStep}
+              />;
           case 'game':
               return gameState ? <GameScreen 
                 initialGameState={gameState} 

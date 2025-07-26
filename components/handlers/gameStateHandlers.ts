@@ -31,6 +31,7 @@ export interface GameStateHandlersParams {
     setMemories: (memories: Memory[]) => void;
     setKnownEntities: (entities: { [key: string]: Entity }) => void;
     setParty: (party: Entity[]) => void;
+    setCustomRules: (rules: CustomRule[]) => void;
     setTurnCount: (count: number) => void;
     setTotalTokens: (tokens: number) => void;
     setGameTime: (time: any) => void;
@@ -52,7 +53,7 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
         compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
-        setKnownEntities, setParty, setTurnCount, setTotalTokens, setGameTime, setChronicle,
+        setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
     } = params;
