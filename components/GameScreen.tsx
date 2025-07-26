@@ -38,6 +38,7 @@ import { MobileInputFooter } from './game/MobileInputFooter.tsx';
 import { HistoryManager } from './HistoryManager';
 import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
 import { UnifiedMemoryManager } from './utils/UnifiedMemoryManager';
+import { MemoryAnalytics } from './utils/MemoryAnalytics';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 
@@ -683,6 +684,29 @@ export const GameScreen: React.FC<{
         });
     }, [turnCount, gameSettings.historyAutoCompress, gameSettings.memoryAutoClean, hasGeneratedInitialStory, isLoading]);
 
+    // Phase 4: Memory Analytics and Insights
+    const analyzeMemories = useCallback(() => {
+        const currentState: SaveData = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            lastCompressionTurn: historyStats.compressionCount, 
+            historyStats, cleanupStats, archivedMemories, memoryStats
+        };
+        
+        const analytics = MemoryAnalytics.analyzeMemories(currentState);
+        
+        console.log('🔍 Memory Analytics Results:', analytics);
+        
+        // Show insights as notifications
+        if (analytics.insights.length > 0) {
+            const topInsight = analytics.insights[0];
+            setNotification(`📊 Memory Insight: ${topInsight.title} - ${topInsight.description}`);
+        } else {
+            setNotification(`📊 Memory Analysis: ${analytics.overview.totalMemories} memories, ${analytics.overview.averageImportance.toFixed(1)} avg importance, ${analytics.overview.memoryHealth} health`);
+        }
+        
+        setTimeout(() => setNotification(null), 6000);
+    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
+
     // Manual smart memory generation for testing
     const generateSmartMemories = useCallback(() => {
         const currentState: SaveData = {
@@ -717,11 +741,13 @@ export const GameScreen: React.FC<{
     React.useEffect(() => {
         (window as any).debugGameSystems = debugSystemStatus;
         (window as any).generateSmartMemories = generateSmartMemories;
+        (window as any).analyzeMemories = analyzeMemories;
         return () => {
             delete (window as any).debugGameSystems;
             delete (window as any).generateSmartMemories;
+            delete (window as any).analyzeMemories;
         };
-    }, [debugSystemStatus, generateSmartMemories]);
+    }, [debugSystemStatus, generateSmartMemories, analyzeMemories]);
 
     
     const hasActiveQuests = quests.some(q => q.status === 'active');

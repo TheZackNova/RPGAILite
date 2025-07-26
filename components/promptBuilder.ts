@@ -1,5 +1,7 @@
 import type { SaveData, Entity, Status, Quest, GameHistoryEntry, CustomRule, KnownEntities } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
+import { EnhancedRAG } from './utils/EnhancedRAG';
+import { MemoryAnalytics } from './utils/MemoryAnalytics';
 
 // Enhanced Token Management with Stricter Controls
 const TOKEN_CONFIG = {
@@ -52,23 +54,36 @@ export class EnhancedRAGSystem {
         const startTime = performance.now();
         
         try {
-            // Step 1: Analyze action intent
+            // Step 1: Phase 4 Enhancement - Build intelligent context using Enhanced RAG
+            const intelligentContext = EnhancedRAG.buildIntelligentContext(gameState, action, {
+                maxMemories: 8,
+                maxTokens: 1500,
+                importanceThreshold: 35,
+                recencyWeight: 0.3,
+                relevanceWeight: 0.5,
+                diversityWeight: 0.2,
+                includeArchived: false
+            });
+            
+            // Step 2: Analyze action intent
             const actionIntent = this.analyzeActionIntent(action);
             
-            // Step 2: Build entity relationship graph
+            // Step 3: Build entity relationship graph
             this.buildEntityGraph(gameState.knownEntities);
             
-            // Step 3: Score and retrieve relevant entities
+            // Step 4: Score and retrieve relevant entities (enhanced with context)
             const relevantEntities = this.retrieveRelevantEntities(
                 action,
                 actionIntent,
-                gameState
+                gameState,
+                intelligentContext
             );
             
-            // Step 4: Calculate dynamic token budgets
+            // Step 5: Calculate dynamic token budgets (accounting for intelligent context)
             const tokenBudget = this.calculateDynamicTokenBudget(
                 relevantEntities,
-                gameState
+                gameState,
+                intelligentContext.tokenUsage
             );
             
             // Step 5: Build context sections with priority
@@ -78,13 +93,14 @@ export class EnhancedRAGSystem {
                 tokenBudget
             );
             
-            // Step 6: Assemble final prompt
+            // Step 6: Assemble final prompt with intelligent context
             const finalPrompt = this.assembleFinalPrompt(
                 action,
                 contextSections,
                 ruleChangeContext,
                 playerNsfwRequest,
-                gameState.worldData
+                gameState.worldData,
+                intelligentContext
             );
             
             const endTime = performance.now();
@@ -187,7 +203,8 @@ export class EnhancedRAGSystem {
     private retrieveRelevantEntities(
         action: string,
         intent: ActionIntent,
-        gameState: SaveData
+        gameState: SaveData,
+        intelligentContext?: any
     ): EntityRelevance[] {
         const { knownEntities, party, gameHistory, statuses } = gameState;
         const relevanceScores: EntityRelevance[] = [];
@@ -273,7 +290,8 @@ export class EnhancedRAGSystem {
     // Calculate dynamic token budgets based on context
     private calculateDynamicTokenBudget(
         relevantEntities: EntityRelevance[],
-        gameState: SaveData
+        gameState: SaveData,
+        intelligentContextTokens: number = 0
     ): TokenBudget {
         const baseLimit = TOKEN_CONFIG.MAX_TOKENS_PER_TURN - TOKEN_CONFIG.TOKEN_BUFFER;
         
@@ -959,7 +977,8 @@ export class EnhancedRAGSystem {
         sections: ContextSections,
         ruleChangeContext: string,
         nsfwContext: string,
-        worldData: any
+        worldData: any,
+        intelligentContext?: any
     ): string {
         let prompt = "";
         
@@ -970,6 +989,11 @@ export class EnhancedRAGSystem {
         
         // Critical context
         prompt += sections.critical + "\n";
+        
+        // Phase 4: Intelligent Context (before important context)
+        if (intelligentContext && intelligentContext.relevantMemories.length > 0) {
+            prompt += EnhancedRAG.formatContextForPrompt(intelligentContext) + "\n";
+        }
         
         // Important context
         prompt += sections.important + "\n";
