@@ -13,6 +13,7 @@ import { PartyMemberTab } from './PartyMemberTab.tsx';
 import { QuestLog } from './QuestLog.tsx';
 
 import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule } from './types.ts';
+import { MBTI_PERSONALITIES } from './data/mbti.ts';
 import { CrossIcon, UserIcon } from './Icons.tsx';
 import * as GameIcons from './GameIcons.tsx';
 import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusTextColor, getStatusFontWeight } from './utils.ts';
@@ -131,6 +132,19 @@ export const MemoizedPlayerCharacterSheet = memo<{
     onEntityClick: (entityName: string) => void;
 }>(({ pc, statuses, knownEntities, onStatusClick, onEntityClick }) => {
     
+    // Helper function to get fame color
+    const getFameColor = (fame: string): string => {
+        const fameLevel = fame.toLowerCase();
+        if (fameLevel.includes('nổi tiếng') || fameLevel.includes('danh gia') || fameLevel.includes('huyền thoại')) {
+            return 'text-purple-600 dark:text-purple-400 font-semibold';
+        } else if (fameLevel.includes('khét tiếng') || fameLevel.includes('ác danh')) {
+            return 'text-red-600 dark:text-red-400 font-semibold';
+        } else if (fameLevel.includes('tốt') || fameLevel.includes('cao')) {
+            return 'text-green-600 dark:text-green-400 font-semibold';
+        }
+        return 'text-slate-700 dark:text-gray-300';
+    };
+    
     const learnedSkills = useMemo(() => pc?.learnedSkills || [], [pc?.learnedSkills]);
     
     const handleStatusClick = useCallback((status: Status) => {
@@ -153,13 +167,64 @@ export const MemoizedPlayerCharacterSheet = memo<{
                     <UserIcon className="w-5 h-5" />
                     Thông tin cơ bản
                 </h4>
-                <div className="space-y-1 text-sm pl-2">
-                    <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Tên:</strong> {pc.name}</p>
-                    {pc.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Vị trí:</strong> {pc.location}</p>}
-                    {pc.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Tuổi tác:</strong> {pc.age}</p>}
-                    {pc.appearance && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Dung mạo:</strong> {pc.appearance}</p>}
-                    {pc.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Thực lực:</strong> {pc.realm}</p>}
-                    {pc.fame && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-24 inline-block">Danh vọng:</strong> {pc.fame}</p>}
+                <div className="space-y-2 text-sm pl-2">
+                    <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Tên:</strong> {pc.name}</p>
+                    {pc.gender && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Giới tính:</strong> {pc.gender}</p>}
+                    {pc.age && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Tuổi:</strong> {pc.age}</p>}
+                    {pc.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Vị trí:</strong> {pc.location}</p>}
+                    
+                    {/* Enhanced Appearance */}
+                    {pc.appearance && (
+                        <div>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Dung mạo:</strong>
+                            <p className="pl-2 mt-1 text-sm text-slate-600 dark:text-gray-400">{pc.appearance}</p>
+                        </div>
+                    )}
+                    
+                    {/* Enhanced Realm with color */}
+                    {pc.realm && (
+                        <p>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Thực lực:</strong> 
+                            <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{pc.realm}</span>
+                        </p>
+                    )}
+                    
+                    {/* Enhanced Fame with color coding */}
+                    <div>
+                        <strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong>
+                        {pc.fame ? (
+                            <span className={`ml-2 ${getFameColor(pc.fame)}`}>{pc.fame}</span>
+                        ) : (
+                            <span className="ml-2 text-gray-500 dark:text-gray-400 italic">Chưa có danh tiếng</span>
+                        )}
+                    </div>
+                    
+                    {/* Personality */}
+                    {pc.personality && (
+                        <div>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Bề ngoài):</strong>
+                            <p className="pl-2 mt-1 text-sm text-slate-600 dark:text-gray-400">{pc.personality}</p>
+                        </div>
+                    )}
+                    
+                    {/* Core Personality (MBTI) */}
+                    {pc.personalityMbti && MBTI_PERSONALITIES[pc.personalityMbti] && (
+                        <div>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Tính cách (Cốt lõi):</strong>
+                            <p className="pl-2 mt-1 text-sm text-slate-600 dark:text-gray-400">
+                                {` ${MBTI_PERSONALITIES[pc.personalityMbti].title} (${pc.personalityMbti}) - `}
+                                <span className="italic">{`"${MBTI_PERSONALITIES[pc.personalityMbti].description}"`}</span>
+                            </p>
+                        </div>
+                    )}
+                    
+                    {/* Motivation */}
+                    {pc.motivation && (
+                        <div>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100">Động cơ:</strong>
+                            <p className="pl-2 mt-1 text-sm text-slate-600 dark:text-gray-400">{pc.motivation}</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -170,8 +235,8 @@ export const MemoizedPlayerCharacterSheet = memo<{
                 onEntityClick={handleEntityClick}
             />
 
-            {/* Statuses */}
-            <MemoizedStatusesSection 
+            {/* Enhanced Statuses Section */}
+            <MemoizedEnhancedStatusesSection 
                 statuses={statuses}
                 onStatusClick={handleStatusClick}
             />
@@ -256,8 +321,8 @@ const SkillListItem = memo<{
 });
 SkillListItem.displayName = 'SkillListItem';
 
-// ===== MEMOIZED STATUSES SECTION =====
-const MemoizedStatusesSection = memo<{
+// ===== MEMOIZED ENHANCED STATUSES SECTION =====
+const MemoizedEnhancedStatusesSection = memo<{
     statuses: Status[];
     onStatusClick: (status: Status) => void;
 }>(({ statuses, onStatusClick }) => {
@@ -278,9 +343,9 @@ const MemoizedStatusesSection = memo<{
                 Trạng thái hiện tại
             </h4>
             {statusButtons.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2 pl-2">
+                <div className="flex flex-wrap gap-2 pl-2">
                     {statusButtons.map(status => (
-                        <StatusButton
+                        <EnhancedStatusButton
                             key={status.name}
                             status={status}
                             onStatusClick={onStatusClick}
@@ -288,17 +353,19 @@ const MemoizedStatusesSection = memo<{
                     ))}
                 </div>
             ) : (
-                <p className="text-sm text-slate-600 dark:text-slate-400 italic pl-2">
-                    Đang trong tình trạng bình thường.
-                </p>
+                <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700 ml-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 italic text-center">
+                        Đang trong tình trạng bình thường
+                    </p>
+                </div>
             )}
         </div>
     );
 });
-MemoizedStatusesSection.displayName = 'MemoizedStatusesSection';
+MemoizedEnhancedStatusesSection.displayName = 'MemoizedEnhancedStatusesSection';
 
-// ===== MEMOIZED STATUS BUTTON =====
-const StatusButton = memo<{
+// ===== MEMOIZED ENHANCED STATUS BUTTON =====
+const EnhancedStatusButton = memo<{
     status: Status & { borderColor: string; textColor: string; fontWeight: string };
     onStatusClick: (status: Status) => void;
 }>(({ status, onStatusClick }) => {
@@ -309,16 +376,21 @@ const StatusButton = memo<{
     return (
         <button
             onClick={handleClick}
-            className={`px-2 py-1 border rounded-md transition-colors duration-200 flex items-center gap-1.5 ${status.borderColor} hover:bg-slate-300/50 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${status.borderColor.replace('border-', 'ring-').replace('/50', '')}`}
+            className={`px-3 py-1.5 border rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105 ${status.borderColor} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${status.borderColor.replace('border-', 'ring-').replace('/50', '')} shadow-sm`}
         >
             <span className="w-4 h-4">{getIconForStatus(status)}</span>
             <span className={`${status.textColor} ${status.fontWeight} text-sm`}>
                 {status.name}
             </span>
+            {status.duration && status.duration !== 'permanent' && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                    ({status.duration})
+                </span>
+            )}
         </button>
     );
 });
-StatusButton.displayName = 'StatusButton';
+EnhancedStatusButton.displayName = 'EnhancedStatusButton';
 
 // ===== MEMOIZED ALL MODALS WRAPPER =====
 const MemoizedModalsComponent = ({ 
