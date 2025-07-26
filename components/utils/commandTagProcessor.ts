@@ -1,5 +1,6 @@
 import type { Entity, Status, Quest, Memory, Chronicle } from '../types';
 import { partyDebugger } from './partyDebugger';
+import { MemoryEnhancer } from './MemoryEnhancer';
 
 export interface CommandTagProcessorParams {
     // State setters
@@ -165,8 +166,37 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             setChronicle(prev => ({ ...prev, turn: [...prev.turn, attributes.text] }));
                             // Collect Chronicle turn content to append to story
                             chronicleTurnContent += (chronicleTurnContent ? '\n\n' : '') + attributes.text;
-                            // Automatically create memory from Chronicle turn content - store original content
-                            setMemories(prev => [...prev, { text: attributes.text, pinned: false }]);
+                            // Automatically create enhanced memory from Chronicle turn content
+                            setMemories(prev => {
+                                const basicMemory: Memory = { 
+                                    text: attributes.text, 
+                                    pinned: false,
+                                    source: 'chronicle',
+                                    createdAt: turnCount,
+                                    lastAccessed: turnCount
+                                };
+                                
+                                // Enhance the memory with metadata and importance scoring
+                                const gameState = {
+                                    knownEntities,
+                                    turnCount: turnCount || 0,
+                                    statuses,
+                                    party,
+                                    quests: [], // Will be filled from actual state
+                                    gameHistory: [], // Will be filled from actual state
+                                    memories: prev,
+                                    customRules: [],
+                                    systemInstruction: '',
+                                    totalTokens: 0,
+                                    gameTime: {},
+                                    chronicle: {},
+                                    compressedHistory: [],
+                                    worldData: {}
+                                };
+                                
+                                const enhancementResult = MemoryEnhancer.enhanceMemory(basicMemory, gameState);
+                                return [...prev, enhancementResult.enhanced];
+                            });
                         }
                         break;
                     case 'CHRONICLE_CHAPTER':

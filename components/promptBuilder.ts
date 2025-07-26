@@ -3,7 +3,7 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
 // Enhanced Token Management with Stricter Controls
 const TOKEN_CONFIG = {
-    MAX_TOKENS_PER_TURN: 120000,  // Giảm từ 70k xuống 75k để có buffer an toàn
+    MAX_TOKENS_PER_TURN: 80000,  // Giảm từ 70k xuống 75k để có buffer an toàn
     TOKEN_BUFFER: 8000,          // Tăng buffer từ 5k lên 8k
     CHARS_PER_TOKEN: 1.0,        // Tăng từ 0.75 lên 0.8 để ước tính chặt chẽ hơn
     
@@ -234,11 +234,12 @@ export class EnhancedRAGSystem {
             score += this.getTypeRelevanceScore(entity.type, intent);
             
             // Enhanced companion skill matching
-            if (entity.type === 'companion' && entity.skills && Array.isArray(entity.skills)) {
-                const skillMatch = this.getCompanionSkillRelevance(entity.skills, action, intent);
+            if (entity.type === 'companion' && entity.skills) {
+                const skillsArray = Array.isArray(entity.skills) ? entity.skills : entity.skills.split(',').map(s => s.trim());
+                const skillMatch = this.getCompanionSkillRelevance(skillsArray, action, intent);
                 score += skillMatch;
                 if (skillMatch > 0) {
-                    reasons.push(`Relevant skills: ${entity.skills.slice(0, 2).join(', ')}`);
+                    reasons.push(`Relevant skills: ${skillsArray.slice(0, 2).join(', ')}`);
                 }
             }
             
@@ -457,7 +458,8 @@ export class EnhancedRAGSystem {
                 
                 // Key skills for party synergy
                 if (companion.skills && companion.skills.length > 0) {
-                    companionDetails.push(`Chuyên môn: ${companion.skills.slice(0, 2).join(', ')}`);
+                    const skillsArray = Array.isArray(companion.skills) ? companion.skills : companion.skills.split(',').map(s => s.trim());
+                    companionDetails.push(`Chuyên môn: ${skillsArray.slice(0, 2).join(', ')}`);
                 }
                 
                 // Active status effects
@@ -695,7 +697,8 @@ export class EnhancedRAGSystem {
             
             // Skills and abilities (important for party coordination)
             if (entity.skills?.length) {
-                details.push(`Kỹ năng: ${entity.skills.slice(0, 4).join(', ')}`);
+                const skillsArray = Array.isArray(entity.skills) ? entity.skills : entity.skills.split(',').map(s => s.trim());
+                details.push(`Kỹ năng: ${skillsArray.slice(0, 4).join(', ')}`);
             }
             
             // Power level for tactical decisions
@@ -706,7 +709,11 @@ export class EnhancedRAGSystem {
             if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
             if (entity.personalityMbti) details.push(`MBTI: ${entity.personalityMbti}`);
             if (entity.motivation) details.push(`Động cơ: ${entity.motivation}`);
-            if (entity.skills?.length) details.push(`Kỹ năng: ${entity.skills.slice(0, 3).join(', ')}`);
+            if (entity.skills?.length) {
+                // Handle both string and array formats for skills
+                const skillsArray = Array.isArray(entity.skills) ? entity.skills : entity.skills.split(',').map(s => s.trim());
+                details.push(`Kỹ năng: ${skillsArray.slice(0, 3).join(', ')}`);
+            }
         }
         
         if (entity.location) details.push(`Vị trí: ${entity.location}`);

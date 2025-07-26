@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { SaveData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle } from '../types';
+import { MemoryMigration } from '../utils/MemoryMigration';
 
 export interface GameState {
     // Core game data
@@ -73,7 +74,14 @@ export const useGameState = (
     const [statuses, setStatuses] = useState<Status[]>(initialGameState.statuses);
     const [quests, setQuests] = useState<Quest[]>(initialGameState.quests);
     const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>(initialGameState.gameHistory);
-    const [memories, setMemories] = useState<Memory[]>(initialGameState.memories);
+    const [memories, setMemories] = useState<Memory[]>(() => {
+        // Auto-migrate memories to enhanced format if needed
+        if (MemoryMigration.needsMigration(initialGameState.memories)) {
+            const migratedState = MemoryMigration.autoMigrateOnLoad(initialGameState);
+            return migratedState.memories;
+        }
+        return initialGameState.memories;
+    });
     const [party, setParty] = useState<Entity[]>(initialGameState.party);
     const [customRules, setCustomRules] = useState<CustomRule[]>(initialGameState.customRules);
     const [systemInstruction, setSystemInstruction] = useState<string>(initialGameState.systemInstruction);

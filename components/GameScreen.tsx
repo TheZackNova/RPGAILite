@@ -37,6 +37,7 @@ import { MobileInputFooter } from './game/MobileInputFooter.tsx';
 // Optimization and Management
 import { HistoryManager } from './HistoryManager';
 import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
+import { UnifiedMemoryManager } from './utils/UnifiedMemoryManager';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 
@@ -143,6 +144,15 @@ export const GameScreen: React.FC<{
     const { compressedHistory, historyStats, cleanupStats } = historyCompressionState;
     const { setCompressedHistory, setHistoryStats, setCleanupStats } = historyCompressionActions;
 
+    // Unified Memory Management State
+    const [archivedMemories, setArchivedMemories] = useState<Memory[]>(initialGameState.archivedMemories || []);
+    const [memoryStats, setMemoryStats] = useState(initialGameState.memoryStats || {
+        totalMemoriesArchived: 0,
+        totalMemoriesEnhanced: 0,
+        averageImportanceScore: 0,
+        lastMemoryCleanupTurn: 0
+    });
+
     const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
     const pcName = pcEntity?.name;
     
@@ -193,12 +203,13 @@ export const GameScreen: React.FC<{
     const gameStateHandlers = useMemo(() => createGameStateHandlers({
         worldData, knownEntities, statuses, quests, gameHistory, memories, party,
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
-        compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
+        compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
+        storyLog, choices, locationDiscoveryOrder,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
         setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
-    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder]);
+    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
@@ -217,6 +228,14 @@ export const GameScreen: React.FC<{
         partyDebugger.monitorPartyChanges(party, statuses, turnCount);
     }, [party, statuses, turnCount]);
     
+    // Define generateInitialStory callback before using it
+    const generateInitialStory = useCallback(async () => {
+        if (!pcEntity) return;
+        const initialHistory: GameHistoryEntry[] = [];
+        await gameActionHandlers.generateInitialStory(worldData, knownEntities, pcEntity, initialHistory);
+        isGeneratingRef.current = false;
+    }, [gameActionHandlers, worldData, knownEntities, pcEntity]);
+    
     useEffect(() => {
         if (gameHistory.length === 0 && isAiReady && storyLog.length === 0 && !hasGeneratedInitialStory && !isGeneratingRef.current) {
             setIsLoading(true);
@@ -227,43 +246,125 @@ export const GameScreen: React.FC<{
             setStoryLog([apiKeyError || "AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ."])
             setIsLoading(false);
         }
-    }, [isAiReady, hasGeneratedInitialStory]); 
+    }, [isAiReady, hasGeneratedInitialStory, generateInitialStory, gameHistory.length, storyLog.length, apiKeyError]); 
 
     // Automatic cleanup and history management effect
     useEffect(() => {
-        if (turnCount === 0 || (cleanupStats && turnCount <= cleanupStats.lastCleanupTurn)) return;
+        // Add more strict conditions to prevent running during initialization
+        if (turnCount === 0 || 
+            !hasGeneratedInitialStory || 
+            isLoading ||
+            gameHistory.length === 0 ||
+            (cleanupStats && turnCount <= cleanupStats.lastCleanupTurn)) {
+            return;
+        }
 
         const currentState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, // This seems to be used as an indicator, not a turn number
-            historyStats, cleanupStats
+            historyStats, cleanupStats, archivedMemories, memoryStats
         };
         
-        // Automatic cleanup logic (only if enabled in settings)
+        // Automatic unified cleanup logic (only if enabled in settings)
         let optimizerResult = null;
-        if (gameSettings.memoryAutoClean) {
-            optimizerResult = GameStateOptimizer.performCleanup(currentState);
-            if (optimizerResult.shouldRunCleanup) {
-                console.log("Applying auto cleanup...");
-                const { optimizedState, stats } = optimizerResult;
-                setKnownEntities(optimizedState.knownEntities);
-                setStatuses(optimizedState.statuses);
-                setQuests(optimizedState.quests);
-                setMemories(optimizedState.memories);
-                setChronicle(optimizedState.chronicle);
+        let unifiedCleanupResult = null;
+        
+        if (gameSettings.memoryAutoClean || gameSettings.historyAutoCompress) {
+            // Try unified cleanup first
+            unifiedCleanupResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
+                maxActiveMemories: 50,
+                memoryCleanupThreshold: 70,
+                lowImportanceThreshold: 30,
+                maxActiveHistoryEntries: 30,
+                historyCompressionThreshold: 30,
+                maxTokenBudget: 8000,
+                memoryTokenRatio: 0.3
+            });
+            
+            if (unifiedCleanupResult.cleanupTriggered) {
+                console.log("🔄 Applying unified auto cleanup...");
+                
+                // Update memories
+                const activeMemories = [...unifiedCleanupResult.memoriesProcessed.kept, ...unifiedCleanupResult.memoriesProcessed.enhanced];
+                setMemories(activeMemories);
+                
+                // Update archived memories
+                setArchivedMemories(prev => [...prev, ...unifiedCleanupResult.memoriesProcessed.archived]);
+                
+                // Update memory stats
+                setMemoryStats(prev => ({
+                    totalMemoriesArchived: prev.totalMemoriesArchived + unifiedCleanupResult.memoriesProcessed.archived.length,
+                    totalMemoriesEnhanced: prev.totalMemoriesEnhanced + unifiedCleanupResult.memoriesProcessed.enhanced.length,
+                    averageImportanceScore: UnifiedMemoryManager.getOptimizationStats(activeMemories, archivedMemories).averageImportance,
+                    lastMemoryCleanupTurn: turnCount
+                }));
+                
+                // Update history
+                setGameHistory(unifiedCleanupResult.historyProcessed.activeEntries);
+                
+                // Add compressed segment if created
+                if (unifiedCleanupResult.historyProcessed.compressed) {
+                    setCompressedHistory(prev => [...prev, unifiedCleanupResult.historyProcessed.compressed!]);
+                    setHistoryStats(prev => ({
+                        ...prev,
+                        compressionCount: prev.compressionCount + 1,
+                        totalTokensSaved: prev.totalTokensSaved + unifiedCleanupResult.tokensSaved,
+                        lastCompressionTurn: turnCount
+                    }));
+                }
+                
+                // Run additional entity cleanup
+                optimizerResult = GameStateOptimizer.performCleanup(currentState);
+                if (optimizerResult.shouldRunCleanup) {
+                    const { optimizedState, stats } = optimizerResult;
+                    setKnownEntities(optimizedState.knownEntities);
+                    setStatuses(optimizedState.statuses);
+                    setQuests(optimizedState.quests);
+                    setChronicle(optimizedState.chronicle);
+                }
+                
                 setCleanupStats(prev => ({
                     totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-                    totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+                    totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + unifiedCleanupResult.tokensSaved + (optimizerResult?.stats.totalTokensSaved || 0),
                     lastCleanupTurn: turnCount,
-                    cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
+                    cleanupHistory: [...(prev?.cleanupHistory || []), { 
+                        turn: turnCount, 
+                        tokensSaved: unifiedCleanupResult.tokensSaved + (optimizerResult?.stats.totalTokensSaved || 0), 
+                        itemsRemoved: unifiedCleanupResult.memoriesProcessed.archived.length + (optimizerResult?.stats.memoriesRemoved || 0) + (optimizerResult?.stats.chronicleEntriesRemoved || 0) + (optimizerResult?.stats.questsArchived || 0) + (optimizerResult?.stats.entitiesArchived || 0)
+                    }]
                 }));
+                
+                console.log("✅ Unified auto cleanup completed:", {
+                    memoriesArchived: unifiedCleanupResult.memoriesProcessed.archived.length,
+                    memoriesEnhanced: unifiedCleanupResult.memoriesProcessed.enhanced.length,
+                    historyCompressed: !!unifiedCleanupResult.historyProcessed.compressed,
+                    tokensSaved: unifiedCleanupResult.tokensSaved
+                });
+            } else if (gameSettings.memoryAutoClean) {
+                // Fallback to legacy cleanup if unified didn't trigger but memory auto clean is enabled
+                optimizerResult = GameStateOptimizer.performCleanup(currentState);
+                if (optimizerResult.shouldRunCleanup) {
+                    console.log("🔄 Applying legacy auto cleanup...");
+                    const { optimizedState, stats } = optimizerResult;
+                    setKnownEntities(optimizedState.knownEntities);
+                    setStatuses(optimizedState.statuses);
+                    setQuests(optimizedState.quests);
+                    setMemories(optimizedState.memories);
+                    setChronicle(optimizedState.chronicle);
+                    setCleanupStats(prev => ({
+                        totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+                        totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+                        lastCleanupTurn: turnCount,
+                        cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
+                    }));
+                }
             }
         }
 
-        // Automatic history compression logic (only if enabled in settings)
-        if (gameSettings.historyAutoCompress) {
+        // Legacy fallback history compression (only if unified cleanup didn't handle it)
+        if (gameSettings.historyAutoCompress && (!unifiedCleanupResult || !unifiedCleanupResult.cleanupTriggered)) {
             const timestamp = new Date().toLocaleTimeString();
-            console.log(`🔄 [${timestamp}] Auto History Check:`, {
+            console.log(`🔄 [${timestamp}] Legacy Auto History Check:`, {
                 turn: turnCount,
                 autoCompressEnabled: true,
                 currentHistorySize: gameHistory.length
@@ -272,7 +373,7 @@ export const GameScreen: React.FC<{
             const historyManagerTargetState = optimizerResult?.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
             const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
             if (historyResult.shouldCompress && historyResult.compressedSegment) {
-                console.log(`📦 [${timestamp}] Auto Compression Triggered:`, {
+                console.log(`📦 [${timestamp}] Legacy Auto Compression Triggered:`, {
                     turn: turnCount,
                     newActiveHistorySize: historyResult.activeHistory.length,
                     compressedSegmentRange: historyResult.compressedSegment.turnRange,
@@ -284,11 +385,12 @@ export const GameScreen: React.FC<{
                 setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
                 setHistoryStats(prev => ({
                     totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
-                    totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0), // Assuming tokenCount is a reliable measure of saved tokens for now
+                    totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0),
                     compressionCount: prev.compressionCount + 1,
+                    lastCompressionTurn: turnCount
                 }));
             }
-        } else {
+        } else if (!gameSettings.historyAutoCompress) {
             const timestamp = new Date().toLocaleTimeString();
             console.log(`⏸️ [${timestamp}] Auto History Compression Disabled:`, {
                 turn: turnCount,
@@ -357,15 +459,6 @@ export const GameScreen: React.FC<{
             setChoices([]);
         }
     }, [parseStoryAndTags]);
-    
-
-    const generateInitialStory = useCallback(async () => {
-        if (!pcEntity) return;
-        const initialHistory: GameHistoryEntry[] = [];
-        await gameActionHandlers.generateInitialStory(worldData, knownEntities, pcEntity, initialHistory);
-        isGeneratingRef.current = false;
-    }, [gameActionHandlers, worldData, knownEntities, pcEntity]);
-        
     const handleAction = useCallback(async (action: string) => {
         if (isLoading || !ai) return;
         const currentGameState: SaveData = {
@@ -427,7 +520,7 @@ export const GameScreen: React.FC<{
 
     const handleManualCleanup = useCallback(() => {
         const timestamp = new Date().toLocaleTimeString();
-        console.log(`🧹 [${timestamp}] Manual Cleanup Started:`, {
+        console.log(`🧹 [${timestamp}] Manual Unified Cleanup Started:`, {
             turn: turnCount,
             beforeCleanup: {
                 entities: Object.keys(knownEntities).length,
@@ -442,44 +535,97 @@ export const GameScreen: React.FC<{
         const currentState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
-            historyStats, cleanupStats
+            historyStats, cleanupStats, archivedMemories, memoryStats
         };
-        const result = GameStateOptimizer.forceCleanup(currentState, true); // aggressive mode
         
-        setKnownEntities(result.optimizedState.knownEntities);
-        setStatuses(result.optimizedState.statuses);
-        setQuests(result.optimizedState.quests);
-        setMemories(result.optimizedState.memories);
-        setChronicle(result.optimizedState.chronicle);
-
-        setCleanupStats(prev => ({
-            ...prev!,
-            totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-            totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + result.stats.totalTokensSaved,
-            lastCleanupTurn: turnCount,
-        }));
-
-        console.log(`🧹 [${timestamp}] Manual Cleanup Completed:`, {
-            turn: turnCount,
-            afterCleanup: {
-                entities: Object.keys(result.optimizedState.knownEntities).length,
-                statuses: result.optimizedState.statuses.length,
-                quests: result.optimizedState.quests.length,
-                memories: result.optimizedState.memories.length,
-                chronicleEntries: `memoir:${result.optimizedState.chronicle.memoir.length}, chapter:${result.optimizedState.chronicle.chapter.length}, turn:${result.optimizedState.chronicle.turn.length}`
-            },
-            cleanupStats: {
-                entitiesRemoved: Object.keys(knownEntities).length - Object.keys(result.optimizedState.knownEntities).length,
-                statusesRemoved: statuses.length - result.optimizedState.statuses.length,
-                questsRemoved: quests.length - result.optimizedState.quests.length,
-                memoriesRemoved: memories.length - result.optimizedState.memories.length,
-                tokensEstimatedSaved: result.stats.totalTokensSaved
-            }
+        // Use unified memory manager for coordinated cleanup
+        const unifiedResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
+            maxActiveMemories: 40,
+            memoryCleanupThreshold: 60,
+            lowImportanceThreshold: 25,
+            maxActiveHistoryEntries: 25,
+            historyCompressionThreshold: 25,
+            maxTokenBudget: 8000,
+            memoryTokenRatio: 0.35
         });
+        
+        // Apply unified cleanup results
+        if (unifiedResult.cleanupTriggered) {
+            // Update memories
+            const activeMemories = [...unifiedResult.memoriesProcessed.kept, ...unifiedResult.memoriesProcessed.enhanced];
+            setMemories(activeMemories);
+            
+            // Update archived memories
+            setArchivedMemories(prev => [...prev, ...unifiedResult.memoriesProcessed.archived]);
+            
+            // Update memory stats
+            setMemoryStats(prev => ({
+                totalMemoriesArchived: prev.totalMemoriesArchived + unifiedResult.memoriesProcessed.archived.length,
+                totalMemoriesEnhanced: prev.totalMemoriesEnhanced + unifiedResult.memoriesProcessed.enhanced.length,
+                averageImportanceScore: UnifiedMemoryManager.getOptimizationStats(activeMemories, archivedMemories).averageImportance,
+                lastMemoryCleanupTurn: turnCount
+            }));
+            
+            // Update history
+            setGameHistory(unifiedResult.historyProcessed.activeEntries);
+            
+            // Add compressed segment if created
+            if (unifiedResult.historyProcessed.compressed) {
+                setCompressedHistory(prev => [...prev, unifiedResult.historyProcessed.compressed!]);
+                setHistoryStats(prev => ({
+                    ...prev,
+                    compressionCount: prev.compressionCount + 1,
+                    totalTokensSaved: prev.totalTokensSaved + unifiedResult.tokensSaved,
+                    lastCompressionTurn: turnCount
+                }));
+            }
+            
+            // Run additional entity cleanup
+            const legacyResult = GameStateOptimizer.forceCleanup(currentState, true);
+            setKnownEntities(legacyResult.optimizedState.knownEntities);
+            setStatuses(legacyResult.optimizedState.statuses);
+            setQuests(legacyResult.optimizedState.quests);
+            setChronicle(legacyResult.optimizedState.chronicle);
+            
+            setCleanupStats(prev => ({
+                ...prev!,
+                totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+                totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + unifiedResult.tokensSaved + legacyResult.stats.totalTokensSaved,
+                lastCleanupTurn: turnCount,
+            }));
 
-        setNotification(`🧹 Cleanup complete! Saved ~${Math.round(result.stats.totalTokensSaved / 1000)}k tokens.`);
-        setTimeout(() => setNotification(null), 3000);
-    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats]);
+            console.log(`✅ [${timestamp}] Unified Cleanup Completed:`, {
+                turn: turnCount,
+                unifiedCleanup: {
+                    memoriesArchived: unifiedResult.memoriesProcessed.archived.length,
+                    memoriesEnhanced: unifiedResult.memoriesProcessed.enhanced.length,
+                    memoriesKept: unifiedResult.memoriesProcessed.kept.length,
+                    historyCompressed: !!unifiedResult.historyProcessed.compressed,
+                    tokensSaved: unifiedResult.tokensSaved
+                },
+                legacyCleanup: {
+                    entitiesRemoved: Object.keys(knownEntities).length - Object.keys(legacyResult.optimizedState.knownEntities).length,
+                    statusesRemoved: statuses.length - legacyResult.optimizedState.statuses.length,
+                    questsRemoved: quests.length - legacyResult.optimizedState.quests.length
+                },
+                totalTokensSaved: unifiedResult.tokensSaved + legacyResult.stats.totalTokensSaved
+            });
+
+            setNotification(`🧹 Unified cleanup complete! Saved ~${Math.round((unifiedResult.tokensSaved + legacyResult.stats.totalTokensSaved) / 1000)}k tokens.`);
+        } else {
+            // Fallback to legacy cleanup if unified didn't trigger
+            const result = GameStateOptimizer.forceCleanup(currentState, true);
+            setKnownEntities(result.optimizedState.knownEntities);
+            setStatuses(result.optimizedState.statuses);
+            setQuests(result.optimizedState.quests);
+            setMemories(result.optimizedState.memories);
+            setChronicle(result.optimizedState.chronicle);
+            
+            setNotification(`🧹 Legacy cleanup complete! Saved ~${Math.round(result.stats.totalTokensSaved / 1000)}k tokens.`);
+        }
+        
+        setTimeout(() => setNotification(null), 4000);
+    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
 
     // Debug function to show current system status
     const debugSystemStatus = useCallback(() => {
@@ -512,7 +658,7 @@ export const GameScreen: React.FC<{
                 chronicleTurn: chronicle.turn.length
             }
         });
-    }, [turnCount, totalTokens, currentTurnTokens, gameSettings.historyAutoCompress, gameHistory.length, compressedHistory.length, historyStats, cleanupStats, knownEntities, statuses, quests, memories, chronicle]);
+    }, [turnCount, gameSettings.historyAutoCompress, gameSettings.memoryAutoClean, hasGeneratedInitialStory, isLoading]);
 
     // Expose debug function to window for manual testing
     React.useEffect(() => {

@@ -18,6 +18,8 @@ export interface GameStateHandlersParams {
     compressedHistory: any[];
     historyStats: any;
     cleanupStats: any;
+    archivedMemories: Memory[];
+    memoryStats: any;
     storyLog: string[];
     choices: string[];
     locationDiscoveryOrder: string[];
@@ -51,7 +53,8 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
     const {
         worldData, knownEntities, statuses, quests, gameHistory, memories, party,
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
-        compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
+        compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
+        storyLog, choices, locationDiscoveryOrder,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
         setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
@@ -65,7 +68,8 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
         const currentGameState: SaveData = {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party,
             customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
-            compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder
+            compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
+            storyLog, choices, locationDiscoveryOrder
         };
         
         const jsonString = JSON.stringify(currentGameState, null, 2);

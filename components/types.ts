@@ -79,6 +79,14 @@ export interface Status {
 export interface Memory {
     text: string;
     pinned: boolean;
+    createdAt?: number;           // Turn number when created
+    lastAccessed?: number;        // Turn number when last referenced
+    source?: 'chronicle' | 'manual' | 'auto_generated';
+    category?: 'combat' | 'social' | 'discovery' | 'story' | 'relationship' | 'general';
+    importance?: number;          // 0-100 dynamic score
+    relatedEntities?: string[];   // Connected entity names
+    tags?: string[];             // User or AI generated tags
+    emotionalWeight?: number;    // Story significance (-10 to 10)
 }
 
 export interface QuestObjective {
@@ -158,6 +166,7 @@ export interface SaveData {
         totalEntriesProcessed: number;
         totalTokensSaved: number;
         compressionCount: number;
+        lastCompressionTurn?: number;
     };
     cleanupStats?: {
         totalCleanupsPerformed: number;
@@ -168,6 +177,15 @@ export interface SaveData {
             tokensSaved: number;
             itemsRemoved: number;
         }>;
+    };
+    
+    // Unified Memory Management
+    archivedMemories?: Memory[];
+    memoryStats?: {
+        totalMemoriesArchived: number;
+        totalMemoriesEnhanced: number;
+        averageImportanceScore: number;
+        lastMemoryCleanupTurn: number;
     };
 }
 

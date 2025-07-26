@@ -557,6 +557,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
           } catch (error) {
               console.error('🎮 StartNewGame: Failed to generate PC appearance:', error);
           }
+          
       } else {
           console.log('🎮 StartNewGame: Skipping PC appearance generation (AI not ready)');
       }
@@ -583,6 +584,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
                   const conceptEntities = await generateLoreConcepts(activeRules);
                   console.log('🎮 StartNewGame: LORE_CONCEPT generated, count:', Object.keys(conceptEntities).length);
                   initialEntities = { ...initialEntities, ...conceptEntities };
+                  
               } catch (error) {
                   console.error('🎮 StartNewGame: Failed to generate LORE_CONCEPT:', error);
               }

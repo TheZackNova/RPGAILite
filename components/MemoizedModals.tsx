@@ -480,7 +480,14 @@ const MemoizedModalsComponent = ({
                 isOpen={isMemoryModalOpen} 
                 onClose={modalCloseHandlers.memory} 
                 memories={memories} 
-                onTogglePin={handleToggleMemoryPin} 
+                onTogglePin={handleToggleMemoryPin}
+                gameState={{
+                    knownEntities,
+                    turnCount,
+                    statuses,
+                    party: entityComputations.displayParty,
+                    quests
+                }}
             />
             
             <KnowledgeBaseModal 
