@@ -50,6 +50,8 @@ export interface FormData {
     genre: string; // New field for story genre
     worldDetail: string;
     worldTime: { day: number; month: number; year: number }; // New field for world start time
+    startLocation: string; // New field for start location
+    customStartLocation: string; // New field for custom start location when "Tuỳ chọn" is selected
     writingStyle: string;
     difficulty: string;
     allowNsfw: boolean;

@@ -160,12 +160,12 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 **1. LỰA CHỌN HÀNH ĐỘNG:**
 - Tạo 4-6 lựa chọn đa dạng: hành động, xã hội, thăm dó, chiến đấu, nsfw (nếu được bật)
 - Tận dụng kỹ năng và vật phẩm của nhân vật
-- Cần có lựa chọn rủi ro cao/thưởng cao
+- Bắt buộc có lựa chọn rủi ro cao/thưởng cao
 
 **2. KẾT QUẢ HÀNH ĐỘNG:**
 - KHÔNG đảm bảo thành công
 - Luôn luôn suy luận để quyết định kết quả
-- Hậu quả logic dựa trên kỹ năng và hoàn cảnh
+- Hậu quả logic dựa trên kỹ năng và hoàn cảnh, không nên bị động xoay quanh người chơi.
 
 **3. CHIẾN ĐẤU:**
 - Theo từng lượt, không giải quyết nhanh
@@ -198,9 +198,9 @@ Chủ động tạo quest mới và cập nhật quest hiện tại:
 
 **Cơ chế NSFW Ngẫu nhiên và Gây sốc (The Twist Generator):**
     *   **Nhiệm vụ:** Chủ động tạo ra các tình huống và mối quan hệ NSFW lén lút, cấm kỵ giữa các NPC để tạo bất ngờ và kích thích cho {{user}}.
-    *   **Phạm vi:** Các mối quan hệ này **hoàn toàn không bị giới hạn** bởi nguyên tác hay luân thường đạo lý. Có thể là bất kỳ cặp đôi nào (nam-nam, nữ-nữ, nam-nữ, thầy-trò, mẹ-con, anh-em, bạn bè thân thiết phản bội...) với các động cơ khác nhau (tự nguyện, uy hiếp, lén lút, điều giáo, giao dịch...).
+    *   **Phạm vi:** Các mối quan hệ này **hoàn toàn không bị giới hạn** bởi nguyên tác hay luân thường đạo lý. Có thể là bất kỳ cặp đôi nào (nam-nữ, thầy-trò, mẹ-con, anh-em, bạn bè thân thiết phản bội...) với các động cơ khác nhau (tự nguyện, uy hiếp, lén lút, điều giáo, giao dịch...).
     *   **Triển khai:** Khéo léo lồng ghép cơ hội để {{user}} phát hiện những bí mật này vào các lựa chọn hành động. Ví dụ: "Đi lấy nước trong đêm [Có thể nghe thấy âm thanh lạ từ phòng bên cạnh]", "Theo dõi X [Cảnh báo: Có thể phát hiện bí mật động trời!]", "Lén vào phòng của Y [Cảnh báo NSFW]". Mục tiêu là tạo ra sự kịch tính và thỏa mãn sự tò mò của người chơi.
-
+    *   **Lưu ý:** BẮT BUỘC dựa vào thông tin gender của NPC để mô tả cho chính xác tránh nhầm lẫn. Ví dụ: "B(nữ) tách hai chân của A(nam) rồi cắm dương vật của mình vào âm đạo của B(nam)" là sai.
 **HƯỚNG DẪN MIÊU TẢ VẬT LÝ, CHUYỂN ĐỘNG & TÌNH DỤC**
 
 Để tăng cường cảm giác chân thực và kích thích, AI cần vận dụng các từ ngữ và nguyên tắc miêu tả sau đây:
@@ -657,7 +657,11 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
                     const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
                     // Ensure new fields have default values if loading an old save
                     const validatedData: SaveData = {
-                        worldData: loadedJson.worldData,
+                        worldData: {
+                            ...loadedJson.worldData,
+                            startLocation: loadedJson.worldData.startLocation || '', // Backward compatibility
+                            customStartLocation: loadedJson.worldData.customStartLocation || '', // Backward compatibility
+                        },
                         knownEntities: loadedJson.knownEntities,
                         statuses: loadedJson.statuses || [],
                         quests: loadedJson.quests || [],

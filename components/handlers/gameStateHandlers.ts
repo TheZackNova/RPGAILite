@@ -87,8 +87,33 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
         setStatuses([]);
         setQuests([]);
         setMemories([]);
-        setKnownEntities({});
-        setParty([]);
+        
+        // Recreate PC entity from initial world data
+        const pcEntity: Entity = {
+            name: worldData.characterName || 'Vô Danh',
+            type: 'pc',
+            description: worldData.bio,
+            gender: worldData.gender,
+            personality: worldData.customPersonality || worldData.personalityFromList,
+            learnedSkills: [],
+            appearance: initialGameState.knownEntities[worldData.characterName || 'Vô Danh']?.appearance || '',
+        };
+        
+        // Preserve LORE_CONCEPT entities but reset PC
+        const conceptEntities = Object.values(initialGameState.knownEntities)
+            .filter(entity => entity.type === 'concept')
+            .reduce((acc, entity) => {
+                acc[entity.name] = entity;
+                return acc;
+            }, {} as { [key: string]: Entity });
+        
+        const resetEntities = {
+            [pcEntity.name]: pcEntity,
+            ...conceptEntities
+        };
+        
+        setKnownEntities(resetEntities);
+        setParty([pcEntity]);
         setTurnCount(0);
         setTotalTokens(0);
         setGameTime({ 

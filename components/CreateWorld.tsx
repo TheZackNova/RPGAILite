@@ -23,6 +23,8 @@ export const CreateWorld: React.FC<{
         genre: '',
         worldDetail: '',
         worldTime: { day: 1, month: 1, year: 1000 },
+        startLocation: '',
+        customStartLocation: '',
         writingStyle: 'second_person',
         difficulty: 'normal',
         allowNsfw: false,
@@ -68,6 +70,12 @@ export const CreateWorld: React.FC<{
                 ...prev,
                 personalityFromList: value,
                 customPersonality: '' // Clear custom input when selecting from list
+            }));
+        } else if (name === 'startLocation') {
+            setFormData(prev => ({
+                ...prev,
+                startLocation: value,
+                customStartLocation: value !== 'Tuỳ chọn' ? '' : prev.customStartLocation // Clear custom location when not "Tuỳ chọn"
             }));
         } else {
              setFormData(prev => ({
@@ -256,6 +264,8 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                             ...formData, 
                             ...loadedData,
                             customRules: loadedData.customRules || [], // Ensure customRules is an array
+                            startLocation: loadedData.startLocation || '', // Backward compatibility
+                            customStartLocation: loadedData.customStartLocation || '', // Backward compatibility
                         };
                         setFormData(newFormData);
                         alert('Đã tải thiết lập thành công!');
@@ -469,6 +479,28 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                 />
                             </div>
                         </div>
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="startLocation">Địa điểm bắt đầu:</FormLabel>
+                        <CustomSelect name="startLocation" value={formData.startLocation} onChange={handleInputChange}>
+                            <option value="">Chọn địa điểm bắt đầu...</option>
+                            <option value="Hoang dã ngẫu nhiên">Hoang dã</option>
+                            <option value="Thôn, Làng ngẫu nhiên">Thôn, Làng</option>
+                            <option value="Thành Thị ngẫu nhiên">Thành Thị</option>
+                            <option value="Một địa điểm bất kì">Ngẫu Nhiên</option>
+                            <option value="Tuỳ chọn">Tuỳ chọn</option>
+                        </CustomSelect>
+                        {formData.startLocation === 'Tuỳ chọn' && (
+                            <input 
+                                id="customStartLocation"
+                                name="customStartLocation"
+                                type="text" 
+                                value={formData.customStartLocation} 
+                                onChange={handleInputChange}
+                                placeholder="Nhập địa điểm tùy chọn..."
+                                className="w-full mt-2 bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400"
+                            />
+                        )}
                     </div>
                 </div>
 

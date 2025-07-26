@@ -81,6 +81,7 @@ Tính cách: ${pcEntity.personality}
 Thế giới: ${worldData.worldName}
 Mô tả: ${worldData.worldDescription}
 Thời gian: Năm ${worldData.worldTime?.year || 1}, Tháng ${worldData.worldTime?.month || 1}, Ngày ${worldData.worldTime?.day || 1}
+Địa điểm bắt đầu: ${worldData.startLocation === 'Tuỳ chọn' ? worldData.customStartLocation : worldData.startLocation || 'Không xác định'}
 Phong cách viết: ${writingStyleText}
 Nội dung 18+: ${nsfwInstruction}
 
