@@ -1,0 +1,153 @@
+import { useState, useMemo } from 'react';
+import type { Entity, Status, Quest } from '../types';
+
+export interface ModalState {
+    // Modal open/close states
+    isHomeModalOpen: boolean;
+    isRestartModalOpen: boolean;
+    isMemoryModalOpen: boolean;
+    isKnowledgeModalOpen: boolean;
+    isCustomRulesModalOpen: boolean;
+    isMapModalOpen: boolean;
+    isPcInfoModalOpen: boolean;
+    isPartyModalOpen: boolean;
+    isQuestLogModalOpen: boolean;
+    isSidebarOpen: boolean;
+    isChoicesModalOpen: boolean;
+    isGameSettingsModalOpen: boolean;
+    
+    // Active modal entities
+    activeEntity: Entity | null;
+    activeStatus: Status | null;
+    activeQuest: Quest | null;
+    
+    // Notification states
+    showSaveSuccess: boolean;
+    showRulesSavedSuccess: boolean;
+    notification: string | null;
+}
+
+export interface ModalStateActions {
+    // Modal open/close setters
+    setIsHomeModalOpen: (open: boolean) => void;
+    setIsRestartModalOpen: (open: boolean) => void;
+    setIsMemoryModalOpen: (open: boolean) => void;
+    setIsKnowledgeModalOpen: (open: boolean) => void;
+    setIsCustomRulesModalOpen: (open: boolean) => void;
+    setIsMapModalOpen: (open: boolean) => void;
+    setIsPcInfoModalOpen: (open: boolean) => void;
+    setIsPartyModalOpen: (open: boolean) => void;
+    setIsQuestLogModalOpen: (open: boolean) => void;
+    setIsSidebarOpen: (open: boolean) => void;
+    setIsChoicesModalOpen: (open: boolean) => void;
+    setIsGameSettingsModalOpen: (open: boolean) => void;
+    
+    // Active modal entity setters
+    setActiveEntity: (entity: Entity | null) => void;
+    setActiveStatus: (status: Status | null) => void;
+    setActiveQuest: (quest: Quest | null) => void;
+    
+    // Notification setters
+    setShowSaveSuccess: (show: boolean) => void;
+    setShowRulesSavedSuccess: (show: boolean) => void;
+    setNotification: (notification: string | null) => void;
+    
+    // Modal close handlers object
+    modalCloseHandlers: {
+        home: () => void;
+        restart: () => void;
+        memory: () => void;
+        knowledge: () => void;
+        customRules: () => void;
+        map: () => void;
+        pcInfo: () => void;
+        party: () => void;
+        questLog: () => void;
+        choices: () => void;
+    };
+}
+
+export const useModalState = (): [ModalState, ModalStateActions] => {
+    // Modal open/close states
+    const [isHomeModalOpen, setIsHomeModalOpen] = useState(false);
+    const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
+    const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
+    const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState(false);
+    const [isCustomRulesModalOpen, setIsCustomRulesModalOpen] = useState(false);
+    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+    const [isPcInfoModalOpen, setIsPcInfoModalOpen] = useState(false);
+    const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
+    const [isQuestLogModalOpen, setIsQuestLogModalOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
+    const [isGameSettingsModalOpen, setIsGameSettingsModalOpen] = useState(false);
+    
+    // Active modal entities
+    const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
+    const [activeStatus, setActiveStatus] = useState<Status | null>(null);
+    const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+    
+    // Notification states
+    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+    const [showRulesSavedSuccess, setShowRulesSavedSuccess] = useState(false);
+    const [notification, setNotification] = useState<string | null>(null);
+
+    // Memoized modal close handlers
+    const modalCloseHandlers = useMemo(() => ({
+        home: () => setIsHomeModalOpen(false),
+        restart: () => setIsRestartModalOpen(false),
+        memory: () => setIsMemoryModalOpen(false),
+        knowledge: () => setIsKnowledgeModalOpen(false),
+        customRules: () => setIsCustomRulesModalOpen(false),
+        map: () => setIsMapModalOpen(false),
+        pcInfo: () => setIsPcInfoModalOpen(false),
+        party: () => setIsPartyModalOpen(false),
+        questLog: () => setIsQuestLogModalOpen(false),
+        choices: () => setIsChoicesModalOpen(false),
+    }), []);
+
+    const modalState: ModalState = {
+        isHomeModalOpen,
+        isRestartModalOpen,
+        isMemoryModalOpen,
+        isKnowledgeModalOpen,
+        isCustomRulesModalOpen,
+        isMapModalOpen,
+        isPcInfoModalOpen,
+        isPartyModalOpen,
+        isQuestLogModalOpen,
+        isSidebarOpen,
+        isChoicesModalOpen,
+        isGameSettingsModalOpen,
+        activeEntity,
+        activeStatus,
+        activeQuest,
+        showSaveSuccess,
+        showRulesSavedSuccess,
+        notification
+    };
+
+    const modalStateActions: ModalStateActions = {
+        setIsHomeModalOpen,
+        setIsRestartModalOpen,
+        setIsMemoryModalOpen,
+        setIsKnowledgeModalOpen,
+        setIsCustomRulesModalOpen,
+        setIsMapModalOpen,
+        setIsPcInfoModalOpen,
+        setIsPartyModalOpen,
+        setIsQuestLogModalOpen,
+        setIsSidebarOpen,
+        setIsChoicesModalOpen,
+        setIsGameSettingsModalOpen,
+        setActiveEntity,
+        setActiveStatus,
+        setActiveQuest,
+        setShowSaveSuccess,
+        setShowRulesSavedSuccess,
+        setNotification,
+        modalCloseHandlers
+    };
+
+    return [modalState, modalStateActions];
+};

@@ -39,7 +39,6 @@ export interface GameStateHandlersParams {
     setGameHistory: (history: any[]) => void;
     setHasGeneratedInitialStory: (generated: boolean) => void;
     setIsLoading: (loading: boolean) => void;
-    setGameSettings: (settings: GameSettings) => void;
     
     // Refs and other state
     isGeneratingRef: React.MutableRefObject<boolean>;
@@ -54,7 +53,7 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
         compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
         setKnownEntities, setParty, setTurnCount, setTotalTokens, setGameTime, setChronicle,
-        setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading, setGameSettings,
+        setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
     } = params;
 
@@ -105,14 +104,7 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
         isGeneratingRef.current = false;
     };
 
-    const handleSettingsChange = (newSettings: GameSettings) => {
-        setGameSettings(newSettings);
-        localStorage.setItem('gameSettings', JSON.stringify(newSettings));
-        
-        // Apply font settings to document root
-        document.documentElement.style.setProperty('--game-font-size', `${newSettings.fontSize}px`);
-        document.documentElement.style.setProperty('--game-font-family', newSettings.fontFamily);
-    };
+    // Settings change is now handled by useGameSettings hook
 
     const handleToggleMemoryPin = (index: number) => {
         setMemories(prev => prev.map((mem, i) => 
@@ -131,7 +123,6 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
     return {
         handleSaveGame,
         handleRestartGame,
-        handleSettingsChange,
         handleToggleMemoryPin,
         handleSaveRules
     };

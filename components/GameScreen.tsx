@@ -14,6 +14,12 @@ import { createEntityHandlers } from './handlers/entityHandlers';
 import { createGameStateHandlers } from './handlers/gameStateHandlers';
 import { createCommandTagProcessor } from './utils/commandTagProcessor';
 
+// Custom Hooks
+import { useGameState } from './hooks/useGameState';
+import { useModalState } from './hooks/useModalState';
+import { useGameSettings } from './hooks/useGameSettings';
+import { useHistoryCompression } from './hooks/useHistoryCompression';
+
 // Modal Imports
 import { MemoizedModals } from './MemoizedModals.tsx';
 import { GameSettingsModal, GameSettings } from './GameSettingsModal.tsx';
@@ -42,174 +48,14 @@ export const GameScreen: React.FC<{
     onClearNotification: () => void;
 }> = ({ initialGameState, onBackToMenu, keyRotationNotification, onClearNotification }) => {
     const { ai, isAiReady, apiKeyError, rotateKey, isUsingDefaultKey, userApiKeyCount, selectedModel } = useContext(AIContext);
-    const [worldData, setWorldData] = useState(initialGameState.worldData);
-    const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
-    const [hasGeneratedInitialStory, setHasGeneratedInitialStory] = useState<boolean>(false);
+    
+    // Refs
     const isGeneratingRef = useRef<boolean>(false);
-    const [customAction, setCustomAction] = useState('');
-    
-    // Game State
-    const [knownEntities, setKnownEntities] = useState<KnownEntities>(initialGameState.knownEntities);
-    const [statuses, setStatuses] = useState<Status[]>(initialGameState.statuses);
-    const [quests, setQuests] = useState<Quest[]>(initialGameState.quests);
-    const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>(initialGameState.gameHistory);
-    const [turnCount, setTurnCount] = useState<number>(initialGameState.turnCount);
-    const [memories, setMemories] = useState<Memory[]>(initialGameState.memories);
-    const [party, setParty] = useState<Entity[]>(initialGameState.party);
-    const [customRules, setCustomRules] = useState<CustomRule[]>(initialGameState.customRules);
-    const [systemInstruction, setSystemInstruction] = useState<string>(initialGameState.systemInstruction);
-    const [chronicle, setChronicle] = useState<Chronicle>(initialGameState.chronicle);
-    const [gameTime, setGameTime] = useState(initialGameState.gameTime || { year: 1, month: 1, day: 1, hour: 8 });
-    const [currentTurnTokens, setCurrentTurnTokens] = useState<number>(0);
-    const [totalTokens, setTotalTokens] = useState<number>(initialGameState.totalTokens || 0);
-
-    // History and Cleanup State
-    const [compressedHistory, setCompressedHistory] = useState<CompressedHistorySegment[]>(initialGameState.compressedHistory || []);
-    const [historyStats, setHistoryStats] = useState(initialGameState.historyStats || { totalEntriesProcessed: 0, totalTokensSaved: 0, compressionCount: 0 });
-    const [cleanupStats, setCleanupStats] = useState<SaveData['cleanupStats']>(initialGameState.cleanupStats || { totalCleanupsPerformed: 0, totalTokensSavedFromCleanup: 0, lastCleanupTurn: 0, cleanupHistory: [] });
-
-
-    // Modal & Notification States
-    const [isHomeModalOpen, setIsHomeModalOpen] = useState(false);
-    const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
-    const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
-    const [activeStatus, setActiveStatus] = useState<Status | null>(null);
-    const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
-    const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState(false);
-    const [isCustomRulesModalOpen, setIsCustomRulesModalOpen] = useState(false);
-    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-    const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
-    const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-    const [showRulesSavedSuccess, setShowRulesSavedSuccess] = useState(false);
-    const [isPcInfoModalOpen, setIsPcInfoModalOpen] = useState(false);
-    const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
-    const [isQuestLogModalOpen, setIsQuestLogModalOpen] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
-    const [notification, setNotification] = useState<string | null>(null);
-    const [isGameSettingsModalOpen, setIsGameSettingsModalOpen] = useState(false);
-    
-    // Game Settings State
-    const [gameSettings, setGameSettings] = useState<GameSettings>(() => {
-        const saved = localStorage.getItem('gameSettings');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch {
-                // Fall back to defaults if parse fails
-            }
-        }
-        return {
-            fontSize: 16,
-            fontFamily: 'Inter',
-            memoryAutoClean: true,
-            historyAutoCompress: true,
-        };
-    });
-    
-    // Map State
-    const [locationDiscoveryOrder, setLocationDiscoveryOrder] = useState<string[]>(() => {
-        // Priority 1: Use directly saved order if it exists
-        if (Array.isArray(initialGameState.locationDiscoveryOrder)) {
-            const savedOrder = [...initialGameState.locationDiscoveryOrder];
-            const seen = new Set(savedOrder);
-            const allKnownLocations = Object.values(initialGameState.knownEntities)
-                .filter(e => e.type === 'location')
-                .map(e => e.name);
-
-            allKnownLocations.forEach(locName => {
-                if (!seen.has(locName)) {
-                    savedOrder.push(locName);
-                }
-            });
-            return savedOrder;
-        }
-
-        // Priority 2: Fallback for older saves - rehydrate from history
-        const order: string[] = [];
-        const seen = new Set<string>();
-        initialGameState.gameHistory.forEach(entry => {
-            if (entry.role === 'model') {
-                 try {
-                    const jsonResponse = JSON.parse(entry.parts[0].text);
-                    const storyText = jsonResponse.story || '';
-                    const tagRegex = /\[LORE_LOCATION:\s*name="([^"]+)"[^\]]*\]/g;
-                    let match;
-                    while ((match = tagRegex.exec(storyText)) !== null) {
-                        const locName = match[1];
-                        if (!seen.has(locName)) {
-                            order.push(locName);
-                            seen.add(locName);
-                        }
-                    }
-                } catch (e) { /* Ignore non-json responses */ }
-            }
-        });
-        
-        // Final fallback: Ensure all known locations are at least present, even if order is arbitrary
-        const knownLocations = Object.values(initialGameState.knownEntities)
-            .filter(e => e.type === 'location')
-            .map(e => e.name);
-            
-        knownLocations.forEach(locName => {
-            if (!seen.has(locName)) {
-                order.push(locName);
-                seen.add(locName);
-            }
-        });
-
-        return order;
-    });
+    const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
 
     // Rule change tracking
     const [ruleChanges, setRuleChanges] = useState<{ activated: CustomRule[], deactivated: CustomRule[], updated: { oldRule: CustomRule, newRule: CustomRule }[] } | null>(null);
-    const previousRulesRef = useRef<CustomRule[]>(initialGameState.customRules);
 
-    
-
-    const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
-    const pcName = pcEntity?.name;
-    
-    // Initialize handlers with current state
-    const commandTagProcessor = useMemo(() => createCommandTagProcessor({
-        setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
-        setQuests, setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party
-    }), [knownEntities, statuses, party]);
-    
-    const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
-        return commandTagProcessor.parseStoryAndTags(storyText, applySideEffects);
-    }, [commandTagProcessor]);
-
-    // Initialize game action handlers
-    const gameActionHandlers = useMemo(() => createGameActionHandlers({
-        ai, selectedModel, systemInstruction, responseSchema,
-        isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices,
-        setIsLoading, setChoices, setCustomAction, setStoryLog, setGameHistory,
-        setTurnCount, setCurrentTurnTokens, setTotalTokens,
-        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags
-    }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, ruleChanges, parseStoryAndTags]);
-
-    // Initialize entity handlers  
-    const entityHandlers = useMemo(() => createEntityHandlers({
-        knownEntities,
-        setActiveEntity,
-        setActiveStatus,
-        setActiveQuest,
-        handleAction: gameActionHandlers.handleAction
-    }), [knownEntities, gameActionHandlers]);
-
-    // Initialize game state handlers
-    const gameStateHandlers = useMemo(() => createGameStateHandlers({
-        worldData, knownEntities, statuses, quests, gameHistory, memories, party,
-        customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
-        compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
-        setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
-        setKnownEntities, setParty, setTurnCount, setTotalTokens, setGameTime, setChronicle,
-        setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading, setGameSettings,
-        isGeneratingRef, initialGameState, previousRulesRef
-    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder]);
-    
     // --- Data Rehydration Logic ---
     const { rehydratedLog, rehydratedChoices } = useMemo(() => {
         // Priority 1: Use directly saved log and choices if they exist (new save format)
@@ -237,7 +83,8 @@ export const GameScreen: React.FC<{
                 try {
                     const jsonResponse = JSON.parse(entry.parts[0].text);
                     const storyText = jsonResponse.story || '';
-                    const cleanStory = parseStoryAndTags(storyText, false); 
+                    // We need parseStoryAndTags here, but it's defined later, so we'll use a simplified version
+                    const cleanStory = storyText.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '').trim();
                     if (cleanStory) {
                         log.push(cleanStory);
                     }
@@ -250,10 +97,107 @@ export const GameScreen: React.FC<{
         });
     
         return { rehydratedLog: log, rehydratedChoices: lastChoices };
-    }, [initialGameState, parseStoryAndTags]); 
+    }, [initialGameState]); 
+
+    // Initialize custom hooks
+    const [gameSettingsState, gameSettingsActions] = useGameSettings();
+    const [historyCompressionState, historyCompressionActions] = useHistoryCompression(initialGameState);
+    const [gameState, gameStateActions] = useGameState(initialGameState, isAiReady, rehydratedLog, rehydratedChoices);
+    const [modalState, modalStateActions] = useModalState();
+
+    // Extract values from hooks for easier access
+    const {
+        worldData, knownEntities, statuses, quests, gameHistory, memories, party,
+        customRules, systemInstruction, chronicle, gameTime, turnCount, currentTurnTokens,
+        totalTokens, storyLog, choices, locationDiscoveryOrder, isLoading,
+        hasGeneratedInitialStory, customAction
+    } = gameState;
+
+    const {
+        setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setMemories,
+        setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime,
+        setTurnCount, setCurrentTurnTokens, setTotalTokens, setStoryLog, setChoices,
+        setLocationDiscoveryOrder, setIsLoading, setHasGeneratedInitialStory, setCustomAction
+    } = gameStateActions;
+
+    const {
+        isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
+        isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
+        isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen,
+        activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
+        notification
+    } = modalState;
+
+    const {
+        setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
+        setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
+        setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen,
+        setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
+        setNotification, modalCloseHandlers
+    } = modalStateActions;
+
+    const { gameSettings } = gameSettingsState;
+    const { handleSettingsChange } = gameSettingsActions;
+
+    const { compressedHistory, historyStats, cleanupStats } = historyCompressionState;
+    const { setCompressedHistory, setHistoryStats, setCleanupStats } = historyCompressionActions;
+
+    const pcEntity = useMemo(() => Object.values(knownEntities).find(e => e.type === 'pc'), [knownEntities]);
+    const pcName = pcEntity?.name;
     
-    const [storyLog, setStoryLog] = useState<string[]>(rehydratedLog);
-    const [choices, setChoices] = useState<string[]>(rehydratedChoices);
+    // Initialize handlers with current state
+    const commandTagProcessor = useMemo(() => createCommandTagProcessor({
+        setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
+        setQuests, setParty, setLocationDiscoveryOrder,
+        knownEntities, statuses, party
+    }), [knownEntities, statuses, party]);
+    
+    const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
+        return commandTagProcessor.parseStoryAndTags(storyText, applySideEffects);
+    }, [commandTagProcessor]);
+
+    // Define response schema
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
+        choices: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING },
+          description: "Một mảng gồm 4-6 lựa chọn cho người chơi."
+        },
+      },
+      required: ['story', 'choices']
+    };
+
+    // Initialize game action handlers
+    const gameActionHandlers = useMemo(() => createGameActionHandlers({
+        ai, selectedModel, systemInstruction, responseSchema,
+        isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices,
+        setIsLoading, setChoices, setCustomAction, setStoryLog, setGameHistory,
+        setTurnCount, setCurrentTurnTokens, setTotalTokens,
+        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags
+    }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, ruleChanges, parseStoryAndTags]);
+
+    // Initialize entity handlers  
+    const entityHandlers = useMemo(() => createEntityHandlers({
+        knownEntities,
+        setActiveEntity,
+        setActiveStatus,
+        setActiveQuest,
+        handleAction: gameActionHandlers.handleAction
+    }), [knownEntities, gameActionHandlers]);
+
+    // Initialize game state handlers
+    const gameStateHandlers = useMemo(() => createGameStateHandlers({
+        worldData, knownEntities, statuses, quests, gameHistory, memories, party,
+        customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
+        compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder,
+        setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
+        setKnownEntities, setParty, setTurnCount, setTotalTokens, setGameTime, setChronicle,
+        setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
+        isGeneratingRef, initialGameState, previousRulesRef
+    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, storyLog, choices, locationDiscoveryOrder]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
@@ -349,19 +293,6 @@ export const GameScreen: React.FC<{
         }
     }, [turnCount]);
     
-    const responseSchema = {
-      type: Type.OBJECT,
-      properties: {
-        story: { type: Type.STRING, description: "Phần văn bản tường thuật của câu chuyện, bao gồm các định dạng đặc biệt và các thẻ lệnh ẩn." },
-        choices: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
-          description: "Một mảng gồm 4-6 lựa chọn cho người chơi."
-        },
-      },
-      required: ['story', 'choices']
-    };
-
     const parseApiResponse = useCallback((text: string) => {
         try {
             // Check if response is empty or whitespace only
@@ -469,15 +400,7 @@ export const GameScreen: React.FC<{
         gameStateHandlers.handleRestartGame();
     }, [gameStateHandlers]);
 
-    const handleSettingsChange = useCallback((newSettings: GameSettings) => {
-        gameStateHandlers.handleSettingsChange(newSettings);
-    }, [gameStateHandlers]);
-
-    // Apply font settings on component mount
-    useEffect(() => {
-        document.documentElement.style.setProperty('--game-font-size', `${gameSettings.fontSize}px`);
-        document.documentElement.style.setProperty('--game-font-family', gameSettings.fontFamily);
-    }, [gameSettings.fontSize, gameSettings.fontFamily]);
+    // Font settings are now handled in useGameSettings hook
 
     // Global keyboard shortcuts
     useEffect(() => {
@@ -600,21 +523,7 @@ export const GameScreen: React.FC<{
     const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
     const displayParty = party.filter(p => p.name !== pcName);
     const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
-
-    // --- Memoized Modal Props ---
-    const modalCloseHandlers = useMemo(() => ({
-        home: () => setIsHomeModalOpen(false),
-        restart: () => setIsRestartModalOpen(false),
-        memory: () => setIsMemoryModalOpen(false),
-        knowledge: () => setIsKnowledgeModalOpen(false),
-        customRules: () => setIsCustomRulesModalOpen(false),
-        map: () => setIsMapModalOpen(false),
-        pcInfo: () => setIsPcInfoModalOpen(false),
-        party: () => setIsPartyModalOpen(false),
-        questLog: () => setIsQuestLogModalOpen(false),
-        choices: () => setIsChoicesModalOpen(false),
-    }), []);
-
+    
     const entityComputations = useMemo(() => ({
         pcEntity,
         pcStatuses,
