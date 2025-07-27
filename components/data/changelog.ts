@@ -3,6 +3,24 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.35.0',
+    date: '2025-07-27',
+    changes: [
+      { type: 'feature', text: 'Triển khai hệ thống Custom Experience Name hoàn chỉnh - Người chơi có thể định nghĩa tên đơn vị kinh nghiệm trong CreateWorld (ví dụ: Chakra, Linh lực, Ma lực) thay vì "Kinh nghiệm" cố định.' },
+      { type: 'feature', text: 'Nâng cấp Realm System với Configurable Tiers - CreateWorld giờ có section "Thiết Lập Hệ Thống Cảnh Giới" với khả năng tự định nghĩa tên cảnh giới và experience requirements cho từng tier.' },
+      { type: 'feature', text: 'Dynamic Realm Tier Management - Thêm nút (+) và (-) để tạo/xóa realm tiers, với validation và auto-numbering system để quản lý cảnh giới linh hoạt.' },
+      { type: 'feature', text: 'Enhanced Entity Display System - EntityInfoModal và PlayerCharacterSheet giờ hiển thị realm và experience sử dụng custom expName được định nghĩa trong world configuration.' },
+      { type: 'improvement', text: 'Backward Compatibility cho Save Files - Hệ thống tự động migrate old save files và settings, đảm bảo game cũ vẫn chạy bình thường với default realm system.' },
+      { type: 'improvement', text: 'World Configuration Data Flow - Implement proper prop passing từ GameScreen → MemoizedModals → EntityInfoModal/PlayerCharacterSheet để hiển thị custom expName.' },
+      { type: 'fix', text: 'Duplicate Realm Field Bug Fix - Loại bỏ duplicate realm display trong PC EntityInfoModal, giờ chỉ hiển thị "Cảnh giới" một lần cho characters và "Cảnh giới Công Pháp" cho skills.' },
+      { type: 'technical', text: 'Extended FormData Interface - Thêm expName (string) và realmTiers (RealmTier[]) fields với full TypeScript support cho realm system configuration.' },
+      { type: 'technical', text: 'RealmTier Interface Implementation - Tạo structured interface với id, name, requiredExp fields để quản lý realm progression system.' },
+      { type: 'technical', text: 'Enhanced Entity Interface - Thêm currentExp field và realm display logic để support custom experience systems trong game entities.' },
+      { type: 'technical', text: 'CreateWorld UI Enhancement - Implement realm management functions với add/remove tier functionality và real-time validation system.' },
+      { type: 'technical', text: 'World Data Propagation - Setup complete data flow từ world creation → game state → modal display để đảm bảo custom expName hiển thị đúng ở mọi nơi.' },
+    ],
+  },
+  {
     version: '1.34.0',
     date: '2025-07-27',
     changes: [

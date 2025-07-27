@@ -1231,6 +1231,7 @@ export const GameScreen: React.FC<{
                 choices={choices}
                 turnCount={turnCount}
                 locationDiscoveryOrder={locationDiscoveryOrder}
+                worldData={worldData}
                 entityComputations={entityComputations}
             />
 

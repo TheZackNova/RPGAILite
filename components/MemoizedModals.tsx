@@ -77,6 +77,7 @@ interface MemoizedModalsProps {
     choices: string[];
     turnCount: number;
     locationDiscoveryOrder: string[];
+    worldData: any; // World configuration data including realm system
     
     // Computed data
     entityComputations: {
@@ -130,7 +131,8 @@ export const MemoizedPlayerCharacterSheet = memo<{
     knownEntities: KnownEntities;
     onStatusClick: (status: Status) => void;
     onEntityClick: (entityName: string) => void;
-}>(({ pc, statuses, knownEntities, onStatusClick, onEntityClick }) => {
+    worldData: any;
+}>(({ pc, statuses, knownEntities, onStatusClick, onEntityClick, worldData }) => {
     
     // Helper function to get fame color
     const getFameColor = (fame: string): string => {
@@ -186,6 +188,14 @@ export const MemoizedPlayerCharacterSheet = memo<{
                         <p>
                             <strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Thực lực:</strong> 
                             <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{pc.realm}</span>
+                        </p>
+                    )}
+                    
+                    {/* Experience Points */}
+                    {pc.currentExp !== undefined && (
+                        <p>
+                            <strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">{worldData?.expName || 'Kinh nghiệm'}:</strong> 
+                            <span className="text-blue-600 dark:text-blue-400 font-semibold">{pc.currentExp.toLocaleString()}</span>
                         </p>
                     )}
                     
@@ -430,6 +440,7 @@ const MemoizedModalsComponent = ({
     choices,
     turnCount,
     locationDiscoveryOrder,
+    worldData,
     entityComputations
 }: MemoizedModalsProps) => {
 
@@ -463,6 +474,7 @@ const MemoizedModalsComponent = ({
                 statuses={statuses} 
                 onStatusClick={handleStatusClick}
                 onLocationAction={handleAction}
+                worldData={worldData}
             />
             
             <StatusDetailModal 
@@ -528,6 +540,7 @@ const MemoizedModalsComponent = ({
                     knownEntities={knownEntities} 
                     onStatusClick={handleStatusClick} 
                     onEntityClick={handleEntityClick}
+                    worldData={worldData}
                 />
             </MemoizedInfoPanelModal>
 

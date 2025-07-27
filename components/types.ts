@@ -19,6 +19,7 @@ export interface Entity {
   relationship?: string; // For relationship tracking
   uses?: number; // For consumable items
   realm?: string; // For power levels or skill levels
+  currentExp?: number; // For current experience points
   durability?: number;
   usable?: boolean;
   equippable?: boolean;
@@ -45,6 +46,12 @@ export interface CustomRule {
   isActive: boolean;
 }
 
+export interface RealmTier {
+  id: string;
+  name: string;
+  requiredExp: number;
+}
+
 export interface FormData {
     storyName: string; // Changed from 'genre' 
     genre: string; // New field for story genre
@@ -52,6 +59,8 @@ export interface FormData {
     worldTime: { day: number; month: number; year: number }; // New field for world start time
     startLocation: string; // New field for start location
     customStartLocation: string; // New field for custom start location when "Tuỳ chọn" is selected
+    expName: string; // New field for realm system - experience unit name
+    realmTiers: RealmTier[]; // New field for realm system tiers
     writingStyle: string;
     difficulty: string;
     allowNsfw: boolean;

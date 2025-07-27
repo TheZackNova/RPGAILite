@@ -14,7 +14,8 @@ export const EntityInfoModal: React.FC<{
     statuses: Status[];
     onStatusClick: (status: Status) => void;
     onLocationAction?: (action: string) => void;
-}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick, onLocationAction }) => {
+    worldData?: any;
+}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick, onLocationAction, worldData }) => {
     if (!entity) return null;
 
     const typeColors: { [key in EntityType | string]: string } = {
@@ -112,6 +113,10 @@ export const EntityInfoModal: React.FC<{
                                 )}
                                 {entity.location && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Vị trí:</strong> {entity.location}</p>}
                                 
+                                {/* REALM AND EXPERIENCE - For PC and NPC */}
+                                {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Cảnh giới:</strong> <span className="text-purple-600 dark:text-purple-400 font-medium">{entity.realm}</span></p>}
+                                {entity.currentExp !== undefined && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{worldData?.expName || 'Kinh nghiệm'}:</strong> <span className="text-blue-600 dark:text-blue-400 font-medium">{entity.currentExp.toLocaleString()}</span></p>}
+                                
                                 {/* DANH VỌNG - Enhanced display for both PC and NPC */}
                                 <div>
                                     <strong className="font-semibold text-slate-800 dark:text-gray-100">Danh vọng:</strong>
@@ -183,8 +188,8 @@ export const EntityInfoModal: React.FC<{
                             </>
                         )}
 
-                        {/* Realm can apply to characters and skills */}
-                        {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{entity.type === 'skill' ? 'Cảnh giới Công Pháp:' : entity.type === 'pc' ? 'Thực lực:' : 'Cảnh giới:'}</strong> <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{entity.realm}</span></p>}
+                        {/* Realm for skills only (characters already have realm display above) */}
+                        {entity.realm && entity.type === 'skill' && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Cảnh giới Công Pháp:</strong> <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{entity.realm}</span></p>}
                     </div>
 
                     {/* PC specific info - Skills */}

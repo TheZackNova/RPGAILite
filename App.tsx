@@ -591,11 +591,13 @@ Trả về JSON với format đã chỉ định.`;
           appearance: data.characterAppearance,
           personality: data.customPersonality || data.personalityFromList,
           learnedSkills: [],
+          realm: data.realmTiers && data.realmTiers.length > 0 ? data.realmTiers[0].name : 'Luyện Khí',
+          currentExp: 0,
       };
       console.log('🎮 StartNewGame: PC Entity created:', pcEntity.name);
 
-      // Generate appearance for PC if AI is available
-      if (ai && isAiReady) {
+      // Generate appearance for PC if AI is available and user hasn't provided one
+      if (ai && isAiReady && !data.characterAppearance) {
           setInitProgress(30);
           setInitCurrentStep('Đang tạo ngoại hình nhân vật...');
           setInitSubStep('Sử dụng AI để tạo mô tả ngoại hình');
@@ -628,8 +630,10 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
               console.error('🎮 StartNewGame: Failed to generate PC appearance:', error);
           }
           
+      } else if (data.characterAppearance) {
+          console.log('🎮 StartNewGame: Using user-defined appearance from WorldCreate');
       } else {
-          console.log('🎮 StartNewGame: Skipping PC appearance generation (AI not ready)');
+          console.log('🎮 StartNewGame: Skipping PC appearance generation (AI not ready or no appearance needed)');
       }
       
       const { customRules, ...worldData } = data;
@@ -742,6 +746,11 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
                             ...loadedJson.worldData,
                             startLocation: loadedJson.worldData.startLocation || '', // Backward compatibility
                             customStartLocation: loadedJson.worldData.customStartLocation || '', // Backward compatibility
+                            expName: loadedJson.worldData.expName || 'Kinh Nghiệm', // Backward compatibility
+                            realmTiers: loadedJson.worldData.realmTiers || [
+                                { id: '1', name: 'Luyện Khí', requiredExp: 0 },
+                                { id: '2', name: 'Trúc Cơ', requiredExp: 100 }
+                            ], // Backward compatibility
                         },
                         knownEntities: loadedJson.knownEntities,
                         statuses: loadedJson.statuses || [],

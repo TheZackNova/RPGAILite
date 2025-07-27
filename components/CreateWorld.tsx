@@ -29,6 +29,11 @@ export const CreateWorld: React.FC<{
         worldTime: { day: 1, month: 1, year: 1000 },
         startLocation: '',
         customStartLocation: '',
+        expName: 'Kinh Nghiệm',
+        realmTiers: [
+            { id: '1', name: 'Luyện Khí', requiredExp: 0 },
+            { id: '2', name: 'Trúc Cơ', requiredExp: 100 }
+        ],
         writingStyle: 'second_person',
         difficulty: 'normal',
         allowNsfw: false,
@@ -106,6 +111,36 @@ export const CreateWorld: React.FC<{
 
     const handleToggleActive = (id: string, newIsActive: boolean) => {
         setFormData(prev => ({ ...prev, customRules: prev.customRules.map(r => r.id === id ? { ...r, isActive: newIsActive } : r) }));
+    };
+
+    // --- Realm System Management Functions ---
+    const handleExpNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, expName: e.target.value }));
+    };
+
+    const handleRealmTierChange = (id: string, field: 'name' | 'requiredExp', value: string | number) => {
+        setFormData(prev => ({
+            ...prev,
+            realmTiers: prev.realmTiers.map(tier =>
+                tier.id === id ? { ...tier, [field]: value } : tier
+            )
+        }));
+    };
+
+    const handleAddRealmTier = () => {
+        const newId = (formData.realmTiers.length + 1).toString();
+        const newTier = {
+            id: newId,
+            name: `Cảnh Giới ${newId}`,
+            requiredExp: formData.realmTiers.length > 0 ? formData.realmTiers[formData.realmTiers.length - 1].requiredExp + 100 : 0
+        };
+        setFormData(prev => ({ ...prev, realmTiers: [...prev.realmTiers, newTier] }));
+    };
+
+    const handleRemoveRealmTier = (id: string) => {
+        if (formData.realmTiers.length > 1) { // Keep at least one tier
+            setFormData(prev => ({ ...prev, realmTiers: prev.realmTiers.filter(tier => tier.id !== id) }));
+        }
     };
 
     // --- Suggestion Functions ---
@@ -274,6 +309,11 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                             customRules: loadedData.customRules || [], // Ensure customRules is an array
                             startLocation: loadedData.startLocation || '', // Backward compatibility
                             customStartLocation: loadedData.customStartLocation || '', // Backward compatibility
+                            expName: loadedData.expName || 'Kinh Nghiệm', // Backward compatibility
+                            realmTiers: loadedData.realmTiers || [
+                                { id: '1', name: 'Luyện Khí', requiredExp: 0 },
+                                { id: '2', name: 'Trúc Cơ', requiredExp: 100 }
+                            ], // Backward compatibility
                         };
                         setFormData(newFormData);
                         alert('Đã tải thiết lập thành công!');
@@ -572,6 +612,81 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                 className="w-full mt-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
                             />
                         )}
+                    </div>
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/90">
+                            Thiết Lập Hệ Thống Cảnh Giới
+                        </label>
+                        
+                        {/* Experience Name */}
+                        <div className="space-y-2">
+                            <label className="block text-xs text-white/70">Tên Đơn Vị Kinh Nghiệm</label>
+                            <input 
+                                type="text" 
+                                value={formData.expName} 
+                                onChange={handleExpNameChange}
+                                placeholder="VD: Linh Lực, Chakra, Ma Lực..." 
+                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
+                            />
+                        </div>
+
+                        {/* Realm Tiers */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="block text-xs text-white/70">Các Cảnh Giới</label>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleAddRealmTier}
+                                        className="w-6 h-6 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 hover:border-green-400/50 rounded text-green-200 hover:text-white transition-all duration-300 flex items-center justify-center text-sm font-bold"
+                                        title="Thêm cảnh giới"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {formData.realmTiers.map((tier, index) => (
+                                <div key={tier.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs text-white/60">Cảnh Giới {index + 1}</span>
+                                        {formData.realmTiers.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveRealmTier(tier.id)}
+                                                className="w-5 h-5 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 hover:border-red-400/50 rounded text-red-200 hover:text-white transition-all duration-300 flex items-center justify-center text-xs font-bold"
+                                                title="Xóa cảnh giới"
+                                            >
+                                                -
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs text-white/50 mb-1">Tên Cảnh Giới</label>
+                                            <input 
+                                                type="text" 
+                                                value={tier.name} 
+                                                onChange={(e) => handleRealmTierChange(tier.id, 'name', e.target.value)}
+                                                placeholder="VD: Luyện Khí, Trúc Cơ..." 
+                                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded py-1.5 px-2 text-white text-sm placeholder-white/40 focus:outline-none focus:border-pink-400/50 focus:ring-1 focus:ring-pink-400/20 transition-all duration-300"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-white/50 mb-1">{formData.expName} Cần Thiết</label>
+                                            <input 
+                                                type="number" 
+                                                min="0"
+                                                value={tier.requiredExp} 
+                                                onChange={(e) => handleRealmTierChange(tier.id, 'requiredExp', parseInt(e.target.value) || 0)}
+                                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded py-1.5 px-2 text-white text-sm focus:outline-none focus:border-pink-400/50 focus:ring-1 focus:ring-pink-400/20 transition-all duration-300"
+                                                disabled={index === 0} // First tier is always 0
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
