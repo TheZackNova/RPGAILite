@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { GameHistoryEntry, SaveData } from '../types';
 import { buildEnhancedRagPrompt } from '../promptBuilder';
 import { EntityExportManager } from '../utils/EntityExportManager';
+import { QuestManagementEngine } from '../utils/QuestManagementEngine';
 
 export interface GameActionHandlersParams {
     ai: GoogleGenAI | null;
@@ -237,6 +238,65 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
                         console.error(`🚨 [Turn ${newTurn}] Entity export error (ID: ${exportId}):`, error);
                     }
                 }, 1000); // Delay to ensure state is updated
+                
+                // 🎯 Auto-quest generation check
+                const questGenId = `questgen_${newTurn}_${Date.now()}_${Math.random().toString(36)}`;
+                console.log(`🎯 [Turn ${newTurn}] Scheduling quest generation check (ID: ${questGenId})`);
+                
+                setTimeout(async () => {
+                    try {
+                        console.log(`🎯 [Turn ${newTurn}] Checking quest auto-generation eligibility (ID: ${questGenId})`);
+                        
+                        // Check if we should trigger auto-generation
+                        const defaultConfig = {
+                            maxQuestsPerGeneration: 3,
+                            enableAnalysis: true,
+                            enableGeneration: true,
+                            enableValidation: true,
+                            enableIntegration: true,
+                            validationConfig: {
+                                strictMode: false,
+                                checkWorldConsistency: true,
+                                checkEntityReferences: true,
+                                checkDifficultyBalance: true,
+                                checkLanguageQuality: true,
+                                autoFix: true
+                            },
+                            integrationConfig: {
+                                maxSimultaneousQuests: 3,
+                                createIntegrationMemories: true,
+                                updateEntityRelationships: true,
+                                checkForDuplicates: true,
+                                skipLowConfidenceQuests: false,
+                                minimumConfidence: 0.3
+                            },
+                            autoGenerationTriggers: {
+                                memoryThreshold: 15,
+                                turnInterval: 25,
+                                completedQuestTrigger: true
+                            }
+                        };
+                        const triggerCheck = QuestManagementEngine.shouldTriggerAutoGeneration(currentGameState, defaultConfig);
+                        
+                        if (triggerCheck.shouldTrigger && ai) {
+                            console.log(`🎯 [Turn ${newTurn}] Triggering auto-quest generation (ID: ${questGenId}). Reasons:`, triggerCheck.reasons);
+                            
+                            const result = await QuestManagementEngine.generateQuestsFromMemories(currentGameState, ai, selectedModel);
+                            
+                            if (result.success && result.integration?.integratedQuests.length > 0) {
+                                const questCount = result.integration.integratedQuests.length;
+                                const questTitles = result.integration.integratedQuests.map((q: any) => q.title).join(', ');
+                                console.log(`✅ [Turn ${newTurn}] Auto-generated ${questCount} quests: ${questTitles} (ID: ${questGenId})`);
+                            } else {
+                                console.log(`⚠️ [Turn ${newTurn}] Quest auto-generation completed but no quests created (ID: ${questGenId})`);
+                            }
+                        } else {
+                            console.log(`⏭️ [Turn ${newTurn}] Quest auto-generation not needed (ID: ${questGenId}). Reasons: ${triggerCheck.reasons.join(', ') || 'No triggers met'}`);
+                        }
+                    } catch (error) {
+                        console.error(`🚨 [Turn ${newTurn}] Quest auto-generation error (ID: ${questGenId}):`, error);
+                    }
+                }, 1500); // Slightly delayed after entity export
                 
                 return newTurn;
             }); 

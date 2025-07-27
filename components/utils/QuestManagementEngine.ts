@@ -54,7 +54,7 @@ export class QuestManagementEngine {
             autoFix: true
         },
         integrationConfig: {
-            maxSimultaneousQuests: 5,
+            maxSimultaneousQuests: 3,
             createIntegrationMemories: true,
             updateEntityRelationships: true,
             checkForDuplicates: true,
@@ -74,7 +74,7 @@ export class QuestManagementEngine {
     public static async generateQuestsFromMemories(
         gameState: SaveData,
         ai: any,
-        selectedModel: string = "gemini-2.0-flash-exp",
+        selectedModel: string = "gemini-2.5-flash-lite",
         config: QuestGenerationConfig = this.DEFAULT_CONFIG
     ): Promise<QuestManagementResult> {
         const startTime = performance.now();
@@ -397,7 +397,7 @@ export class QuestManagementEngine {
     public static async forceGenerateFromPattern(
         gameState: SaveData,
         ai: any,
-        selectedModel: string = "gemini-2.0-flash-exp",
+        selectedModel: string = "gemini-2.5-flash-lite",
         pattern: 'combat' | 'discovery' | 'relationship' | 'mystery'
     ): Promise<QuestManagementResult> {
         // Filter memories by pattern
