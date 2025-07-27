@@ -27,10 +27,74 @@ export interface QuestGenerationResult {
     errors: string[];
 }
 
+// Quest response schema for consistent JSON output
+const questResponseSchema = {
+    type: "object",
+    properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        objectives: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    description: { type: "string" },
+                    completed: { type: "boolean" }
+                },
+                required: ["description", "completed"]
+            }
+        },
+        giver: { type: "string" },
+        reward: { type: "string" }
+    },
+    required: ["title", "description", "objectives", "giver", "reward"]
+};
+
 export class QuestGenerator {
     
     // Static counter to ensure unique IDs even if generated at same timestamp
     private static uniqueCounter = 0;
+    
+    /**
+     * Get delay for specific models to prevent empty responses
+     */
+    private static getModelDelay(modelName: string): number {
+        const modelDelays: { [key: string]: number } = {
+            'gemini-2.5-flash-lite': 1500,  // Fast model needs more delay
+            'gemini-2.0-flash': 800,        // Moderate delay
+            'gemini-1.5-flash': 500,        // Small delay
+            'gemini-1.5-pro': 300,          // Minimal delay for pro models
+        };
+        
+        // Check for partial matches (in case of model name variations)
+        for (const [pattern, delay] of Object.entries(modelDelays)) {
+            if (modelName.includes(pattern) || pattern.includes(modelName)) {
+                return delay;
+            }
+        }
+        
+        // Default delay for unknown fast models
+        if (modelName.includes('lite') || modelName.includes('flash')) {
+            return 1000;
+        }
+        
+        return 0; // No delay for other models
+    }
+    
+    /**
+     * Simple delay utility
+     */
+    private static delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    /**
+     * Check if model is known to be fast and prone to empty responses
+     */
+    private static isFastModel(modelName: string): boolean {
+        const fastModels = ['lite', 'flash'];
+        return fastModels.some(pattern => modelName.toLowerCase().includes(pattern));
+    }
     
     /**
      * Generate quests from analyzed quest seeds using AI
@@ -63,9 +127,19 @@ export class QuestGenerator {
             })
             .slice(0, maxQuests);
 
-        // Generate quests from top seeds
-        for (const seed of sortedSeeds) {
+        // Generate quests from top seeds with delay for fast models
+        for (let i = 0; i < sortedSeeds.length; i++) {
+            const seed = sortedSeeds[i];
             try {
+                // Add delay for fast models to prevent empty responses
+                if (i > 0) {
+                    const delayMs = this.getModelDelay(selectedModel);
+                    if (delayMs > 0) {
+                        console.log(`⏳ Waiting ${delayMs}ms before next quest generation (${selectedModel})...`);
+                        await this.delay(delayMs);
+                    }
+                }
+                
                 const generatedQuest = await this.generateQuestFromSeed(seed, gameState, ai, selectedModel);
                 if (generatedQuest) {
                     quests.push(generatedQuest);
@@ -109,7 +183,7 @@ export class QuestGenerator {
             selectedModel,
             "gemini-2.5-flash-lite",
             "gemini-2.0-flash",
-            "gemini-1.5-pro"
+            "gemini-2.5-flash"
         ];
         
         // Remove duplicates and ensure selected model is first
@@ -122,15 +196,98 @@ export class QuestGenerator {
                 console.log(`🎯 Quest Generation Attempt ${i + 1}/${uniqueModels.length} with model: ${currentModel}`);
                 console.log('🎯 Quest Generation Prompt:', prompt.substring(0, 200) + '...');
                 
+                // Check if model string looks valid
+                if (!currentModel || typeof currentModel !== 'string') {
+                    console.warn(`⚠️ Invalid model name: ${currentModel}, skipping...`);
+                    continue;
+                }
+                
+                // Add initial delay for fast models to prevent immediate empty responses
+                if (this.isFastModel(currentModel)) {
+                    const initialDelay = Math.min(800, this.getModelDelay(currentModel) * 0.5);
+                    console.log(`⚡ Pre-request delay for fast model ${currentModel}: ${initialDelay}ms`);
+                    await this.delay(initialDelay);
+                }
+                
                 const response = await ai.models.generateContent({
                     model: currentModel,
-                    contents: prompt
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: questResponseSchema
+                    }
                 });
                 
                 const responseText = response.text?.trim() || '';
                 console.log('🎯 Quest Generation Raw Response:', responseText.length > 0 ? responseText.substring(0, 100) + '...' : '[EMPTY RESPONSE]');
                 
                 if (!responseText) {
+                    // Special handling for fast models that might need a retry with delay
+                    if (this.isFastModel(currentModel)) {
+                        console.warn(`⚡ Empty response from fast model ${currentModel}, retrying with delay...`);
+                        
+                        // Wait before retry
+                        const retryDelay = this.getModelDelay(currentModel) * 1.5; // 1.5x the normal delay
+                        await this.delay(retryDelay);
+                        
+                        // Retry the same model once
+                        try {
+                            const retryResponse = await ai.models.generateContent({
+                                model: currentModel,
+                                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                                config: {
+                                    responseMimeType: "application/json",
+                                    responseSchema: questResponseSchema
+                                }
+                            });
+                            
+                            const retryText = retryResponse.text?.trim() || '';
+                            console.log('🔄 Retry Response:', retryText.length > 0 ? retryText.substring(0, 100) + '...' : '[STILL EMPTY]');
+                            
+                            if (retryText) {
+                                // Use the retry response
+                                const questData = this.parseQuestResponse(retryText);
+                                if (questData) {
+                                    // Continue with quest creation using retry response
+                                    console.log('✅ Retry successful, using response from retry');
+                                    
+                                    // Generate unique ID for quest with counter to prevent collisions
+                                    this.uniqueCounter++;
+                                    const timestamp = Date.now();
+                                    const randomPart = Math.random().toString(36).substr(2, 9);
+                                    const seedId = seed.id.replace(/[^a-zA-Z0-9]/g, ''); // Clean seed ID
+                                    const uniqueId = `quest_${gameState.turnCount}_${timestamp}_${this.uniqueCounter}_${seedId}_${randomPart}`;
+                                    
+                                    // Success! Create the quest
+                                    const generatedQuest: GeneratedQuest = {
+                                        title: questData.title,
+                                        description: questData.description,
+                                        objectives: questData.objectives,
+                                        giver: questData.giver,
+                                        reward: questData.reward,
+                                        isMainQuest: this.determineQuestImportance(seed),
+                                        status: 'active',
+                                        sourceSeeds: [seed],
+                                        generationMetadata: {
+                                            aiPromptUsed: prompt,
+                                            generatedAt: gameState.turnCount,
+                                            difficulty: seed.suggestedDifficulty,
+                                            questType: seed.type,
+                                            confidence: this.calculateGenerationConfidence(questData, seed),
+                                            modelUsed: currentModel,
+                                            uniqueId: uniqueId
+                                        }
+                                    };
+
+                                    console.log(`✅ Quest generated successfully with model: ${currentModel} (after retry)`);
+                                    return generatedQuest;
+                                }
+                            }
+                        } catch (retryError) {
+                            console.warn(`❌ Retry failed for ${currentModel}:`, retryError);
+                        }
+                    }
+                    
                     console.warn(`Empty response from ${currentModel}, trying next model...`);
                     continue;
                 }
@@ -174,13 +331,24 @@ export class QuestGenerator {
                 return generatedQuest;
                 
             } catch (error) {
-                console.warn(`Error with model ${currentModel}:`, error);
+                console.warn(`❌ Error with model ${currentModel}:`, error);
+                
+                // Log specific error details for debugging newer models
+                if (error instanceof Error) {
+                    console.warn(`❌ Error details for ${currentModel}:`, {
+                        message: error.message,
+                        name: error.name,
+                        stack: error.stack?.split('\n').slice(0, 3).join('\n')
+                    });
+                }
+                
                 if (i === uniqueModels.length - 1) {
                     // Last model failed, use fallback
-                    console.warn('All AI models failed, using fallback quest template');
+                    console.warn('❌ All AI models failed, using fallback quest template');
                     return this.generateFallbackQuest(seed, gameState);
                 }
                 // Try next model
+                console.log(`🔄 Trying next model due to error with ${currentModel}...`);
                 continue;
             }
         }
