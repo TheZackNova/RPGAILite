@@ -15,6 +15,7 @@ export interface ModalState {
     isSidebarOpen: boolean;
     isChoicesModalOpen: boolean;
     isGameSettingsModalOpen: boolean;
+    isEntityImportModalOpen: boolean;
     
     // Active modal entities
     activeEntity: Entity | null;
@@ -41,6 +42,7 @@ export interface ModalStateActions {
     setIsSidebarOpen: (open: boolean) => void;
     setIsChoicesModalOpen: (open: boolean) => void;
     setIsGameSettingsModalOpen: (open: boolean) => void;
+    setIsEntityImportModalOpen: (open: boolean) => void;
     
     // Active modal entity setters
     setActiveEntity: (entity: Entity | null) => void;
@@ -81,6 +83,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isChoicesModalOpen, setIsChoicesModalOpen] = useState(false);
     const [isGameSettingsModalOpen, setIsGameSettingsModalOpen] = useState(false);
+    const [isEntityImportModalOpen, setIsEntityImportModalOpen] = useState(false);
     
     // Active modal entities
     const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
@@ -119,6 +122,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         isSidebarOpen,
         isChoicesModalOpen,
         isGameSettingsModalOpen,
+        isEntityImportModalOpen,
         activeEntity,
         activeStatus,
         activeQuest,
@@ -140,6 +144,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         setIsSidebarOpen,
         setIsChoicesModalOpen,
         setIsGameSettingsModalOpen,
+        setIsEntityImportModalOpen,
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,

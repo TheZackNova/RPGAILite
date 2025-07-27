@@ -12,21 +12,33 @@ export interface GameSettingsActions {
 
 export const useGameSettings = (): [GameSettingsState, GameSettingsActions] => {
     const [gameSettings, setGameSettings] = useState<GameSettings>(() => {
-        const saved = localStorage.getItem('gameSettings');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch {
-                // Fall back to defaults if parse fails
-            }
-        }
-        return {
+        const defaultSettings = {
             fontSize: 16,
             fontFamily: 'Inter',
             memoryAutoClean: true,
             historyAutoCompress: true,
             themeColor: 'purple',
+            // Entity Export Settings
+            entityExportEnabled: true,
+            entityExportInterval: 7,
+            entityExportDebugLogging: true,
+            // Entity Import Settings
+            entityImportEnabled: true,
+            entityAutoMergeOnImport: true,
+            entityBackupBeforeImport: true,
         };
+
+        const saved = localStorage.getItem('gameSettings');
+        if (saved) {
+            try {
+                const parsedSettings = JSON.parse(saved);
+                // Merge with defaults to ensure all fields are present
+                return { ...defaultSettings, ...parsedSettings };
+            } catch {
+                // Fall back to defaults if parse fails
+            }
+        }
+        return defaultSettings;
     });
 
     const handleSettingsChange = (newSettings: GameSettings) => {

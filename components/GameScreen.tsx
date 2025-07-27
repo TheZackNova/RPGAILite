@@ -24,6 +24,7 @@ import { useHistoryCompression } from './hooks/useHistoryCompression';
 // Modal Imports
 import { MemoizedModals } from './MemoizedModals.tsx';
 import { GameSettingsModal, GameSettings } from './GameSettingsModal.tsx';
+import { EntityImportModal } from './EntityImportModal';
 
 // UI Components
 import { DesktopHeader } from './game/DesktopHeader.tsx';
@@ -40,6 +41,8 @@ import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
 import { UnifiedMemoryManager } from './utils/UnifiedMemoryManager';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
 import { QuestManagementEngine } from './utils/QuestManagementEngine';
+import { EntityExportManager } from './utils/EntityExportManager';
+import { EntityExportDebugger } from './utils/EntityExportDebugger';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 import { getThemeColors } from './utils/themeUtils';
@@ -128,7 +131,7 @@ export const GameScreen: React.FC<{
     const {
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
         isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
-        isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen,
+        isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen, isEntityImportModalOpen,
         activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
         notification
     } = modalState;
@@ -136,7 +139,7 @@ export const GameScreen: React.FC<{
     const {
         setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
         setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
-        setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen,
+        setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen, setIsEntityImportModalOpen,
         setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
         setNotification, modalCloseHandlers
     } = modalStateActions;
@@ -230,6 +233,31 @@ export const GameScreen: React.FC<{
     useEffect(() => {
         partyDebugger.monitorPartyChanges(party, statuses, turnCount);
     }, [party, statuses, turnCount]);
+
+    // Configure EntityExportManager with game settings
+    useEffect(() => {
+        EntityExportManager.configure({
+            enabled: gameSettings.entityExportEnabled,
+            exportInterval: gameSettings.entityExportInterval,
+            enableDebugLogging: gameSettings.entityExportDebugLogging,
+            exportPath: '/data/game-exports/',
+            maxFileSize: 1024 * 1024, // 1MB
+            // Import settings
+            importEnabled: gameSettings.entityImportEnabled,
+            autoMergeOnImport: gameSettings.entityAutoMergeOnImport,
+            backupBeforeImport: gameSettings.entityBackupBeforeImport
+        });
+        
+        // Make debugging tools available globally in development
+        if (process.env.NODE_ENV === 'development') {
+            (window as any).EntityExportManager = EntityExportManager;
+            (window as any).EntityExportDebugger = EntityExportDebugger;
+            console.log('🐛 EntityExport debugging tools available:', {
+                EntityExportManager: 'window.EntityExportManager',
+                EntityExportDebugger: 'window.EntityExportDebugger'
+            });
+        }
+    }, [gameSettings.entityExportEnabled, gameSettings.entityExportInterval, gameSettings.entityExportDebugLogging]);
     
     // Define generateInitialStory callback before using it
     const generateInitialStory = useCallback(async () => {
@@ -1089,6 +1117,7 @@ export const GameScreen: React.FC<{
                 onClose={() => setIsSidebarOpen(false)}
                 onHome={() => setIsHomeModalOpen(true)}
                 onSettings={() => setIsGameSettingsModalOpen(true)}
+                onImport={() => setIsEntityImportModalOpen(true)}
                 onSave={handleSaveGame}
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
@@ -1113,6 +1142,7 @@ export const GameScreen: React.FC<{
             <DesktopHeader 
                 onHome={() => setIsHomeModalOpen(true)} 
                 onSettings={() => setIsGameSettingsModalOpen(true)}
+                onImport={() => setIsEntityImportModalOpen(true)}
                 onSave={handleSaveGame} 
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
@@ -1209,6 +1239,41 @@ export const GameScreen: React.FC<{
                 onClose={() => setIsGameSettingsModalOpen(false)}
                 settings={gameSettings}
                 onSettingsChange={handleSettingsChange}
+            />
+
+            <EntityImportModal
+                isOpen={isEntityImportModalOpen}
+                onClose={() => setIsEntityImportModalOpen(false)}
+                gameState={{ 
+                    worldData, 
+                    knownEntities, 
+                    statuses, 
+                    quests, 
+                    gameHistory, 
+                    memories, 
+                    party, 
+                    customRules, 
+                    systemInstruction, 
+                    turnCount, 
+                    totalTokens, 
+                    gameTime, 
+                    chronicle, 
+                    compressedHistory, 
+                    historyStats, 
+                    cleanupStats, 
+                    archivedMemories, 
+                    memoryStats, 
+                    storyLog, 
+                    choices, 
+                    locationDiscoveryOrder 
+                }}
+                onImportSuccess={(results) => {
+                    // Show success notification
+                    const totalImported = results.reduce((sum, r) => sum + r.entitiesImported, 0);
+                    const totalConflicts = results.reduce((sum, r) => sum + r.conflicts.length, 0);
+                    setNotification(`Import thành công: ${totalImported} entities đã được nhập${totalConflicts > 0 ? `, ${totalConflicts} conflicts đã được giải quyết` : ''}`);
+                    setTimeout(() => setNotification(null), 5000);
+                }}
             />
             </div>
         </div>

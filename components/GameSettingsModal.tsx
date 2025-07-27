@@ -7,6 +7,14 @@ export interface GameSettings {
     memoryAutoClean: boolean;
     historyAutoCompress: boolean;
     themeColor: string;
+    // Entity Export Settings
+    entityExportEnabled: boolean;
+    entityExportInterval: number;
+    entityExportDebugLogging: boolean;
+    // Entity Import Settings
+    entityImportEnabled: boolean;
+    entityAutoMergeOnImport: boolean;
+    entityBackupBeforeImport: boolean;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -15,6 +23,14 @@ const DEFAULT_SETTINGS: GameSettings = {
     memoryAutoClean: true,
     historyAutoCompress: true,
     themeColor: 'purple',
+    // Entity Export Settings
+    entityExportEnabled: true,
+    entityExportInterval: 7,
+    entityExportDebugLogging: true,
+    // Entity Import Settings
+    entityImportEnabled: true,
+    entityAutoMergeOnImport: true,
+    entityBackupBeforeImport: true,
 };
 
 const FONT_FAMILIES = [
@@ -106,10 +122,16 @@ export const GameSettingsModal: React.FC<{
     settings: GameSettings;
     onSettingsChange: (settings: GameSettings) => void;
 }> = ({ isOpen, onClose, settings, onSettingsChange }) => {
-    const [localSettings, setLocalSettings] = useState<GameSettings>(settings);
+    const [localSettings, setLocalSettings] = useState<GameSettings>(() => ({
+        ...DEFAULT_SETTINGS,
+        ...settings
+    }));
 
     useEffect(() => {
-        setLocalSettings(settings);
+        setLocalSettings(prev => ({
+            ...DEFAULT_SETTINGS,
+            ...settings
+        }));
     }, [settings]);
 
     if (!isOpen) return null;
@@ -163,7 +185,7 @@ export const GameSettingsModal: React.FC<{
                                     min="12"
                                     max="24"
                                     step="1"
-                                    value={localSettings.fontSize}
+                                    value={localSettings.fontSize || 16}
                                     onChange={(e) => setLocalSettings(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))}
                                     className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer slider"
                                 />
@@ -183,7 +205,7 @@ export const GameSettingsModal: React.FC<{
                                 Loại font
                             </label>
                             <select
-                                value={localSettings.fontFamily}
+                                value={localSettings.fontFamily || 'Inter'}
                                 onChange={(e) => setLocalSettings(prev => ({ ...prev, fontFamily: e.target.value }))}
                                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
@@ -270,7 +292,7 @@ export const GameSettingsModal: React.FC<{
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    checked={localSettings.memoryAutoClean}
+                                    checked={localSettings.memoryAutoClean ?? true}
                                     onChange={(e) => setLocalSettings(prev => ({ ...prev, memoryAutoClean: e.target.checked }))}
                                     className="sr-only peer"
                                 />
@@ -294,11 +316,172 @@ export const GameSettingsModal: React.FC<{
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                     type="checkbox"
-                                    checked={localSettings.historyAutoCompress}
+                                    checked={localSettings.historyAutoCompress ?? true}
                                     onChange={(e) => setLocalSettings(prev => ({ ...prev, historyAutoCompress: e.target.checked }))}
                                     className="sr-only peer"
                                 />
                                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Entity Export Settings */}
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-gray-100 border-b border-slate-300 dark:border-slate-600 pb-2">
+                            📁 Xuất Entity Tự Động
+                        </h4>
+
+                        {/* Export Enabled */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">🚀</span>
+                                    <span className="font-semibold text-slate-800 dark:text-gray-100">
+                                        Tự động xuất thông tin entity
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                    Tự động xuất thông tin nhân vật, vật phẩm, địa điểm thành file JSON để tiết kiệm token
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.entityExportEnabled ?? true}
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, entityExportEnabled: e.target.checked }))}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        {/* Export Interval */}
+                        <div className="space-y-2">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-gray-300">
+                                🔄 Tần suất xuất: mỗi {localSettings.entityExportInterval} lượt
+                            </label>
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm text-slate-500">5</span>
+                                <input
+                                    type="range"
+                                    min="5"
+                                    max="15"
+                                    step="1"
+                                    value={localSettings.entityExportInterval || 7}
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, entityExportInterval: parseInt(e.target.value) }))}
+                                    className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer slider"
+                                    disabled={!localSettings.entityExportEnabled}
+                                />
+                                <span className="text-sm text-slate-500">15</span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Xuất file càng thường xuyên thì tiết kiệm token càng nhiều, nhưng tạo nhiều file hơn
+                            </p>
+                        </div>
+
+                        {/* Debug Logging */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">🐛</span>
+                                    <span className="font-semibold text-slate-800 dark:text-gray-100">
+                                        Debug logging
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                    Hiển thị thông tin chi tiết về quá trình xuất entity trong Console
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.entityExportDebugLogging ?? true}
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, entityExportDebugLogging: e.target.checked }))}
+                                    className="sr-only peer"
+                                    disabled={!localSettings.entityExportEnabled}
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Entity Import Settings */}
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-gray-100 border-b border-slate-300 dark:border-slate-600 pb-2">
+                            📥 Nhập Entity Tự Động
+                        </h4>
+
+                        {/* Import Enabled */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">📁</span>
+                                    <span className="font-semibold text-slate-800 dark:text-gray-100">
+                                        Cho phép nhập entity từ file
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                    Bật tính năng nhập thông tin entity từ file JSON đã xuất trước đó
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.entityImportEnabled ?? true}
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, entityImportEnabled: e.target.checked }))}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        {/* Auto Merge */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">🔄</span>
+                                    <span className="font-semibold text-slate-800 dark:text-gray-100">
+                                        Tự động merge khi có conflict
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                    Tự động kết hợp thông tin khi entity đã tồn tại trong game
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.entityAutoMergeOnImport ?? true}
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, entityAutoMergeOnImport: e.target.checked }))}
+                                    className="sr-only peer"
+                                    disabled={!localSettings.entityImportEnabled}
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                            </label>
+                        </div>
+
+                        {/* Backup Before Import */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">💾</span>
+                                    <span className="font-semibold text-slate-800 dark:text-gray-100">
+                                        Tạo backup trước khi import
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                    Tự động tạo file backup các entity hiện tại trước khi nhập dữ liệu mới
+                                </p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.entityBackupBeforeImport ?? true}
+                                    onChange={(e) => setLocalSettings(prev => ({ ...prev, entityBackupBeforeImport: e.target.checked }))}
+                                    className="sr-only peer"
+                                    disabled={!localSettings.entityImportEnabled}
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600 disabled:opacity-50"></div>
                             </label>
                         </div>
                     </div>
@@ -314,6 +497,20 @@ export const GameSettingsModal: React.FC<{
                             <div>Màu chủ đề: {THEME_COLORS.find(t => t.id === localSettings.themeColor)?.name || 'Tím Hoàng Gia'}</div>
                             <div>Dọn dẹp bộ nhớ: {localSettings.memoryAutoClean ? '✅ Bật' : '❌ Tắt'}</div>
                             <div>Nén lịch sử: {localSettings.historyAutoCompress ? '✅ Bật' : '❌ Tắt'}</div>
+                            <div>Xuất entity: {localSettings.entityExportEnabled ? '✅ Bật' : '❌ Tắt'}</div>
+                            {localSettings.entityExportEnabled && (
+                                <>
+                                    <div>Tần suất xuất: Mỗi {localSettings.entityExportInterval} lượt</div>
+                                    <div>Debug logging: {localSettings.entityExportDebugLogging ? '✅ Bật' : '❌ Tắt'}</div>
+                                </>
+                            )}
+                            <div>Nhập entity: {localSettings.entityImportEnabled ? '✅ Bật' : '❌ Tắt'}</div>
+                            {localSettings.entityImportEnabled && (
+                                <>
+                                    <div>Auto merge: {localSettings.entityAutoMergeOnImport ? '✅ Bật' : '❌ Tắt'}</div>
+                                    <div>Backup trước import: {localSettings.entityBackupBeforeImport ? '✅ Bật' : '❌ Tắt'}</div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

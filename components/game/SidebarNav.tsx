@@ -10,6 +10,7 @@ interface SidebarNavProps {
     onClose: () => void;
     onHome: () => void;
     onSettings: () => void;
+    onImport: () => void;
     onSave: () => void;
     onMap: () => void;
     onRules: () => void;
@@ -38,7 +39,7 @@ interface SidebarNavProps {
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({ 
-    isOpen, onClose, onHome, onSettings, onSave, onMap, onRules, onKnowledge, onMemory, onRestart, 
+    isOpen, onClose, onHome, onSettings, onImport, onSave, onMap, onRules, onKnowledge, onMemory, onRestart, 
     onPCInfo, onParty, onQuests, hasActiveQuests, currentTurnTokens, totalTokens,
     historyStats, compressedSegments, gameHistory, cleanupStats, onManualCleanup
 }) => {
@@ -58,6 +59,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                 <nav className="flex-grow overflow-y-auto pr-2 flex flex-col space-y-3">
                     <button onClick={() => handleNavigation(onHome)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><HomeIcon className="w-5 h-5 mr-3" /> Home</button>
                     <button onClick={() => handleNavigation(onSettings)} className="flex items-center text-left w-full px-3 py-2 bg-blue-600 dark:bg-blue-700 hover:bg-blue-500 dark:hover:bg-blue-600 rounded text-white">⚙️ <span className="ml-3">Cài đặt</span></button>
+                    <button onClick={() => handleNavigation(onImport)} className="flex items-center text-left w-full px-3 py-2 bg-green-600 dark:bg-green-700 hover:bg-green-500 dark:hover:bg-green-600 rounded text-white">📥 <span className="ml-3">Nhập Entity</span></button>
                     <button onClick={() => handleNavigation(onSave)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><ArchiveIcon className="w-5 h-5 mr-3" /> Lưu Trữ</button>
                     <button onClick={() => handleNavigation(onMap)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><GameIcons.MapPinIcon className="w-5 h-5 mr-3" /> Bản Đồ</button>
                     <button onClick={() => handleNavigation(onRules)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><DocumentAddIcon className="w-5 h-5 mr-3" /> Nạp Tri Thức</button>

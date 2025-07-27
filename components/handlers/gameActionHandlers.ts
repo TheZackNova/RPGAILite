@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { GameHistoryEntry, SaveData } from '../types';
 import { buildEnhancedRagPrompt } from '../promptBuilder';
+import { EntityExportManager } from '../utils/EntityExportManager';
 
 export interface GameActionHandlersParams {
     ai: GoogleGenAI | null;
@@ -209,7 +210,29 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
             
             setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
             parseApiResponseHandler(responseText);
-            setTurnCount(prev => prev + 1); 
+            setTurnCount(prev => {
+                const newTurn = prev + 1;
+                
+                // 🔄 Auto-export entities every few turns
+                setTimeout(async () => {
+                    try {
+                        if (EntityExportManager.shouldExport(newTurn)) {
+                            console.log(`🚀 [Turn ${newTurn}] Triggering auto-export...`);
+                            const exportSuccess = await EntityExportManager.exportEntities(currentGameState);
+                            
+                            if (exportSuccess) {
+                                console.log(`✅ [Turn ${newTurn}] Entity export completed successfully`);
+                            } else {
+                                console.warn(`⚠️ [Turn ${newTurn}] Entity export failed`);
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`🚨 [Turn ${newTurn}] Entity export error:`, error);
+                    }
+                }, 1000); // Delay to ensure state is updated
+                
+                return newTurn;
+            }); 
         } catch (error: any) {
             console.error("Error continuing story:", error);
             setStoryLog(prev => prev.slice(0, -1));
