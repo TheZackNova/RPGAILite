@@ -6,7 +6,7 @@ import { SuggestionModal } from './SuggestionModal.tsx';
 import { FormLabel, CustomSelect, SuggestButton } from './FormControls.tsx';
 import { 
     ArrowLeftIcon, BookOpenIcon, UserIcon, PencilIcon, DiamondIcon, SpinnerIcon, SparklesIcon,
-    SaveIcon, FileIcon, DocumentAddIcon, PlusIcon
+    SaveIcon, FileIcon, DocumentAddIcon, PlusIcon, ExclamationIcon
 } from './Icons.tsx';
 
 export const CreateWorld: React.FC<{ 
@@ -415,34 +415,90 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
 
         // Default to context tab
         return (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
-                    <h2 className="text-lg font-semibold flex items-center border-b border-slate-300 dark:border-slate-700 pb-2 mb-4">
-                        <BookOpenIcon className="w-5 h-5 mr-3 text-pink-600 dark:text-pink-400" /> Bối Cảnh Truyện
-                    </h2>
-                    <div>
-                        <FormLabel htmlFor="storyName">Tên Truyện:</FormLabel>
-                        <input id="storyName" name="storyName" type="text" value={formData.storyName} onChange={handleInputChange} placeholder="VD: Truyền Thuyết Thần Kiếm, Đại Đạo Tranh Phong..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                {/* Story Context Card */}
+                <div className="bg-gradient-to-br from-pink-500/10 to-purple-500/10 backdrop-blur-sm border border-pink-400/20 rounded-2xl p-6 space-y-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-pink-500/20 rounded-xl">
+                            <BookOpenIcon className="w-6 h-6 text-pink-300" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white">Bối Cảnh Truyện</h2>
                     </div>
-                    <div>
-                        <FormLabel htmlFor="genre">Thể Loại:</FormLabel>
-                        <div className="flex items-center">
-                            <input id="genre" name="genre" type="text" value={formData.genre} onChange={handleInputChange} placeholder="VD: Tiên hiệp, Huyền huyễn, Kiếm hiệp..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
-                            <SuggestButton onClick={handleGenreSuggestion} isLoading={loadingStates.genre} disabled={isAnySuggestionLoading} colorClass="bg-pink-500 hover:bg-pink-600" />
+                    <div className="space-y-2">
+                        <label htmlFor="storyName" className="block text-sm font-medium text-white/90">
+                            Tên Truyện
+                        </label>
+                        <input 
+                            id="storyName" 
+                            name="storyName" 
+                            type="text" 
+                            value={formData.storyName} 
+                            onChange={handleInputChange} 
+                            placeholder="VD: Truyền Thuyết Thần Kiếm, Đại Đạo Tranh Phong..." 
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label htmlFor="genre" className="block text-sm font-medium text-white/90">
+                            Thể Loại
+                        </label>
+                        <div className="flex gap-2">
+                            <input 
+                                id="genre" 
+                                name="genre" 
+                                type="text" 
+                                value={formData.genre} 
+                                onChange={handleInputChange} 
+                                placeholder="VD: Tiên hiệp, Huyền huyễn, Kiếm hiệp..." 
+                                className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
+                            />
+                            <button
+                                onClick={handleGenreSuggestion}
+                                disabled={isAnySuggestionLoading}
+                                className="px-4 py-3 bg-gradient-to-r from-pink-500/20 to-purple-500/20 hover:from-pink-500/30 hover:to-purple-500/30 border border-pink-400/30 rounded-xl text-pink-200 hover:text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+                            >
+                                {loadingStates.genre ? (
+                                    <SpinnerIcon className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <SparklesIcon className="w-5 h-5" />
+                                )}
+                            </button>
                         </div>
                     </div>
-                    <div>
-                        <FormLabel htmlFor="worldDetail">Thế Giới/Bối Cảnh Chi Tiết:</FormLabel>
-                        <div className="flex items-center">
-                            <textarea id="worldDetail" name="worldDetail" value={formData.worldDetail} onChange={handleInputChange} placeholder="VD: Đại Lục Phong Vân..." rows={3} className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-l-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
-                            <SuggestButton onClick={handleWorldDetailSuggestion} isLoading={loadingStates.worldDetail} disabled={isAnySuggestionLoading} colorClass="bg-pink-500 hover:bg-pink-600" />
+                    <div className="space-y-2">
+                        <label htmlFor="worldDetail" className="block text-sm font-medium text-white/90">
+                            Thế Giới/Bối Cảnh Chi Tiết
+                        </label>
+                        <div className="flex gap-2">
+                            <textarea 
+                                id="worldDetail" 
+                                name="worldDetail" 
+                                value={formData.worldDetail} 
+                                onChange={handleInputChange} 
+                                placeholder="VD: Đại Lục Phong Vân, nơi tu tiên giả tranh đấu..." 
+                                rows={4} 
+                                className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300 resize-none"
+                            />
+                            <button
+                                onClick={handleWorldDetailSuggestion}
+                                disabled={isAnySuggestionLoading}
+                                className="px-4 py-3 bg-gradient-to-r from-pink-500/20 to-purple-500/20 hover:from-pink-500/30 hover:to-purple-500/30 border border-pink-400/30 rounded-xl text-pink-200 hover:text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm self-start"
+                            >
+                                {loadingStates.worldDetail ? (
+                                    <SpinnerIcon className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <SparklesIcon className="w-5 h-5" />
+                                )}
+                            </button>
                         </div>
                     </div>
-                    <div>
-                        <FormLabel htmlFor="worldTime">Thời Gian Bắt Đầu:</FormLabel>
-                        <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/90">
+                            Thời Gian Bắt Đầu
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
                             <div>
-                                <label className="block text-xs text-slate-600 dark:text-gray-400 mb-1">Ngày</label>
+                                <label className="block text-xs text-white/70 mb-1">Ngày</label>
                                 <input 
                                     type="number" 
                                     min="1" 
@@ -452,11 +508,11 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                         ...prev, 
                                         worldTime: { ...prev.worldTime, day: parseInt(e.target.value) || 1 } 
                                     }))} 
-                                    className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                                    className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300 text-center"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-600 dark:text-gray-400 mb-1">Tháng</label>
+                                <label className="block text-xs text-white/70 mb-1">Tháng</label>
                                 <input 
                                     type="number" 
                                     min="1" 
@@ -466,11 +522,11 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                         ...prev, 
                                         worldTime: { ...prev.worldTime, month: parseInt(e.target.value) || 1 } 
                                     }))} 
-                                    className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                                    className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300 text-center"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-600 dark:text-gray-400 mb-1">Năm</label>
+                                <label className="block text-xs text-white/70 mb-1">Năm</label>
                                 <input 
                                     type="number" 
                                     min="1" 
@@ -479,21 +535,28 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                         ...prev, 
                                         worldTime: { ...prev.worldTime, year: parseInt(e.target.value) || 1000 } 
                                     }))} 
-                                    className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" 
+                                    className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300 text-center"
                                 />
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <FormLabel htmlFor="startLocation">Địa điểm bắt đầu:</FormLabel>
-                        <CustomSelect name="startLocation" value={formData.startLocation} onChange={handleInputChange}>
-                            <option value="">Chọn địa điểm bắt đầu...</option>
-                            <option value="Hoang dã ngẫu nhiên">Hoang dã</option>
-                            <option value="Thôn, Làng ngẫu nhiên">Thôn, Làng</option>
-                            <option value="Thành Thị ngẫu nhiên">Thành Thị</option>
-                            <option value="Một địa điểm bất kì">Ngẫu Nhiên</option>
-                            <option value="Tuỳ chọn">Tuỳ chọn</option>
-                        </CustomSelect>
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/90">
+                            Địa điểm bắt đầu
+                        </label>
+                        <select 
+                            name="startLocation" 
+                            value={formData.startLocation} 
+                            onChange={handleInputChange}
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
+                        >
+                            <option value="" className="bg-slate-800 text-white">Chọn địa điểm bắt đầu...</option>
+                            <option value="Hoang dã ngẫu nhiên" className="bg-slate-800 text-white">Hoang dã</option>
+                            <option value="Thôn, Làng ngẫu nhiên" className="bg-slate-800 text-white">Thôn, Làng</option>
+                            <option value="Thành Thị ngẫu nhiên" className="bg-slate-800 text-white">Thành Thị</option>
+                            <option value="Một địa điểm bất kì" className="bg-slate-800 text-white">Ngẫu Nhiên</option>
+                            <option value="Tuỳ chọn" className="bg-slate-800 text-white">Tuỳ chọn</option>
+                        </select>
                         {formData.startLocation === 'Tuỳ chọn' && (
                             <input 
                                 id="customStartLocation"
@@ -502,165 +565,358 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                 value={formData.customStartLocation} 
                                 onChange={handleInputChange}
                                 placeholder="Nhập địa điểm tùy chọn..."
-                                className="w-full mt-2 bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400"
+                                className="w-full mt-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
                             />
                         )}
                     </div>
                 </div>
 
-                <div className="space-y-4 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
-                    <h2 className="text-lg font-semibold flex items-center border-b border-slate-300 dark:border-slate-700 pb-2 mb-4">
-                        <UserIcon className="w-5 h-5 mr-3 text-sky-600 dark:text-sky-400" /> Nhân Vật Chính
-                    </h2>
-                    <div>
-                        <FormLabel htmlFor="characterName">Danh Xưng/Tên:</FormLabel>
-                        <input id="characterName" name="characterName" type="text" value={formData.characterName} onChange={handleInputChange} placeholder="VD: Diệp Phàm, Hàn Lập..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                {/* Character Card */}
+                <div className="bg-gradient-to-br from-sky-500/10 to-blue-500/10 backdrop-blur-sm border border-sky-400/20 rounded-2xl p-6 space-y-6">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-2 bg-sky-500/20 rounded-xl">
+                            <UserIcon className="w-6 h-6 text-sky-300" />
+                        </div>
+                        <h2 className="text-xl font-bold text-white">Nhân Vật Chính</h2>
                     </div>
-                    <div>
-                        <FormLabel htmlFor="characterAge">Tuổi:</FormLabel>
-                        <input id="characterAge" name="characterAge" type="text" value={formData.characterAge} onChange={handleInputChange} placeholder="VD: 20 tuổi, Thanh niên, Trung niên..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                    <div className="space-y-2">
+                        <label htmlFor="characterName" className="block text-sm font-medium text-white/90">
+                            Danh Xưng/Tên
+                        </label>
+                        <input 
+                            id="characterName" 
+                            name="characterName" 
+                            type="text" 
+                            value={formData.characterName} 
+                            onChange={handleInputChange} 
+                            placeholder="VD: Diệp Phàm, Hàn Lập..." 
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                        />
                     </div>
-                    <div>
-                        <FormLabel htmlFor="characterAppearance">Dung mạo:</FormLabel>
-                        <input id="characterAppearance" name="characterAppearance" type="text" value={formData.characterAppearance} onChange={handleInputChange} placeholder="VD: Cao ráo, đôi mắt sắc sảo, tóc đen dài..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label htmlFor="characterAge" className="block text-sm font-medium text-white/90">
+                                Tuổi
+                            </label>
+                            <input 
+                                id="characterAge" 
+                                name="characterAge" 
+                                type="text" 
+                                value={formData.characterAge} 
+                                onChange={handleInputChange} 
+                                placeholder="VD: 20 tuổi, Thanh niên..." 
+                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label htmlFor="characterAppearance" className="block text-sm font-medium text-white/90">
+                                Dung mạo
+                            </label>
+                            <input 
+                                id="characterAppearance" 
+                                name="characterAppearance" 
+                                type="text" 
+                                value={formData.characterAppearance} 
+                                onChange={handleInputChange} 
+                                placeholder="VD: Cao ráo, mắt sắc sảo..." 
+                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <FormLabel htmlFor="customPersonality">Tính Cách:</FormLabel>
-                         {!formData.customPersonality && (
-                            <CustomSelect name="personalityFromList" value={formData.personalityFromList} onChange={handleInputChange}>
-                                <option value="">Chọn tính cách có sẵn...</option>
-                                {personalityOptions.map(p => <option key={p} value={p}>{p}</option>)}
-                            </CustomSelect>
-                        )}
-                        <input id="customPersonality" name="customPersonality" type="text" value={formData.customPersonality} onChange={handleInputChange} placeholder="Hoặc nhập tính cách của bạn (VD: Lạnh lùng)" className={`w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400 ${!formData.customPersonality ? 'mt-2' : ''}`} />
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/90">
+                            Tính Cách
+                        </label>
+                        <div className="space-y-2">
+                            {!formData.customPersonality && (
+                                <select 
+                                    name="personalityFromList" 
+                                    value={formData.personalityFromList} 
+                                    onChange={handleInputChange}
+                                    className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                                >
+                                    <option value="" className="bg-slate-800 text-white">Chọn tính cách có sẵn...</option>
+                                    {personalityOptions.map(p => <option key={p} value={p} className="bg-slate-800 text-white">{p}</option>)}
+                                </select>
+                            )}
+                            <input 
+                                id="customPersonality" 
+                                name="customPersonality" 
+                                type="text" 
+                                value={formData.customPersonality} 
+                                onChange={handleInputChange} 
+                                placeholder="Hoặc nhập tính cách của bạn (VD: Lạnh lùng)" 
+                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                            />
+                        </div>
                     </div>
-                     <div>
-                        <FormLabel>Giới Tính:</FormLabel>
-                        <CustomSelect name="gender" value={formData.gender} onChange={handleInputChange}>
-                            <option value="ai_decides">Để AI quyết định</option>
-                            <option value="Nam">Nam</option>
-                            <option value="Nữ">Nữ</option>
-                        </CustomSelect>
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/90">
+                            Giới Tính
+                        </label>
+                        <select 
+                            name="gender" 
+                            value={formData.gender} 
+                            onChange={handleInputChange}
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                        >
+                            <option value="ai_decides" className="bg-slate-800 text-white">Để AI quyết định</option>
+                            <option value="Nam" className="bg-slate-800 text-white">Nam</option>
+                            <option value="Nữ" className="bg-slate-800 text-white">Nữ</option>
+                        </select>
                     </div>
-                     <div>
-                        <FormLabel htmlFor="bio">Sơ Lược Tiểu Sử:</FormLabel>
-                        <textarea id="bio" name="bio" value={formData.bio} onChange={handleInputChange} placeholder="VD: Một phế vật mang huyết mạch thượng cổ..." rows={3} className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400"></textarea>
+                    <div className="space-y-2">
+                        <label htmlFor="bio" className="block text-sm font-medium text-white/90">
+                            Sơ Lược Tiểu Sử
+                        </label>
+                        <textarea 
+                            id="bio" 
+                            name="bio" 
+                            value={formData.bio} 
+                            onChange={handleInputChange} 
+                            placeholder="VD: Một phế vật mang huyết mạch thượng cổ..." 
+                            rows={3} 
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300 resize-none"
+                        />
                     </div>
-                    <div>
-                        <FormLabel htmlFor="startSkill">Kỹ Năng Khởi Đầu (Tùy chọn):</FormLabel>
-                        <input id="startSkill" name="startSkill" type="text" value={formData.startSkill} onChange={handleInputChange} placeholder="VD: Thuật ẩn thân..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
-                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gợi ý cho AI về loại kỹ năng người muốn bắt đầu.</p>
+                    <div className="space-y-2">
+                        <label htmlFor="startSkill" className="block text-sm font-medium text-white/90">
+                            Kỹ Năng Khởi Đầu <span className="text-white/50">(Tùy chọn)</span>
+                        </label>
+                        <input 
+                            id="startSkill" 
+                            name="startSkill" 
+                            type="text" 
+                            value={formData.startSkill} 
+                            onChange={handleInputChange} 
+                            placeholder="VD: Thuật ẩn thân..." 
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                        />
+                        <p className="text-xs text-white/50">Gợi ý cho AI về loại kỹ năng người muốn bắt đầu.</p>
                     </div>
                     <button
                         type="button"
                         onClick={handleCharacterSuggestion}
                         disabled={isAnySuggestionLoading || !isAiReady}
-                        className="w-full mt-3 flex items-center justify-center px-4 py-2.5 bg-sky-600 text-white font-semibold rounded-md shadow-md hover:bg-sky-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:bg-slate-500 disabled:cursor-wait"
+                        className="group w-full mt-4 flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-sky-500/20 to-blue-500/20 hover:from-sky-500/30 hover:to-blue-500/30 border border-sky-400/30 hover:border-sky-400/50 rounded-xl text-sky-200 hover:text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
                     >
-                        {loadingStates.character ? <SpinnerIcon className="w-5 h-5 mr-2" /> : <SparklesIcon className="w-5 h-5 mr-2" />}
-                        Gợi Ý Tiểu sử & Kỹ năng
+                        {loadingStates.character ? (
+                            <SpinnerIcon className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <SparklesIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        )}
+                        <span className="font-medium">Gợi Ý Tiểu sử & Kỹ năng</span>
                     </button>
                 </div>
 
-                <div className="lg:col-span-2 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
-                    <h2 className="text-lg font-semibold flex items-center pb-2 mb-4">
-                        <PencilIcon className="w-5 h-5 mr-3 text-yellow-600 dark:text-yellow-400" /> Phong cách viết
-                    </h2>
-                    <CustomSelect name="writingStyle" value={formData.writingStyle} onChange={handleInputChange}>
-                        <option value="second_person">Ngôi thứ hai - "Ngươi" là nhân vật chính</option>
-                        <option value="first_person">Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"</option>
-                    </CustomSelect>
-                </div>
-
-                <div className="lg:col-span-2 p-4 border border-slate-300 dark:border-slate-700 rounded-lg">
-                     <h2 className="text-lg font-semibold flex items-center pb-2 mb-4">
-                        <DiamondIcon className="w-5 h-5 mr-3 text-red-600 dark:text-red-400" /> Độ Khó & Nội Dung
-                    </h2>
-                    <FormLabel>Chọn Độ Khó:</FormLabel>
-                    <CustomSelect name="difficulty" value={formData.difficulty} onChange={handleInputChange}>
-                        <option value="easy">Dễ - Tạo ra cho đủ số thôi</option>
-                        <option value="normal">Thường - Cân bằng, phù hợp đa số</option>
-                        <option value="hard">Khó - Thử thách cao, Muốn ăn hành</option>
-                    </CustomSelect>
-                    <div className="mt-4 flex items-center">
-                        <input id="allowNsfw" name="allowNsfw" type="checkbox" checked={formData.allowNsfw} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-400 bg-gray-700 text-purple-600 focus:ring-purple-500" />
-                        <label htmlFor="allowNsfw" className="ml-3 text-sm text-slate-700 dark:text-gray-300">Cho phép nội dung 18+ (Cực kỳ chi tiết)</label>
+                {/* Additional Settings */}
+                <div className="xl:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Writing Style Card */}
+                    <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 backdrop-blur-sm border border-yellow-400/20 rounded-2xl p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-yellow-500/20 rounded-xl">
+                                <PencilIcon className="w-5 h-5 text-yellow-300" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Phong cách viết</h3>
+                        </div>
+                        <select 
+                            name="writingStyle" 
+                            value={formData.writingStyle} 
+                            onChange={handleInputChange}
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-300"
+                        >
+                            <option value="second_person" className="bg-slate-800 text-white">Ngôi thứ hai - "Ngươi" là nhân vật chính</option>
+                            <option value="first_person" className="bg-slate-800 text-white">Ngôi thứ nhất - Nhân vật chính xưng "Ta/Tôi"</option>
+                        </select>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-7">Khi được chọn, AI sẽ kể câu chuyện có tình tiết 18+ (có yếu tố bạo lực) và hành động tùy ý nsfw .</p>
+
+                    {/* Difficulty & Content Card */}
+                    <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 backdrop-blur-sm border border-red-400/20 rounded-2xl p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-500/20 rounded-xl">
+                                <DiamondIcon className="w-5 h-5 text-red-300" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Độ Khó & Nội Dung</h3>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-white/90 mb-2">Chọn Độ Khó:</label>
+                                <select 
+                                    name="difficulty" 
+                                    value={formData.difficulty} 
+                                    onChange={handleInputChange}
+                                    className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-red-400/50 focus:ring-2 focus:ring-red-400/20 transition-all duration-300"
+                                >
+                                    <option value="easy" className="bg-slate-800 text-white">Dễ - Tạo ra cho đủ số thôi</option>
+                                    <option value="normal" className="bg-slate-800 text-white">Thường - Cân bằng, phù hợp đa số</option>
+                                    <option value="hard" className="bg-slate-800 text-white">Khó - Thử thách cao, Muốn ăn hành</option>
+                                </select>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <input 
+                                    id="allowNsfw" 
+                                    name="allowNsfw" 
+                                    type="checkbox" 
+                                    checked={formData.allowNsfw} 
+                                    onChange={handleInputChange} 
+                                    className="mt-1 h-4 w-4 rounded border-white/20 bg-white/10 text-red-500 focus:ring-red-400/50"
+                                />
+                                <div>
+                                    <label htmlFor="allowNsfw" className="text-sm text-white/90 font-medium">
+                                        Cho phép nội dung 18+ (Cực kỳ chi tiết)
+                                    </label>
+                                    <p className="text-xs text-white/60 mt-1">
+                                        Khi được chọn, AI sẽ kể câu chuyện có tình tiết 18+ (có yếu tố bạo lực) và hành động tùy ý nsfw.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     };
 
     return (
-        <div className="bg-white/80 dark:bg-[#252945]/80 backdrop-blur-md border border-slate-300 dark:border-slate-700 w-full max-w-5xl rounded-2xl shadow-2xl p-6 sm:p-8 text-slate-900 dark:text-white font-sans overflow-y-auto" style={{maxHeight: '95vh'}}>
-            <input
-                type="file"
-                ref={settingsFileInputRef}
-                onChange={handleLoadSettingsFileChange}
-                accept=".json"
-                className="hidden"
-            />
-             <input
-                type="file"
-                ref={rulesFileInputRef}
-                onChange={handleLoadRulesFileChange}
-                accept=".json"
-                className="hidden"
-            />
-            <div className="flex justify-between items-center mb-4">
-                <button onClick={onBack} className="flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors duration-200">
-                    <ArrowLeftIcon className="w-4 h-4 mr-2" />
-                    Về Trang Chủ
-                </button>
-                <div className="flex items-center space-x-2">
-                    <button onClick={handleSaveSettings} className="flex items-center text-sm px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded shadow-sm border border-green-500/50 text-white transition-colors">
-                        <SaveIcon className="w-4 h-4 mr-2" />
-                        Lưu Thiết Lập
-                    </button>
-                    <button onClick={handleLoadSettingsClick} className="flex items-center text-sm px-3 py-1.5 bg-sky-600 hover:bg-sky-500 rounded shadow-sm border border-sky-500/50 text-white transition-colors">
-                        <FileIcon className="w-4 h-4 mr-2" />
-                        Tải Thiết Lập
-                    </button>
-                </div>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-50">
+                <div className="w-full h-full" style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }}></div>
             </div>
             
-            <h1 className="text-3xl font-bold text-center mb-6 tracking-wide">Kiến Tạo Thế Giới</h1>
-
-            {/* Tabs */}
-            <div className="flex border-b border-slate-300 dark:border-slate-700 mb-6">
-                <button 
-                    onClick={() => setActiveTab('context')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors duration-200 ${activeTab === 'context' ? 'border-b-2 border-purple-500 text-purple-600 dark:text-purple-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-                >
-                    Bối Cảnh Thế Giới
-                </button>
-                <button 
-                    onClick={() => setActiveTab('knowledge')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors duration-200 ${activeTab === 'knowledge' ? 'border-b-2 border-purple-500 text-purple-600 dark:text-purple-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
-                >
-                    Tri Thức
-                </button>
-            </div>
+            {/* Floating Orbs */}
+            <div className="absolute top-20 left-20 w-32 h-32 bg-purple-500/20 rounded-full blur-xl animate-pulse"></div>
+            <div className="absolute bottom-20 right-20 w-48 h-48 bg-pink-500/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
+            <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-blue-500/15 rounded-full blur-xl animate-pulse delay-500"></div>
             
-            {/* Tab Content */}
-            {renderTabContent()}
-
-            <div className="mt-8 flex flex-col items-center">
-                {suggestionError && (
-                    <p className="text-red-500 dark:text-red-400 text-sm mb-4 text-center">{suggestionError}</p>
-                )}
-                <button 
-                    onClick={handleStartGameWithProgress}
-                    disabled={!isAiReady || isInitializing}
-                    className="w-full max-w-lg bg-[#2dd4bf] hover:bg-[#14b8a6] text-slate-900 font-bold py-3 px-6 rounded-lg shadow-lg text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:bg-slate-500 disabled:cursor-not-allowed">
-                    {isInitializing ? (
-                        <div className="flex items-center justify-center gap-2">
-                            <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                            Đang khởi tạo...
+            <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 w-full max-w-6xl rounded-3xl shadow-2xl overflow-hidden">
+                    {/* Header Section */}
+                    <div className="bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-purple-600/20 border-b border-white/10 p-6">
+                        <input
+                            type="file"
+                            ref={settingsFileInputRef}
+                            onChange={handleLoadSettingsFileChange}
+                            accept=".json"
+                            className="hidden"
+                        />
+                        <input
+                            type="file"
+                            ref={rulesFileInputRef}
+                            onChange={handleLoadRulesFileChange}
+                            accept=".json"
+                            className="hidden"
+                        />
+                        
+                        <div className="flex justify-between items-center mb-6">
+                            <button 
+                                onClick={onBack} 
+                                className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-300 border border-white/20 hover:border-white/30 backdrop-blur-sm text-white"
+                            >
+                                <ArrowLeftIcon className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                                <span className="text-sm font-medium">Về Trang Chủ</span>
+                            </button>
+                            
+                            <div className="flex items-center space-x-3">
+                                <button 
+                                    onClick={handleSaveSettings} 
+                                    className="group flex items-center gap-2 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-xl border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-100 transition-all duration-300 backdrop-blur-sm"
+                                >
+                                    <SaveIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    <span className="text-sm font-medium">Lưu Thiết Lập</span>
+                                </button>
+                                <button 
+                                    onClick={handleLoadSettingsClick} 
+                                    className="group flex items-center gap-2 px-4 py-2 bg-sky-500/20 hover:bg-sky-500/30 rounded-xl border border-sky-400/30 hover:border-sky-400/50 text-sky-100 transition-all duration-300 backdrop-blur-sm"
+                                >
+                                    <FileIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    <span className="text-sm font-medium">Tải Thiết Lập</span>
+                                </button>
+                            </div>
                         </div>
-                    ) : isAiReady ? 'Khởi Tạo Thế Giới' : 'AI chưa sẵn sàng'}
-                </button>
+                        
+                        <div className="text-center">
+                            <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-200 via-pink-200 to-purple-200 bg-clip-text text-transparent mb-3">
+                                Kiến Tạo Thế Giới
+                            </h1>
+                            <p className="text-white/70 text-lg">Xây dựng thế giới RPG độc đáo của riêng bạn</p>
+                        </div>
+                    </div>
+
+                    {/* Tab Navigation */}
+                    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-2 m-6 mb-0">
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setActiveTab('context')}
+                                className={`flex-1 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${
+                                    activeTab === 'context' 
+                                        ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white border border-purple-400/50 shadow-lg' 
+                                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                                }`}
+                            >
+                                <BookOpenIcon className="w-5 h-5 inline mr-2" />
+                                Bối Cảnh Thế Giới
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('knowledge')}
+                                className={`flex-1 px-6 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${
+                                    activeTab === 'knowledge' 
+                                        ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 text-white border border-purple-400/50 shadow-lg' 
+                                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                                }`}
+                            >
+                                <SparklesIcon className="w-5 h-5 inline mr-2" />
+                                Tri Thức
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Content Area */}
+                    <div className="p-6">
+                        {renderTabContent()}
+                    </div>
+
+                    {/* Footer Section */}
+                    <div className="mt-8 border-t border-white/10 pt-6">
+                        <div className="flex flex-col items-center space-y-4">
+                            {suggestionError && (
+                                <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/20 rounded-xl p-4 max-w-lg w-full">
+                                    <p className="text-red-300 text-sm text-center font-medium">{suggestionError}</p>
+                                </div>
+                            )}
+                            
+                            <button 
+                                onClick={handleStartGameWithProgress}
+                                disabled={!isAiReady || isInitializing}
+                                className="group w-full max-w-lg bg-gradient-to-r from-emerald-500/30 to-teal-500/30 hover:from-emerald-500/40 hover:to-teal-500/40 border border-emerald-400/40 hover:border-emerald-400/60 backdrop-blur-sm text-white font-bold py-4 px-8 rounded-2xl shadow-2xl text-lg transition-all duration-300 disabled:from-slate-500/20 disabled:to-slate-600/20 disabled:border-slate-500/30 disabled:cursor-not-allowed disabled:text-white/50 transform hover:scale-[1.02] hover:shadow-emerald-500/25"
+                            >
+                                {isInitializing ? (
+                                    <div className="flex items-center justify-center gap-3">
+                                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        <span>Đang khởi tạo thế giới...</span>
+                                    </div>
+                                ) : isAiReady ? (
+                                    <div className="flex items-center justify-center gap-3">
+                                        <SparklesIcon className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+                                        <span>Khởi Tạo Thế Giới</span>
+                                        <SparklesIcon className="w-6 h-6 group-hover:-rotate-12 transition-transform" />
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-center gap-3">
+                                        <ExclamationIcon className="w-6 h-6" />
+                                        <span>AI chưa sẵn sàng</span>
+                                    </div>
+                                )}
+                            </button>
+                            
+                            <p className="text-white/50 text-sm text-center max-w-lg">
+                                Nhấn nút trên để bắt đầu cuộc phiêu lưu RPG của bạn với AI
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <SuggestionModal

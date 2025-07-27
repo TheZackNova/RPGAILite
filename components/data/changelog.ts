@@ -3,6 +3,27 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.32.0',
+    date: '2025-07-27',
+    changes: [
+      { type: 'improvement', text: 'Đại tu hoàn toàn giao diện CreateWorld với thiết kế Glass-Morphism hiện đại - Áp dụng backdrop-blur effects, gradient backgrounds và floating orbs để tạo giao diện cao cấp và chuyên nghiệp.' },
+      { type: 'improvement', text: 'Redesign hệ thống tab navigation với glass-morphism styling - Tab navigation mới có smooth transitions, gradient highlights và visual depth effects.' },
+      { type: 'improvement', text: 'Nâng cấp form cards với color-coded sections - Story context (purple/pink), Character (blue/sky), Writing style (yellow/orange), Difficulty (red/orange) để dễ phân biệt và điều hướng.' },
+      { type: 'improvement', text: 'Cải thiện toàn bộ input fields với consistent glass styling - Tất cả input fields giờ sử dụng backdrop-blur, semi-transparent backgrounds và gradient focus effects.' },
+      { type: 'improvement', text: 'Redesign suggestion buttons với gradient backgrounds và hover animations - Sparkle icons và smooth hover transitions tạo trải nghiệm tương tác tuyệt vời.' },
+      { type: 'improvement', text: 'Nâng cấp start game button với state-based icons và animations - Loading states với spinning icons, ready state với sparkle animations, và disabled state với warning icons.' },
+      { type: 'improvement', text: 'Cập nhật SuggestionModal với thiết kế glass-morphism - Modal giờ có backdrop-blur, gradient headers và smooth hover effects trên suggestion items.' },
+      { type: 'improvement', text: 'Thêm floating orbs background pattern với animations - Subtle animated orbs tạo visual depth và modern aesthetic cho toàn bộ interface.' },
+      { type: 'improvement', text: 'Enhanced footer section với professional layout - Error displays với glass styling, descriptive text và proper spacing cho trải nghiệm hoàn thiện.' },
+      { type: 'fix', text: 'Sửa lỗi SVG encoding trong background pattern - Chuyển từ Tailwind class sang inline style để xử lý đúng complex URL encoding.' },
+      { type: 'fix', text: 'Khắc phục missing closing div tag - Sửa JSX structure errors gây build failure.' },
+      { type: 'fix', text: 'Sửa lỗi missing icon import - Thay ExclamationTriangleIcon bằng ExclamationIcon từ Icons.tsx có sẵn.' },
+      { type: 'technical', text: 'Comprehensive build testing - Đảm bảo tất cả changes pass npm run build và dev server khởi động thành công.' },
+      { type: 'technical', text: 'Maintained full backward compatibility - Tất cả existing functionality được preserve trong khi nâng cấp UI/UX.' },
+      { type: 'technical', text: 'Optimized CSS with consistent design tokens - Standardized color schemes, spacing và transition timings across toàn bộ redesign.' },
+    ],
+  },
+  {
     version: '1.31.0',
     date: '2025-07-27',
     changes: [
