@@ -1,6 +1,7 @@
 import type { Memory, SaveData } from '../types';
 import { MemoryEnhancer } from './MemoryEnhancer';
 import { ImportanceScorer } from './ImportanceScorer';
+import { UnifiedMemoryManager } from './UnifiedMemoryManager';
 
 export class MemoryMigration {
     
@@ -137,7 +138,9 @@ export class MemoryMigration {
      * Auto-migrate memories on game state load
      */
     static autoMigrateOnLoad(gameState: SaveData): SaveData {
-        if (!this.needsMigration(gameState.memories)) {
+        const needsMigration = this.needsMigration(gameState.memories);
+        
+        if (!needsMigration) {
             return gameState;
         }
         
@@ -149,9 +152,52 @@ export class MemoryMigration {
         
         console.log('✅ Memory migration completed:', report);
         
-        return {
+        // Update game state with migrated memories
+        const updatedGameState = {
             ...gameState,
             memories: deduplicatedMemories
+        };
+        
+        // Apply unified auto cleanup after migration for old saves
+        console.log('🧹 Applying unified auto cleanup to migrated memories...');
+        const cleanupResult = UnifiedMemoryManager.coordinatedCleanup(
+            updatedGameState,
+            { 
+                maxActiveMemories: 100,
+                memoryCleanupThreshold: 50, // Lower threshold to trigger cleanup on migrated saves
+                lowImportanceThreshold: 30,
+                maxActiveHistoryEntries: 30,
+                historyCompressionThreshold: 30,
+                maxTokenBudget: 8000,
+                memoryTokenRatio: 0.3,
+                enableSmartMemoryGeneration: true,
+                smartMemoryConfig: {
+                    enableEventMemories: true,
+                    enableRelationshipMemories: true,
+                    enableDiscoveryMemories: true,
+                    enableCombatMemories: true,
+                    enableAchievementMemories: true,
+                    minImportanceThreshold: 40,
+                    maxMemoriesPerTurn: 3,
+                    lookbackTurns: 5
+                }
+            }
+        );
+        
+        console.log('🎯 Unified auto cleanup applied:', {
+            original: gameState.memories.length,
+            migrated: deduplicatedMemories.length,
+            afterCleanup: cleanupResult.memoriesProcessed.memories.length,
+            memoriesArchived: cleanupResult.memoriesProcessed.archived.length,
+            memoriesEnhanced: cleanupResult.memoriesProcessed.enhanced.length,
+            tokensSaved: cleanupResult.tokensSaved,
+            cleanupTriggered: cleanupResult.cleanupTriggered
+        });
+        
+        return {
+            ...updatedGameState,
+            memories: cleanupResult.memoriesProcessed.memories,
+            gameHistory: cleanupResult.historyProcessed.activeEntries
         };
     }
     
