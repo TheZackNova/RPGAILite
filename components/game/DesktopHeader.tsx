@@ -19,6 +19,7 @@ interface DesktopHeaderProps {
     onPCInfo: () => void;
     onParty: () => void;
     onQuests: () => void;
+    onInventory: () => void;
     onManualCleanup: () => void;
     hasActiveQuests: boolean;
     worldData: Partial<FormData>;
@@ -35,7 +36,7 @@ const getTokenColor = (tokens: number) => {
 };
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
     onHome, onSettings, onImport, onSave, onMap, onRules, onKnowledge, onMemory, onRestart,
-    onPCInfo, onParty, onQuests, hasActiveQuests, onManualCleanup,
+    onPCInfo, onParty, onQuests, onInventory, hasActiveQuests, onManualCleanup,
     worldData, gameTime, turnCount, currentTurnTokens, totalTokens
 }) => {
     const [showGameMenu, setShowGameMenu] = React.useState(false);
@@ -211,6 +212,9 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 >
                     <button onClick={() => { onPCInfo(); setShowPlayerMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
                         <UserIcon className="w-4 h-4" /> Thông tin
+                    </button>
+                    <button onClick={() => { onInventory(); setShowPlayerMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                        🎒 Túi Đồ
                     </button>
                     <button onClick={() => { onParty(); setShowPlayerMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
                         <GameIcons.NpcIcon className="w-4 h-4" /> Tổ đội

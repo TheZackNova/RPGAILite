@@ -11,6 +11,7 @@ import { MapModal } from './MapModal.tsx';
 import { MobileChoicesModal } from './game/MobileChoicesModal.tsx';
 import { PartyMemberTab } from './PartyMemberTab.tsx';
 import { QuestLog } from './QuestLog.tsx';
+import { InventoryModal } from './InventoryModal.tsx';
 
 import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
@@ -32,6 +33,7 @@ interface MemoizedModalsProps {
     isPartyModalOpen: boolean;
     isQuestLogModalOpen: boolean;
     isChoicesModalOpen: boolean;
+    isInventoryModalOpen: boolean;
 
     // Active data for detail modals
     activeEntity: Entity | null;
@@ -66,6 +68,7 @@ interface MemoizedModalsProps {
         party: () => void;
         questLog: () => void;
         choices: () => void;
+        inventory: () => void;
     };
 
     // Game state data
@@ -414,6 +417,7 @@ const MemoizedModalsComponent = ({
     isPartyModalOpen,
     isQuestLogModalOpen,
     isChoicesModalOpen,
+    isInventoryModalOpen,
     activeEntity,
     activeStatus,
     activeQuest,
@@ -575,6 +579,30 @@ const MemoizedModalsComponent = ({
                 onClose={modalCloseHandlers.choices}
                 choices={choices}
                 onAction={handleAction}
+            />
+
+            {/* Inventory Modal */}
+            <InventoryModal
+                isOpen={isInventoryModalOpen}
+                onClose={modalCloseHandlers.inventory}
+                playerInventory={Object.values(knownEntities).filter((entity): entity is Entity => {
+                    if (entity.type !== 'item') return false;
+                    
+                    // Include items that explicitly belong to PC
+                    if (entity.owner === 'pc') return true;
+                    
+                    // Include items with no owner or empty owner (likely player items from story)
+                    if (!entity.owner || entity.owner === '' || entity.owner === null || entity.owner === undefined) {
+                        return true;
+                    }
+                    
+                    // Exclude items that explicitly belong to NPCs
+                    return false;
+                })}
+                onUseItem={handleUseItem}
+                onEquipItem={handleEquipItem}
+                onUnequipItem={handleUnequipItem}
+                onDiscardItem={(item) => handleAction(`Vứt bỏ ${item.name}`)}
             />
         </>
     );

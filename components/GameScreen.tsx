@@ -132,7 +132,7 @@ export const GameScreen: React.FC<{
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
         isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
         isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen, isEntityImportModalOpen,
-        activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
+        isInventoryModalOpen, activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
         notification
     } = modalState;
 
@@ -140,7 +140,7 @@ export const GameScreen: React.FC<{
         setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
         setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
         setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen, setIsEntityImportModalOpen,
-        setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
+        setIsInventoryModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
         setNotification, modalCloseHandlers
     } = modalStateActions;
 
@@ -1152,6 +1152,7 @@ export const GameScreen: React.FC<{
                 onPCInfo={() => setIsPcInfoModalOpen(true)}
                 onParty={() => setIsPartyModalOpen(true)}
                 onQuests={() => setIsQuestLogModalOpen(true)}
+                onInventory={() => setIsInventoryModalOpen(true)}
                 onManualCleanup={handleManualCleanup}
                 worldData={worldData}
                 gameTime={gameTime}
@@ -1205,6 +1206,7 @@ export const GameScreen: React.FC<{
                 isPartyModalOpen={isPartyModalOpen}
                 isQuestLogModalOpen={isQuestLogModalOpen}
                 isChoicesModalOpen={isChoicesModalOpen}
+                isInventoryModalOpen={isInventoryModalOpen}
                 activeEntity={activeEntity}
                 activeStatus={activeStatus}
                 activeQuest={activeQuest}
