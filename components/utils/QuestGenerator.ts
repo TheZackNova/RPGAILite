@@ -409,7 +409,7 @@ Hãy đảm bảo quest phù hợp với bối cảnh, có tính logic và thú 
     }
 
     /**
-     * Build world context from game state
+     * Build world context from game state (with token limits)
      */
     private static buildWorldContext(gameState: SaveData): string {
         const context: string[] = [];
@@ -417,25 +417,30 @@ Hãy đảm bảo quest phù hợp với bối cảnh, có tính logic và thú 
         // World basic info
         context.push(`Thế giới: ${gameState.worldData.storyName}`);
         context.push(`Thể loại: ${gameState.worldData.genre}`);
-        context.push(`Mô tả: ${gameState.worldData.worldDetail}`);
+        
+        // Limit world description to 100 characters to reduce tokens
+        const worldDetail = gameState.worldData.worldDetail;
+        context.push(`Mô tả: ${worldDetail.length > 100 ? worldDetail.slice(0, 100) + '...' : worldDetail}`);
         
         // Time context
         const time = gameState.gameTime;
         context.push(`Thời gian hiện tại: Ngày ${time.day}, tháng ${time.month}, năm ${time.year}, giờ ${time.hour}`);
         
-        // Character context
+        // Character context (limit description)
         const pc = Object.values(gameState.knownEntities).find(e => e.type === 'pc');
         if (pc) {
-            context.push(`Nhân vật chính: ${pc.name} - ${pc.description}`);
+            const pcDesc = pc.description.length > 50 ? pc.description.slice(0, 50) + '...' : pc.description;
+            context.push(`Nhân vật chính: ${pc.name} - ${pcDesc}`);
         }
         
-        // Party context
+        // Party context (limit to first 3 members)
         if (gameState.party.length > 0) {
-            const partyNames = gameState.party.map(p => p.name).join(', ');
-            context.push(`Đồng đội: ${partyNames}`);
+            const partyNames = gameState.party.slice(0, 3).map(p => p.name).join(', ');
+            const partyExtra = gameState.party.length > 3 ? ` (+${gameState.party.length - 3} khác)` : '';
+            context.push(`Đồng đội: ${partyNames}${partyExtra}`);
         }
         
-        // Recent locations
+        // Recent locations (just current location)
         if (gameState.locationDiscoveryOrder && gameState.locationDiscoveryOrder.length > 0) {
             const recentLocation = gameState.locationDiscoveryOrder[gameState.locationDiscoveryOrder.length - 1];
             context.push(`Vị trí hiện tại: ${recentLocation}`);
@@ -445,37 +450,54 @@ Hãy đảm bảo quest phù hợp với bối cảnh, có tính logic và thú 
     }
 
     /**
-     * Build memory context from trigger memories
+     * Build memory context from trigger memories (with token limits)
      */
     private static buildMemoryContext(memories: Memory[]): string {
         if (memories.length === 0) return "Không có ký ức liên quan cụ thể.";
         
-        return memories.map((memory, index) => 
-            `${index + 1}. [${memory.category?.toUpperCase() || 'GENERAL'}] ${memory.text}`
+        // Limit to 5 most important memories to control token usage
+        const limitedMemories = memories
+            .sort((a, b) => (b.importance || 0) - (a.importance || 0))
+            .slice(0, 5);
+        
+        return limitedMemories.map((memory, index) => 
+            `${index + 1}. [${memory.category?.toUpperCase() || 'GENERAL'}] ${memory.text.length > 200 ? memory.text.slice(0, 200) + '...' : memory.text}`
         ).join('\n');
     }
 
     /**
-     * Build entity context from involved entities
+     * Build entity context from involved entities (with token limits)
      */
     private static buildEntityContext(entityNames: string[], gameState: SaveData): string {
         if (entityNames.length === 0) return "Không có nhân vật cụ thể liên quan.";
         
         const entityDescriptions: string[] = [];
         
-        entityNames.forEach(name => {
+        // Limit to first 3 entities to control token usage
+        const limitedEntityNames = entityNames.slice(0, 3);
+        
+        limitedEntityNames.forEach(name => {
             const entity = gameState.knownEntities[name];
             if (entity) {
-                let description = `- ${entity.name} (${entity.type}): ${entity.description}`;
+                // Limit entity description to 80 characters
+                const shortDesc = entity.description.length > 80 ? entity.description.slice(0, 80) + '...' : entity.description;
+                let description = `- ${entity.name} (${entity.type}): ${shortDesc}`;
                 if (entity.location) description += ` [Ở ${entity.location}]`;
                 if (entity.relationship) description += ` [Quan hệ: ${entity.relationship}]`;
                 entityDescriptions.push(description);
             }
         });
 
-        return entityDescriptions.length > 0 ? 
+        let result = entityDescriptions.length > 0 ? 
             entityDescriptions.join('\n') : 
-            "Các nhân vật: " + entityNames.join(', ');
+            "Các nhân vật: " + limitedEntityNames.join(', ');
+            
+        // Add note if more entities exist
+        if (entityNames.length > 3) {
+            result += `\n(+${entityNames.length - 3} nhân vật khác)`;
+        }
+        
+        return result;
     }
 
     /**

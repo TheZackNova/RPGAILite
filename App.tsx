@@ -519,6 +519,8 @@ Trả về JSON với format đã chỉ định.`;
           type: 'pc',
           description: data.bio,
           gender: data.gender,
+          age: data.characterAge,
+          appearance: data.characterAppearance,
           personality: data.customPersonality || data.personalityFromList,
           learnedSkills: [],
       };

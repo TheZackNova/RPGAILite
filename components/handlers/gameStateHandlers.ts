@@ -98,9 +98,10 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
             type: 'pc',
             description: worldData.bio,
             gender: worldData.gender,
+            age: worldData.characterAge,
+            appearance: worldData.characterAppearance || initialGameState.knownEntities[worldData.characterName || 'Vô Danh']?.appearance || '',
             personality: worldData.customPersonality || worldData.personalityFromList,
             learnedSkills: [],
-            appearance: initialGameState.knownEntities[worldData.characterName || 'Vô Danh']?.appearance || '',
         };
         
         // Preserve LORE_CONCEPT entities but reset PC

@@ -56,6 +56,8 @@ export interface FormData {
     difficulty: string;
     allowNsfw: boolean;
     characterName: string;
+    characterAge: string;
+    characterAppearance: string;
     customPersonality: string;
     personalityFromList: string;
     gender: string;

@@ -288,9 +288,9 @@ export const GameScreen: React.FC<{
                     enableDiscoveryMemories: true,
                     enableCombatMemories: true,
                     enableAchievementMemories: true,
-                    minImportanceThreshold: 45,
-                    maxMemoriesPerTurn: 2,
-                    lookbackTurns: 3
+                    minImportanceThreshold: 60,  // Increased from 45 to reduce memory creation
+                    maxMemoriesPerTurn: 1,       // Reduced from 2 to limit growth
+                    lookbackTurns: 2             // Reduced from 3 to analyze fewer turns
                 }
             });
             

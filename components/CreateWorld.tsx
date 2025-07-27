@@ -29,6 +29,8 @@ export const CreateWorld: React.FC<{
         difficulty: 'normal',
         allowNsfw: false,
         characterName: '',
+        characterAge: '',
+        characterAppearance: '',
         customPersonality: '',
         personalityFromList: '',
         gender: 'ai_decides',
@@ -183,6 +185,8 @@ export const CreateWorld: React.FC<{
         const finalPersonality = formData.customPersonality || formData.personalityFromList;
         const prompt = `Dựa trên thông tin nhân vật sau, hãy tạo một tiểu sử và kỹ năng khởi đầu phù hợp cho game nhập vai văn bản:
 - Tên nhân vật (do người dùng đặt): '${formData.characterName || 'Chưa có'}'
+- Tuổi: '${formData.characterAge || 'Chưa có'}'
+- Dung mạo: '${formData.characterAppearance || 'Chưa có'}'
 - Tên truyện: '${formData.storyName || 'Chưa có'}'
 - Thể loại: '${formData.genre || 'Chưa có'}'
 - Bối cảnh: '${formData.worldDetail || 'Chưa có'}'
@@ -511,6 +515,14 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                     <div>
                         <FormLabel htmlFor="characterName">Danh Xưng/Tên:</FormLabel>
                         <input id="characterName" name="characterName" type="text" value={formData.characterName} onChange={handleInputChange} placeholder="VD: Diệp Phàm, Hàn Lập..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="characterAge">Tuổi:</FormLabel>
+                        <input id="characterAge" name="characterAge" type="text" value={formData.characterAge} onChange={handleInputChange} placeholder="VD: 20 tuổi, Thanh niên, Trung niên..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
+                    </div>
+                    <div>
+                        <FormLabel htmlFor="characterAppearance">Dung mạo:</FormLabel>
+                        <input id="characterAppearance" name="characterAppearance" type="text" value={formData.characterAppearance} onChange={handleInputChange} placeholder="VD: Cao ráo, đôi mắt sắc sảo, tóc đen dài..." className="w-full bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-slate-400 dark:placeholder-gray-400" />
                     </div>
                     <div>
                         <FormLabel htmlFor="customPersonality">Tính Cách:</FormLabel>
