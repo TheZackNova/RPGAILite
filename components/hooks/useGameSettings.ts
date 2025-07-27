@@ -25,6 +25,7 @@ export const useGameSettings = (): [GameSettingsState, GameSettingsActions] => {
             fontFamily: 'Inter',
             memoryAutoClean: true,
             historyAutoCompress: true,
+            themeColor: 'purple',
         };
     });
 
@@ -35,13 +36,17 @@ export const useGameSettings = (): [GameSettingsState, GameSettingsActions] => {
         // Apply font settings to document root
         document.documentElement.style.setProperty('--game-font-size', `${newSettings.fontSize}px`);
         document.documentElement.style.setProperty('--game-font-family', newSettings.fontFamily);
+        
+        // Apply theme color to document root
+        document.documentElement.style.setProperty('--game-theme-color', newSettings.themeColor);
     };
 
-    // Apply font settings on component mount
+    // Apply settings on component mount
     useEffect(() => {
         document.documentElement.style.setProperty('--game-font-size', `${gameSettings.fontSize}px`);
         document.documentElement.style.setProperty('--game-font-family', gameSettings.fontFamily);
-    }, [gameSettings.fontSize, gameSettings.fontFamily]);
+        document.documentElement.style.setProperty('--game-theme-color', gameSettings.themeColor);
+    }, [gameSettings.fontSize, gameSettings.fontFamily, gameSettings.themeColor]);
 
     const gameSettingsState: GameSettingsState = {
         gameSettings

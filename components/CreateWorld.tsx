@@ -8,6 +8,8 @@ import {
     ArrowLeftIcon, BookOpenIcon, UserIcon, PencilIcon, DiamondIcon, SpinnerIcon, SparklesIcon,
     SaveIcon, FileIcon, DocumentAddIcon, PlusIcon, ExclamationIcon
 } from './Icons.tsx';
+import { useGameSettings } from './hooks/useGameSettings';
+import { getThemeColors } from './utils/themeUtils';
 
 export const CreateWorld: React.FC<{ 
     onBack: () => void; 
@@ -18,6 +20,8 @@ export const CreateWorld: React.FC<{
     initSubStep: string;
 }> = ({ onBack, onStartGame, isInitializing, initProgress, initCurrentStep, initSubStep }) => {
     const { ai, isAiReady, apiKeyError, selectedModel } = useContext(AIContext);
+    const [gameSettingsState] = useGameSettings();
+    const { gameSettings } = gameSettingsState;
     const [formData, setFormData] = useState<FormData>({
         storyName: '',
         genre: '',
@@ -777,8 +781,10 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
         );
     };
 
+    const themeColors = getThemeColors(gameSettings.themeColor);
+    
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+        <div className={`min-h-screen bg-gradient-to-br ${themeColors.primary} relative overflow-hidden`}>
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-50">
                 <div className="w-full h-full" style={{
@@ -787,9 +793,9 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
             </div>
             
             {/* Floating Orbs */}
-            <div className="absolute top-20 left-20 w-32 h-32 bg-purple-500/20 rounded-full blur-xl animate-pulse"></div>
-            <div className="absolute bottom-20 right-20 w-48 h-48 bg-pink-500/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
-            <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-blue-500/15 rounded-full blur-xl animate-pulse delay-500"></div>
+            <div className={`absolute top-20 left-20 w-32 h-32 bg-${themeColors.text.split('-')[0]}-500/20 rounded-full blur-xl animate-pulse`}></div>
+            <div className={`absolute bottom-20 right-20 w-48 h-48 bg-${themeColors.text.split('-')[0]}-400/10 rounded-full blur-2xl animate-pulse delay-1000`}></div>
+            <div className={`absolute top-1/2 left-1/4 w-24 h-24 bg-${themeColors.text.split('-')[0]}-600/15 rounded-full blur-xl animate-pulse delay-500`}></div>
             
             <div className="relative z-10 flex items-center justify-center min-h-screen p-4">
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 w-full max-w-6xl rounded-3xl shadow-2xl overflow-hidden">

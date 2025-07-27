@@ -70,7 +70,7 @@ const VirtualStoryItem = memo<{
     }, [item.content, item.id, item.actualHeight, onHeightMeasured]);
 
     return (
-        <div ref={itemRef} className="story-item">
+        <div ref={itemRef} className="story-item bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all duration-300">
             <OptimizedInteractiveText
                 text={item.content}
                 onEntityClick={onEntityClick}
@@ -261,18 +261,20 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     return (
         <div 
             ref={containerRef}
-            className={`md:col-span-1 flex flex-col bg-white/70 dark:bg-[#252945]/80 backdrop-blur-sm rounded-lg shadow-inner border border-slate-300/20 dark:border-slate-600/20 overflow-hidden ${className}`}
+            className={`md:col-span-1 flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden ${className}`}
         >
             {/* Header */}
-            <div className="flex-shrink-0 p-4 pb-0">
+            <div className="flex-shrink-0 p-6 border-b border-white/10">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-pink-700 dark:text-pink-400">
-                        Diễn Biến Câu Chuyện:
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-purple-200 via-pink-200 to-purple-200 bg-clip-text text-transparent">
+                        📖 Diễn Biến Câu Chuyện
                     </h2>
-                    <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                        <span>{storyLog.length} dòng</span>
+                    <div className="flex items-center gap-3 text-sm text-white/70">
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl px-3 py-1">
+                            <span>{storyLog.length} dòng</span>
+                        </div>
                         {virtualState.isScrolling && (
-                            <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" />
+                            <div className="w-2 h-2 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse" />
                         )}
                     </div>
                 </div>
@@ -281,20 +283,26 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
             {/* Content */}
             <div className="flex-grow min-h-0 relative">
                 {!isAiReady ? (
-                    <div className="flex items-center justify-center h-full p-4">
-                        <div className="text-center">
-                            <div className="text-red-500 mb-2 text-2xl">⚠️</div>
-                            <p className="text-slate-600 dark:text-slate-400">
-                                AI chưa sẵn sàng. Vui lòng kiểm tra API Key và quay về trang chủ.
+                    <div className="flex items-center justify-center h-full p-6">
+                        <div className="text-center bg-red-500/10 backdrop-blur-sm border border-red-400/20 rounded-2xl p-8">
+                            <div className="text-red-300 mb-4 text-4xl">⚠️</div>
+                            <p className="text-white/80 text-lg font-medium">
+                                AI chưa sẵn sàng
+                            </p>
+                            <p className="text-white/60 text-sm mt-2">
+                                Vui lòng kiểm tra API Key và quay về trang chủ
                             </p>
                         </div>
                     </div>
                 ) : storyLog.length === 0 ? (
-                    <div className="flex items-center justify-center h-full p-4">
-                        <div className="text-center">
-                            <div className="text-slate-400 mb-2 text-2xl">📖</div>
-                            <p className="text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center justify-center h-full p-6">
+                        <div className="text-center bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+                            <div className="text-purple-300 mb-4 text-4xl">📖</div>
+                            <p className="text-white/80 text-lg font-medium">
                                 Câu chuyện sẽ bắt đầu ở đây...
+                            </p>
+                            <p className="text-white/60 text-sm mt-2">
+                                Hãy chọn một hành động để bắt đầu cuộc phiêu lưu
                             </p>
                         </div>
                     </div>
@@ -349,9 +357,9 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                 {/* Loading indicator */}
                 {isLoading && isAiReady && storyLog.length > 0 && (
                     <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                        <div className="flex items-center gap-2 bg-pink-100 dark:bg-pink-900/50 px-3 py-2 rounded-lg backdrop-blur-sm">
-                            <SpinnerIcon className="w-5 h-5 text-pink-600 dark:text-pink-400" />
-                            <span className="text-sm text-pink-700 dark:text-pink-300">
+                        <div className="flex items-center gap-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-xl border border-purple-400/30 px-4 py-3 rounded-2xl shadow-2xl">
+                            <SpinnerIcon className="w-5 h-5 text-purple-300" />
+                            <span className="text-sm text-white font-medium">
                                 Đang tạo câu chuyện...
                             </span>
                         </div>
@@ -365,7 +373,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                         {!virtualState.shouldAutoScroll && (
                             <button
                                 onClick={scrollToBottom}
-                                className="bg-pink-500 hover:bg-pink-600 text-white p-2 rounded-full shadow-lg transition-all hover:scale-110 group"
+                                className="bg-gradient-to-r from-purple-500/30 to-pink-500/30 hover:from-purple-500/40 hover:to-pink-500/40 backdrop-blur-xl border border-purple-400/40 text-white p-3 rounded-2xl shadow-2xl transition-all hover:scale-110 group"
                                 title="Cuộn xuống cuối"
                             >
                                 <svg className="w-4 h-4 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,7 +384,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
 
                         {/* Auto-scroll indicator */}
                         {virtualState.shouldAutoScroll && (
-                            <div className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-1 rounded text-xs backdrop-blur-sm">
+                            <div className="bg-emerald-500/20 backdrop-blur-xl border border-emerald-400/30 text-emerald-200 px-3 py-2 rounded-xl text-xs font-medium">
                                 Auto-scroll ✓
                             </div>
                         )}
@@ -385,9 +393,9 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
 
                 {/* Scroll progress bar */}
                 {storyLog.length > 10 && (
-                    <div className="absolute right-0 top-0 bottom-0 w-1 bg-slate-200 dark:bg-slate-700">
+                    <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/10 backdrop-blur-sm rounded-r-2xl">
                         <div
-                            className="bg-pink-500 dark:bg-pink-400 w-full transition-all duration-200"
+                            className="bg-gradient-to-b from-purple-400 to-pink-400 w-full transition-all duration-200 rounded-r-2xl"
                             style={{
                                 height: `${Math.min(100, (virtualState.scrollTop / (totalHeight - virtualState.containerHeight)) * 100)}%`
                             }}

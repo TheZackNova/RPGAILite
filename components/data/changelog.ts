@@ -3,6 +3,26 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.33.0',
+    date: '2025-07-27',
+    changes: [
+      { type: 'feature', text: 'Triển khai hệ thống Theme Color hoàn chỉnh trong GameSettings - Thêm 6 bộ màu chủ đề từ tối đến sáng: Đen Xám Đậm, Xanh Dương Đậm, Tím Hoàng Gia (mặc định), Ngọc Lục Bảo, Hồng Vàng, và Hoàng Hôn.' },
+      { type: 'feature', text: 'Redesign hoàn toàn GameScreen với glass-morphism theme matching CreateWorld - Story panel và Action panel giờ có consistent glass styling, gradient backgrounds, và enhanced readability.' },
+      { type: 'feature', text: 'Thêm dynamic theming system - Background gradients và floating orbs tự động thay đổi màu sắc theo theme được chọn, tạo trải nghiệm visual nhất quán.' },
+      { type: 'improvement', text: 'Enhanced GameSettings với theme preview cards - Mỗi theme có preview card với gradient background, floating orbs simulation, tên theme và mô tả chi tiết.' },
+      { type: 'improvement', text: 'Nâng cấp Story Panel với modern glass design - Header với gradient text, story items có glass-morphism cards, loading indicator với backdrop blur, và scroll controls chuyên nghiệp.' },
+      { type: 'improvement', text: 'Redesign Action Panel (Choice Panel) với improved UX - Choice buttons giờ là beautiful cards với numbered indicators, hover effects với scale transitions, và enhanced input section.' },
+      { type: 'improvement', text: 'Cải thiện GameScreen background - Consistent gradient theme với CreateWorld, floating orbs với animations, và background pattern để tạo visual depth.' },
+      { type: 'improvement', text: 'Theme color persistence và live preview - Theme choices được lưu vào localStorage và apply ngay lập tức khi chọn, với CSS variables integration.' },
+      { type: 'improvement', text: 'Enhanced visual hierarchy và readability - Better text contrast, card-based layout, smooth animations, và improved information organization.' },
+      { type: 'technical', text: 'Tạo themeUtils.ts utility system - getThemeColors(), getThemeCSS(), applyThemeToElement() functions để quản lý theme colors hiệu quả.' },
+      { type: 'technical', text: 'Extended GameSettings interface - Thêm themeColor property với full TypeScript integration và backward compatibility.' },
+      { type: 'technical', text: 'Updated useGameSettings hook - Handle theme color persistence, CSS variables application, và document root styling.' },
+      { type: 'technical', text: 'Comprehensive build testing - Đảm bảo tất cả theme features pass npm run build và dev server functionality.' },
+      { type: 'technical', text: 'Cross-component theme consistency - GameScreen và CreateWorld đều sử dụng cùng theme system để đảm bảo visual coherence.' },
+    ],
+  },
+  {
     version: '1.32.0',
     date: '2025-07-27',
     changes: [

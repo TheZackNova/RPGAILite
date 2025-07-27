@@ -42,6 +42,7 @@ import { MemoryAnalytics } from './utils/MemoryAnalytics';
 import { QuestManagementEngine } from './utils/QuestManagementEngine';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
+import { getThemeColors } from './utils/themeUtils';
 
 // Helper functions moved to extracted files
 
@@ -1052,9 +1053,11 @@ export const GameScreen: React.FC<{
         displayParty,
     }), [pcEntity, pcStatuses, displayParty]);
     
+    const themeColors = getThemeColors(gameSettings.themeColor);
+    
     return (
         <div 
-            className="bg-transparent w-full h-full p-0 md:p-4 flex flex-col text-slate-900 dark:text-white relative" 
+            className={`bg-gradient-to-br ${themeColors.primary} w-full h-full p-0 md:p-4 flex flex-col text-white relative overflow-hidden`}
             style={{
                 maxHeight: '98vh', 
                 height: '98vh',
@@ -1062,6 +1065,19 @@ export const GameScreen: React.FC<{
                 fontFamily: 'var(--game-font-family, Inter)'
             }}
         >
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-50">
+                <div className="w-full h-full" style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }}></div>
+            </div>
+            
+            {/* Floating Orbs */}
+            <div className={`absolute top-20 left-20 w-32 h-32 bg-${themeColors.text.split('-')[0]}-500/20 rounded-full blur-xl animate-pulse`}></div>
+            <div className={`absolute bottom-20 right-20 w-48 h-48 bg-${themeColors.text.split('-')[0]}-400/10 rounded-full blur-2xl animate-pulse delay-1000`}></div>
+            <div className={`absolute top-1/2 left-1/4 w-24 h-24 bg-${themeColors.text.split('-')[0]}-600/15 rounded-full blur-xl animate-pulse delay-500`}></div>
+            
+            <div className="relative z-10 flex flex-col h-full">
             <GameNotifications 
                 notification={notification} 
                 showSaveSuccess={showSaveSuccess} 
@@ -1194,6 +1210,7 @@ export const GameScreen: React.FC<{
                 settings={gameSettings}
                 onSettingsChange={handleSettingsChange}
             />
+            </div>
         </div>
     );
 };

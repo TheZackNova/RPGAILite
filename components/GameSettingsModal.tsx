@@ -6,6 +6,7 @@ export interface GameSettings {
     fontFamily: string;
     memoryAutoClean: boolean;
     historyAutoCompress: boolean;
+    themeColor: string;
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -13,6 +14,7 @@ const DEFAULT_SETTINGS: GameSettings = {
     fontFamily: 'Inter',
     memoryAutoClean: true,
     historyAutoCompress: true,
+    themeColor: 'purple',
 };
 
 const FONT_FAMILIES = [
@@ -21,6 +23,81 @@ const FONT_FAMILIES = [
     { value: 'Lora', label: 'Lora (Serif)' },
     { value: 'Roboto Mono', label: 'Roboto Mono (Monospace)' },
     { value: 'Source Code Pro', label: 'Source Code Pro (Monospace)' }
+];
+
+export const THEME_COLORS = [
+    {
+        id: 'dark-slate',
+        name: 'Đen Xám Đậm',
+        description: 'Tối tăm và bí ẩn',
+        colors: {
+            primary: 'from-slate-900 via-slate-800 to-slate-900',
+            secondary: 'from-gray-800 to-slate-900',
+            accent: 'from-slate-600 to-gray-700',
+            text: 'slate-200'
+        },
+        preview: 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'
+    },
+    {
+        id: 'deep-blue',
+        name: 'Xanh Dương Đậm',
+        description: 'Sâu thẳm như đại dương',
+        colors: {
+            primary: 'from-slate-900 via-blue-900 to-slate-900',
+            secondary: 'from-blue-800 to-slate-900',
+            accent: 'from-blue-600 to-indigo-700',
+            text: 'blue-200'
+        },
+        preview: 'bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900'
+    },
+    {
+        id: 'purple',
+        name: 'Tím Hoàng Gia',
+        description: 'Hiện tại (Mặc định)',
+        colors: {
+            primary: 'from-slate-900 via-purple-900 to-slate-900',
+            secondary: 'from-purple-800 to-slate-900',
+            accent: 'from-purple-600 to-pink-700',
+            text: 'purple-200'
+        },
+        preview: 'bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900'
+    },
+    {
+        id: 'emerald',
+        name: 'Ngọc Lục Bảo',
+        description: 'Tươi mát và thanh lịch',
+        colors: {
+            primary: 'from-slate-900 via-emerald-900 to-slate-900',
+            secondary: 'from-emerald-800 to-slate-900',
+            accent: 'from-emerald-600 to-teal-700',
+            text: 'emerald-200'
+        },
+        preview: 'bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900'
+    },
+    {
+        id: 'rose-gold',
+        name: 'Hồng Vàng',
+        description: 'Ấm áp và lãng mạn',
+        colors: {
+            primary: 'from-slate-800 via-rose-900 to-orange-900',
+            secondary: 'from-rose-800 to-orange-800',
+            accent: 'from-rose-600 to-orange-600',
+            text: 'rose-200'
+        },
+        preview: 'bg-gradient-to-br from-slate-800 via-rose-900 to-orange-900'
+    },
+    {
+        id: 'sunset',
+        name: 'Hoàng Hôn',
+        description: 'Sáng sủa như hoàng hôn',
+        colors: {
+            primary: 'from-orange-800 via-red-900 to-pink-800',
+            secondary: 'from-red-700 to-pink-800',
+            accent: 'from-orange-500 to-red-600',
+            text: 'orange-200'
+        },
+        preview: 'bg-gradient-to-br from-orange-800 via-red-900 to-pink-800'
+    }
 ];
 
 export const GameSettingsModal: React.FC<{
@@ -119,6 +196,58 @@ export const GameSettingsModal: React.FC<{
                         </div>
                     </div>
 
+                    {/* Theme Color Settings */}
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-slate-800 dark:text-gray-100 border-b border-slate-300 dark:border-slate-600 pb-2">
+                            🎨 Màu Chủ Đề
+                        </h4>
+                        
+                        <div className="space-y-3">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                                Chọn bảng màu để thay đổi giao diện game
+                            </p>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {THEME_COLORS.map((theme) => (
+                                    <button
+                                        key={theme.id}
+                                        onClick={() => setLocalSettings(prev => ({ ...prev, themeColor: theme.id }))}
+                                        className={`relative p-4 rounded-xl border-2 transition-all duration-300 ${
+                                            localSettings.themeColor === theme.id
+                                                ? 'border-blue-500 shadow-lg scale-105'
+                                                : 'border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:scale-102'
+                                        }`}
+                                    >
+                                        {/* Preview */}
+                                        <div className={`w-full h-16 rounded-lg mb-3 ${theme.preview} relative overflow-hidden`}>
+                                            {/* Floating orbs simulation */}
+                                            <div className="absolute top-2 left-2 w-4 h-4 bg-white/20 rounded-full blur-sm"></div>
+                                            <div className="absolute bottom-2 right-2 w-6 h-6 bg-white/10 rounded-full blur-md"></div>
+                                            <div className="absolute top-1/2 left-1/2 w-3 h-3 bg-white/15 rounded-full blur-sm"></div>
+                                        </div>
+                                        
+                                        {/* Theme Info */}
+                                        <div className="text-left">
+                                            <h5 className="font-semibold text-slate-800 dark:text-gray-100 text-sm">
+                                                {theme.name}
+                                            </h5>
+                                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                                {theme.description}
+                                            </p>
+                                        </div>
+                                        
+                                        {/* Selected indicator */}
+                                        {localSettings.themeColor === theme.id && (
+                                            <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <span className="text-white text-xs">✓</span>
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Performance Settings */}
                     <div className="space-y-4">
                         <h4 className="text-lg font-semibold text-slate-800 dark:text-gray-100 border-b border-slate-300 dark:border-slate-600 pb-2">
@@ -182,6 +311,7 @@ export const GameSettingsModal: React.FC<{
                         </h5>
                         <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                             <div>Font: {localSettings.fontFamily} - {localSettings.fontSize}px</div>
+                            <div>Màu chủ đề: {THEME_COLORS.find(t => t.id === localSettings.themeColor)?.name || 'Tím Hoàng Gia'}</div>
                             <div>Dọn dẹp bộ nhớ: {localSettings.memoryAutoClean ? '✅ Bật' : '❌ Tắt'}</div>
                             <div>Nén lịch sử: {localSettings.historyAutoCompress ? '✅ Bật' : '❌ Tắt'}</div>
                         </div>
