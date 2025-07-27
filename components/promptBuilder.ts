@@ -3,18 +3,18 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 import { EnhancedRAG } from './utils/EnhancedRAG';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
 
-// Enhanced Token Management with Stricter Controls
+// Aggressive Token Management for 100k hard limit
 const TOKEN_CONFIG = {
-    MAX_TOKENS_PER_TURN: 80000,  // Giảm từ 70k xuống 75k để có buffer an toàn
-    TOKEN_BUFFER: 8000,          // Tăng buffer từ 5k lên 8k
-    CHARS_PER_TOKEN: 1.0,        // Tăng từ 0.75 lên 0.8 để ước tính chặt chẽ hơn
+    MAX_TOKENS_PER_TURN: 90000,  // 90k hard limit with 10k buffer
+    TOKEN_BUFFER: 10000,         // 10k safety buffer
+    CHARS_PER_TOKEN: 1.2,        // Conservative token estimation
     
-    // Tái phân bổ để ưu tiên nội dung quan trọng
+    // Aggressive allocation for strict 100k budget
     ALLOCATION: {
-        CRITICAL: 0.45,      // Tăng từ 0.40 - Ưu tiên action context
-        IMPORTANT: 0.25,     // Giảm từ 0.30 - Giảm entities liên quan
-        CONTEXTUAL: 0.20,    // Giữ nguyên - World context
-        SUPPLEMENTAL: 0.10   // Giữ nguyên - Custom rules
+        CRITICAL: 0.50,      // 45k tokens - Party, action context only
+        IMPORTANT: 0.25,     // 22.5k tokens - Essential entities, key quests
+        CONTEXTUAL: 0.15,    // 13.5k tokens - Minimal world info
+        SUPPLEMENTAL: 0.10   // 9k tokens - Rules, misc (reduced)
     }
 };
 
@@ -56,8 +56,8 @@ export class EnhancedRAGSystem {
         try {
             // Step 1: Phase 4 Enhancement - Build intelligent context using Enhanced RAG
             const intelligentContext = EnhancedRAG.buildIntelligentContext(gameState, action, {
-                maxMemories: 8,
-                maxTokens: 1500,
+                maxMemories: 5,
+                maxTokens: 1000,
                 importanceThreshold: 35,
                 recencyWeight: 0.3,
                 relevanceWeight: 0.5,
@@ -858,12 +858,10 @@ export class EnhancedRAGSystem {
         let context = "\n=== BỐI CẢNH THẾ GIỚI ===\n";
         let usedTokens = this.estimateTokens(context);
         
-        // World info
-        if (gameState.worldData.worldDetail) {
-            const worldTokens = Math.floor(maxTokens * 0.3);
-            const worldInfo = this.aggressiveTruncation(gameState.worldData.worldDetail, worldTokens);
-            context += `Thế giới: ${worldInfo}\n\n`;
-            usedTokens += this.estimateTokens(worldInfo);
+        // World info - reference only
+        if (gameState.worldData.worldName) {
+            context += `Thế giới: ${gameState.worldData.worldName}\n\n`;
+            usedTokens += this.estimateTokens(context);
         }
         
         // Chronicle (prioritized memories)
@@ -878,7 +876,7 @@ export class EnhancedRAGSystem {
         
         if (pinnedMemories.length > 0 && memoryTokens > 100) {
             context += "**Ký ức quan trọng:**\n";
-            pinnedMemories.slice(0, 3).forEach(mem => { // Giảm từ 5 xuống 3
+            pinnedMemories.slice(0, 1).forEach(mem => { // Reduced to 1 memory only
                 const memText = `- ${mem.text}\n`;
                 const memTokens = this.estimateTokens(memText);
                 
@@ -896,10 +894,10 @@ export class EnhancedRAGSystem {
     private buildChronicleContext(chronicle: any, maxTokens: number): string {
         const memories: ScoredMemory[] = [];
         
-        // Giảm số lượng entries để tiết kiệm token
-        chronicle.memoir.slice(-5).forEach((m: string) => memories.push({ memory: m, score: 100, type: 'memoir' })); // Giảm từ 7 xuống 5
-        chronicle.chapter.slice(-2).forEach((c: string) => memories.push({ memory: c, score: 70, type: 'chapter' })); // Giảm từ 3 xuống 2
-        chronicle.turn.slice(-1).forEach((t: string) => memories.push({ memory: t, score: 40, type: 'turn' })); // Giảm từ 2 xuống 1
+        // Aggressive reduction for token savings
+        chronicle.memoir.slice(-2).forEach((m: string) => memories.push({ memory: m, score: 100, type: 'memoir' })); // Reduced to 2
+        chronicle.chapter.slice(-1).forEach((c: string) => memories.push({ memory: c, score: 70, type: 'chapter' })); // Reduced to 1
+        // chronicle.turn removed completely to save tokens
         
         // Sort by score and build context
         memories.sort((a, b) => b.score - a.score);
@@ -1052,7 +1050,7 @@ export class EnhancedRAGSystem {
     // ADDED: Emergency truncation method
     private emergencyTruncation(prompt: string): string {
         const totalTokens = this.estimateTokens(prompt);
-        const hardLimit = 78000; // Emergency limit dưới 80k
+        const hardLimit = 85000; // Emergency limit well under 100k
         
         if (totalTokens <= hardLimit) {
             return prompt;
@@ -1088,7 +1086,7 @@ export class EnhancedRAGSystem {
     private enforceTokenLimit(prompt: string): string {
         const totalTokens = this.estimateTokens(prompt);
         const softLimit = TOKEN_CONFIG.MAX_TOKENS_PER_TURN - TOKEN_CONFIG.TOKEN_BUFFER;
-        const hardLimit = 78000; // Dưới 80k
+        const hardLimit = 85000; // Well under 100k
         
         if (totalTokens <= softLimit) {
             console.log(`✅ Prompt tokens: ${totalTokens}/${softLimit} (Safe)`);
@@ -1096,12 +1094,13 @@ export class EnhancedRAGSystem {
         }
         
         if (totalTokens <= hardLimit) {
-            console.warn(`⚠️ Prompt near limit: ${totalTokens}/${hardLimit}`);
+            console.warn(`⚠️ WARNING: Prompt near limit: ${totalTokens}/${hardLimit}`);
             return prompt;
         }
         
-        // Emergency truncation
-        console.error(`🚨 Prompt exceeds hard limit: ${totalTokens}/${hardLimit}. Emergency truncation!`);
+        // Emergency truncation with alert
+        console.error(`🚨 CRITICAL: Prompt exceeds limit: ${totalTokens}/${hardLimit}. Emergency truncation applied!`);
+        alert(`🚨 TOKEN LIMIT EXCEEDED!\nUsed: ${totalTokens}\nLimit: ${hardLimit}\nApplying emergency truncation.`);
         return this.emergencyTruncation(prompt);
     }
 
