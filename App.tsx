@@ -255,7 +255,7 @@ Trước khi hoàn thành phản hồi, hãy tự kiểm tra theo thứ tự:
 8. **✓ PARTY DYNAMICS:** Nếu có đồng hành, họ có tham gia và thể hiện cá tính riêng không? Có tương tác hoặc phản ứng với PC và tình huống không?
 9. **✓ WORLD REACTION:** Thế giới có phản ứng sống động với hành động PC không?
 10. **✓ CHOICE QUALITY:** 4-5 lựa chọn có đa dạng và meaningful không?
-11. **✓ NSFW COMPLIANCE:** Nếu NSFW ON, có đủ 2+ lựa chọn 18+ không?
+11. **✓ NSFW COMPLIANCE:** Nếu NSFW ON, có đủ lựa chọn 18+  trong tình huống hợp lý không?
 
 **NẾU BẤT KỲ MỤC NÀO MISSING → REVISE RESPONSE**
 
