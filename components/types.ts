@@ -34,6 +34,7 @@ export interface Entity {
   archived?: boolean;           // Đánh dấu entity đã được archive
     archivedAt?: number;         // Turn number khi archive
     lastMentioned?: number;      // Turn cuối cùng được nhắc đến
+    referenceId?: string;        // Unique identifier for exports and cross-referencing
 }
 
 export interface KnownEntities {

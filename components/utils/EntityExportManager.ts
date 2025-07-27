@@ -193,7 +193,7 @@ export class EntityExportManager {
     }
 
     /**
-     * Convert entities to Vietnamese format with Hán Việt names
+     * Convert entities to Vietnamese format with Hán Việt names and reference IDs
      */
     private static convertToVietnameseFormat(categories: CategorizedEntities): CategorizedEntities {
         const converted: CategorizedEntities = {
@@ -209,10 +209,12 @@ export class EntityExportManager {
         // Convert each category
         for (const [categoryName, entities] of Object.entries(categories)) {
             for (const [name, entity] of Object.entries(entities)) {
+                const referenceId = this.generateReferenceId(entity.name, entity.type, categoryName);
                 const convertedEntity = {
                     ...entity,
                     originalName: entity.name,
                     hanVietName: this.generateHanVietName(entity.name, entity.type),
+                    referenceId: referenceId,
                     exportedAt: Date.now(),
                     exportTurn: this.metadata.lastExportTurn + 1
                 };
@@ -222,10 +224,34 @@ export class EntityExportManager {
                 delete convertedEntity.archivedAt;
 
                 (converted as any)[categoryName][name] = convertedEntity;
+                this.debugLog(`🔗 Generated reference ID for ${name}: ${referenceId}`);
             }
         }
 
         return converted;
+    }
+
+    /**
+     * Generate unique reference ID for entity exports
+     */
+    private static generateReferenceId(name: string, type: string, category: string): string {
+        // Create a deterministic but unique ID based on entity data
+        const baseString = `${type}_${category}_${name}_${Date.now()}`;
+        
+        // Simple hash function to create shorter ID
+        let hash = 0;
+        for (let i = 0; i < baseString.length; i++) {
+            const char = baseString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        
+        // Convert to positive hex and add prefix
+        const hashHex = Math.abs(hash).toString(16).padStart(8, '0');
+        const typePrefix = type.substring(0, 2).toUpperCase();
+        const categoryPrefix = category.substring(0, 3).toUpperCase();
+        
+        return `REF_${typePrefix}_${categoryPrefix}_${hashHex}`;
     }
 
     /**
@@ -292,14 +318,25 @@ export class EntityExportManager {
                 }
 
                 const fileName = `${characterName}_${categoryName}_turn${gameState.turnCount}_${timestamp}.json`;
+                
+                // Create reference mapping for cross-referencing
+                const referenceMapping: { [entityName: string]: string } = {};
+                for (const [entityName, entity] of Object.entries(categoryEntities)) {
+                    if ((entity as any).referenceId) {
+                        referenceMapping[entityName] = (entity as any).referenceId;
+                    }
+                }
+                
                 const fileContent = JSON.stringify({
                     metadata: {
                         exportedAt: timestamp,
                         turn: gameState.turnCount,
                         category: categoryName,
                         entityCount: Object.keys(categoryEntities).length,
-                        characterName: characterName
+                        characterName: characterName,
+                        hasReferenceIds: true
                     },
+                    referenceMapping: referenceMapping,
                     entities: categoryEntities
                 }, null, 2);
 
@@ -575,6 +612,7 @@ export class EntityExportManager {
             delete (cleanEntity as any).exportTurn;
             delete (cleanEntity as any).hanVietName;
             delete (cleanEntity as any).originalName;
+            delete (cleanEntity as any).referenceId;
             
             gameState.knownEntities[entityName] = cleanEntity;
             this.debugLog(`➕ Added new entity: ${entityName}`);
@@ -630,6 +668,7 @@ export class EntityExportManager {
         delete (merged as any).exportTurn;
         delete (merged as any).hanVietName;
         delete (merged as any).originalName;
+        delete (merged as any).referenceId;
 
         return merged;
     }
