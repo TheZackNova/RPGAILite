@@ -41,7 +41,7 @@ export class GameStateOptimizer {
     private static readonly DEFAULT_CONFIG: CleanupConfig = {
         // Memory settings
         maxUnpinnedMemories: 25,         // Giữ 25 memories không ghim
-        maxTotalMemories: 50,            // Tối đa 50 memories total
+        maxTotalMemories: 30,            // Tối đa 50 memories total
         
         // Chronicle settings
         maxMemoirEntries: 15,            // Giữ 15 memoir entries
