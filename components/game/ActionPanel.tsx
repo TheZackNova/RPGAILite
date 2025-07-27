@@ -36,51 +36,58 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                 </h2>
             </div>
 
-            {/* Content */}
-            <div className="flex-grow p-6">
-            <div className="overflow-y-auto flex-grow">
-                {!isAiReady ? (
-                    <div className="flex items-center justify-center h-full">
-                        <div className="text-center bg-red-500/10 backdrop-blur-sm border border-red-400/20 rounded-2xl p-8">
-                            <div className="text-red-300 mb-4 text-4xl">⚠️</div>
-                            <p className="text-white/80 text-lg font-medium">
-                                AI chưa sẵn sàng
-                            </p>
-                            <p className="text-white/60 text-sm mt-2">
-                                {apiKeyError || "Vui lòng kiểm tra API Key và quay về trang chủ"}
-                            </p>
+            {/* Content - Scrollable Choices */}
+            <div className="flex-grow overflow-hidden flex flex-col">
+                <div className="flex-grow overflow-y-auto px-6 py-4">
+                    {!isAiReady ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-center bg-red-500/10 backdrop-blur-sm border border-red-400/20 rounded-2xl p-8">
+                                <div className="text-red-300 mb-4 text-4xl">⚠️</div>
+                                <p className="text-white/80 text-lg font-medium">
+                                    AI chưa sẵn sàng
+                                </p>
+                                <p className="text-white/60 text-sm mt-2">
+                                    {apiKeyError || "Vui lòng kiểm tra API Key và quay về trang chủ"}
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                ) : isLoading && choices.length === 0 ? (
-                    <div className="flex items-center justify-center h-full">
-                        <div className="flex items-center gap-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 backdrop-blur-xl border border-cyan-400/30 px-6 py-4 rounded-2xl">
-                            <SpinnerIcon className="w-8 h-8 text-cyan-300" />
-                            <span className="text-white font-medium">Đang tải lựa chọn...</span>
+                    ) : isLoading && choices.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="flex items-center gap-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 backdrop-blur-xl border border-cyan-400/30 px-6 py-4 rounded-2xl">
+                                <SpinnerIcon className="w-8 h-8 text-cyan-300" />
+                                <span className="text-white font-medium">Đang tải lựa chọn...</span>
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                   <div className="grid grid-cols-1 gap-4">
-                        {choices.map((choice, index) => (
-                            <button 
-                                key={index}
-                                onClick={() => handleAction(choice)}
-                                className="group w-full text-left p-4 bg-white/5 hover:bg-gradient-to-r hover:from-cyan-500/20 hover:to-blue-500/20 backdrop-blur-sm border border-white/20 hover:border-cyan-400/40 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-[1.02]"
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-xl flex items-center justify-center text-white font-bold text-sm group-hover:from-cyan-500/50 group-hover:to-blue-500/50 transition-all duration-300">
-                                        {index + 1}
+                    ) : (
+                       <div className="space-y-3">
+                            {choices.map((choice, index) => (
+                                <button 
+                                    key={index}
+                                    onClick={() => handleAction(choice)}
+                                    className="group w-full text-left p-4 bg-white/5 hover:bg-gradient-to-r hover:from-cyan-500/20 hover:to-blue-500/20 backdrop-blur-sm border border-white/20 hover:border-cyan-400/40 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-[1.02]"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-xl flex items-center justify-center text-white font-bold text-sm group-hover:from-cyan-500/50 group-hover:to-blue-500/50 transition-all duration-300">
+                                            {index + 1}
+                                        </div>
+                                        <div className="flex-grow">
+                                            <p className="text-white/90 group-hover:text-white transition-colors duration-300">
+                                                {choice.match(/^\d+\.\s/) ? choice.replace(/^\d+\.\s/, '') : choice}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="flex-grow">
-                                        <p className="text-white/90 group-hover:text-white transition-colors duration-300">
-                                            {choice.match(/^\d+\.\s/) ? choice.replace(/^\d+\.\s/, '') : choice}
-                                        </p>
-                                    </div>
+                                </button>
+                            ))}
+                            {choices.length > 4 && (
+                                <div className="text-center py-2">
+                                    <p className="text-xs text-white/40">
+                                        📜 Cuộn để xem thêm lựa chọn
+                                    </p>
                                 </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Custom Action Footer */}

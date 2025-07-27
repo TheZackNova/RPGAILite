@@ -31,6 +31,13 @@ export const MobileChoicesModal: React.FC<{
                              {choice.match(/^\d+\.\s/) ? choice : `${index + 1}. ${choice}`}
                         </button>
                     ))}
+                    {choices.length > 4 && (
+                        <div className="text-center py-2">
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                📜 Cuộn để xem thêm lựa chọn
+                            </p>
+                        </div>
+                    )}
                 </div>
                 <button onClick={onClose} className="w-full mt-4 py-2.5 bg-slate-600 text-white rounded-md font-semibold">Đóng</button>
             </div>
