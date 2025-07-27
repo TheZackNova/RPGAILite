@@ -3,6 +3,20 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.36.0',
+    date: '2025-07-27',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi nghiêm trọng khiến Entity Export chạy trùng lặp - 2 instance cùng lúc tạo ra file duplicate. Triển khai comprehensive export locking mechanism với export ID tracking, singleton pattern enforcement, và 5-second cooldown protection.' },
+      { type: 'fix', text: 'Khắc phục lỗi Reference-based RAG không hoạt động đúng - Prompt builder vẫn include cả traditional RAG context lẫn reference-based context, phá hỏng mục tiêu tiết kiệm 60-80% tokens. Giờ chỉ sử dụng reference context khi enabled.' },
+      { type: 'improvement', text: 'Nâng cấp EntityExportManager với advanced duplicate prevention - Export ID tracking using Set data structure, window-level singleton enforcement, pending exports management, và automatic cleanup system.' },
+      { type: 'improvement', text: 'Tối ưu hóa Reference-based RAG system - Loại bỏ traditional entity retrieval khi sử dụng compact context, exclusive context usage, và proper token calculation để đạt được token reduction thực sự.' },
+      { type: 'improvement', text: 'Enhanced export locking với export ID integration - gameActionHandlers.ts giờ pass export ID vào shouldExport() và exportEntities() methods, enabling proper duplicate detection và race condition prevention.' },
+      { type: 'technical', text: 'Implement export ID tracking system - Unique export IDs với format export_{turn}_{timestamp}_{random}, tracked in pendingExports Set, và automatic cleanup trong finally blocks.' },
+      { type: 'technical', text: 'Reference RAG optimization - Entity retrieval từ compact context references thay vì traditional scoring, null intelligentContext khi USE_REFERENCE_RAG enabled, và exclusive prompt assembly logic.' },
+      { type: 'technical', text: 'Enhanced EntityExportManager architecture - Window-level singleton pattern, export lock với currentTurn tracking, lastLockTime với cooldown protection, và comprehensive logging system.' },
+    ],
+  },
+  {
     version: '1.35.0',
     date: '2025-07-27',
     changes: [

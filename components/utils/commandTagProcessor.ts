@@ -1,6 +1,7 @@
 import type { Entity, Status, Quest, Memory, Chronicle } from '../types';
 import { partyDebugger } from './partyDebugger';
 import { MemoryEnhancer } from './MemoryEnhancer';
+import { ReferenceIdGenerator } from './ReferenceIdGenerator';
 
 export interface CommandTagProcessorParams {
     // State setters
@@ -265,8 +266,10 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     type: 'skill',
                                     name: name,
                                     description: description,
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(name, 'skill'),
                                     ...rest
                                 };
+                                console.log(`🔗 Generated reference ID for skill ${name}: ${newSkill.referenceId}`);
                                 return { ...prev, [name]: newSkill };
                             }
                             return prev;
@@ -281,8 +284,10 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     type: 'skill',
                                     name: name,
                                     description: description,
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(name, 'skill'),
                                     ...rest
                                 };
+                                console.log(`🔗 Generated reference ID for learned skill ${name}: ${newSkill.referenceId}`);
                                 newEntities[name] = newSkill;
                         
                                 const pc = Object.values(newEntities).find(e => e.type === 'pc');
@@ -307,15 +312,35 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             if (typeof newAttributes.skills === 'string') {
                                 newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
                             }
-                            return { ...prev, [attributes.name]: { type: 'npc', ...newAttributes } };
+                            const newNPC: Entity = { 
+                                type: 'npc', 
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'npc'),
+                                ...newAttributes 
+                            };
+                            console.log(`🔗 Generated reference ID for NPC ${attributes.name}: ${newNPC.referenceId}`);
+                            return { ...prev, [attributes.name]: newNPC };
                         });
                         break;
                     case 'LORE_ITEM':
-                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', ...attributes } }));
+                        setKnownEntities(prev => {
+                            const newItem: Entity = { 
+                                type: 'item', 
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'item'),
+                                ...attributes 
+                            };
+                            console.log(`🔗 Generated reference ID for item ${attributes.name}: ${newItem.referenceId}`);
+                            return { ...prev, [attributes.name]: newItem };
+                        });
                         break;
                     case 'LORE_LOCATION':
                         setKnownEntities(prev => {
-                            const newEntities = { ...prev, [attributes.name]: { type: 'location', ...attributes } };
+                            const newLocation: Entity = { 
+                                type: 'location', 
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'location'),
+                                ...attributes 
+                            };
+                            console.log(`🔗 Generated reference ID for location ${attributes.name}: ${newLocation.referenceId}`);
+                            const newEntities = { ...prev, [attributes.name]: newLocation };
                             setLocationDiscoveryOrder(prevOrder => {
                                 if (!prevOrder.includes(attributes.name)) {
                                     return [...prevOrder, attributes.name];
@@ -326,11 +351,27 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         });
                         break;
                     case 'LORE_FACTION':
-                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'faction', ...attributes } }));
-                         break;
+                        setKnownEntities(prev => {
+                            const newFaction: Entity = { 
+                                type: 'faction', 
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'faction'),
+                                ...attributes 
+                            };
+                            console.log(`🔗 Generated reference ID for faction ${attributes.name}: ${newFaction.referenceId}`);
+                            return { ...prev, [attributes.name]: newFaction };
+                        });
+                        break;
                     case 'LORE_CONCEPT':
-                         setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'concept', ...attributes } }));
-                         break;
+                        setKnownEntities(prev => {
+                            const newConcept: Entity = { 
+                                type: 'concept', 
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'concept'),
+                                ...attributes 
+                            };
+                            console.log(`🔗 Generated reference ID for concept ${attributes.name}: ${newConcept.referenceId}`);
+                            return { ...prev, [attributes.name]: newConcept };
+                        });
+                        break;
                     case 'ENTITY_UPDATE':
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };
@@ -358,7 +399,16 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         });
                         break;
                     case 'ITEM_AQUIRED':
-                        setKnownEntities(prev => ({ ...prev, [attributes.name]: { type: 'item', owner: 'pc', ...attributes } }));
+                        setKnownEntities(prev => {
+                            const newItem: Entity = { 
+                                type: 'item', 
+                                owner: 'pc',
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'item'),
+                                ...attributes 
+                            };
+                            console.log(`🔗 Generated reference ID for acquired item ${attributes.name}: ${newItem.referenceId}`);
+                            return { ...prev, [attributes.name]: newItem };
+                        });
                         break;
                      case 'ITEM_CONSUMED':
                         setKnownEntities(prev => {
@@ -462,8 +512,14 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         });
                         break;
                     case 'COMPANION':
-                         const newCompanion = { type: 'companion', ...attributes } as Entity;
+                         const newCompanion = { 
+                             type: 'companion', 
+                             referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'companion'),
+                             ...attributes 
+                         } as Entity;
                          if (newCompanion.name && newCompanion.description) {
+                            console.log(`🔗 Generated reference ID for companion ${newCompanion.name}: ${newCompanion.referenceId}`);
+                            
                             // Enhanced companion processing with skill parsing
                             if (newCompanion.skills && typeof newCompanion.skills === 'string') {
                                 (newCompanion as any).skills = (newCompanion.skills as string).split(',').map(s => s.trim());

@@ -13,6 +13,7 @@ import type { SaveData, Entity, AIContextType, FormData, CustomRule, KnownEntiti
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
 import { QuestGenerator } from './components/utils/QuestGenerator.ts';
 import { QuestIntegrator } from './components/utils/QuestIntegrator.ts';
+import { ReferenceIdGenerator } from './components/utils/ReferenceIdGenerator.ts';
 
 // --- Constants ---
 export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MASTER) AI. Nhiệm vụ của bạn là điều khiển một trò chơi nhập vai phiêu lưu văn bản, tuân thủ NGHIÊM NGẶT các quy tắc sau:
@@ -593,6 +594,7 @@ Trả về JSON với format đã chỉ định.`;
           learnedSkills: [],
           realm: data.realmTiers && data.realmTiers.length > 0 ? data.realmTiers[0].name : 'Luyện Khí',
           currentExp: 0,
+          referenceId: ReferenceIdGenerator.generateReferenceId(data.characterName || 'Vô Danh', 'pc'),
       };
       console.log('🎮 StartNewGame: PC Entity created:', pcEntity.name);
 

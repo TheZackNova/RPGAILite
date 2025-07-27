@@ -210,24 +210,31 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
             
             setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
             parseApiResponseHandler(responseText);
+            
             setTurnCount(prev => {
                 const newTurn = prev + 1;
                 
-                // 🔄 Auto-export entities every few turns
+                // 🔄 Auto-export entities every few turns (with unique ID to prevent duplicates)
+                const exportId = `export_${newTurn}_${Date.now()}_${Math.random().toString(36)}`;
+                console.log(`📋 [Turn ${newTurn}] Scheduling export with ID: ${exportId}`);
+                
                 setTimeout(async () => {
                     try {
-                        if (EntityExportManager.shouldExport(newTurn)) {
-                            console.log(`🚀 [Turn ${newTurn}] Triggering auto-export...`);
-                            const exportSuccess = await EntityExportManager.exportEntities(currentGameState);
+                        console.log(`🔍 [Turn ${newTurn}] Checking export eligibility (ID: ${exportId})`);
+                        if (EntityExportManager.shouldExport(newTurn, exportId)) {
+                            console.log(`🚀 [Turn ${newTurn}] Triggering auto-export (ID: ${exportId})`);
+                            const exportSuccess = await EntityExportManager.exportEntities(currentGameState, exportId);
                             
                             if (exportSuccess) {
-                                console.log(`✅ [Turn ${newTurn}] Entity export completed successfully`);
+                                console.log(`✅ [Turn ${newTurn}] Entity export completed successfully (ID: ${exportId})`);
                             } else {
-                                console.warn(`⚠️ [Turn ${newTurn}] Entity export failed`);
+                                console.warn(`⚠️ [Turn ${newTurn}] Entity export failed (ID: ${exportId})`);
                             }
+                        } else {
+                            console.log(`⏭️ [Turn ${newTurn}] Export not needed (ID: ${exportId})`);
                         }
                     } catch (error) {
-                        console.error(`🚨 [Turn ${newTurn}] Entity export error:`, error);
+                        console.error(`🚨 [Turn ${newTurn}] Entity export error (ID: ${exportId}):`, error);
                     }
                 }, 1000); // Delay to ensure state is updated
                 

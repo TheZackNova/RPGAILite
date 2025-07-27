@@ -53,6 +53,13 @@ export interface CategorizedEntities {
     statusEffects: { [key: string]: Entity };
 }
 
+// Global singleton enforcement
+declare global {
+    interface Window {
+        __ENTITY_EXPORT_MANAGER_INSTANCE__?: EntityExportManager;
+    }
+}
+
 export class EntityExportManager {
     private static readonly DEFAULT_CONFIG: ExportConfig = {
         enabled: true,
@@ -75,6 +82,29 @@ export class EntityExportManager {
         importHistory: []
     };
 
+    // Export locking mechanism to prevent duplicate exports
+    private static exportLock: {
+        isExporting: boolean;
+        currentTurn: number | null;
+        lastLockTime: number;
+        pendingExports: Set<string>;
+    } = {
+        isExporting: false,
+        currentTurn: null,
+        lastLockTime: 0,
+        pendingExports: new Set()
+    };
+
+    // Singleton enforcement
+    constructor() {
+        if (typeof window !== 'undefined') {
+            if (window.__ENTITY_EXPORT_MANAGER_INSTANCE__) {
+                return window.__ENTITY_EXPORT_MANAGER_INSTANCE__;
+            }
+            window.__ENTITY_EXPORT_MANAGER_INSTANCE__ = this;
+        }
+    }
+
     /**
      * Configure export settings
      */
@@ -86,17 +116,46 @@ export class EntityExportManager {
     /**
      * Check if export should be triggered
      */
-    public static shouldExport(currentTurn: number): boolean {
+    public static shouldExport(currentTurn: number, exportId?: string): boolean {
+        const logPrefix = exportId ? `[${exportId}]` : '';
+        
         if (!this.config.enabled) {
-            this.debugLog('❌ Export disabled in config');
+            this.debugLog(`❌ ${logPrefix} Export disabled in config`);
             return false;
+        }
+
+        // Check if export is already in progress
+        if (this.exportLock.isExporting) {
+            this.debugLog(`🔒 ${logPrefix} Export already in progress for turn ${this.exportLock.currentTurn} (requested turn: ${currentTurn})`);
+            return false;
+        }
+
+        // Check if this specific export ID is already pending
+        if (exportId && this.exportLock.pendingExports.has(exportId)) {
+            this.debugLog(`🔒 ${logPrefix} Export ID already processed, skipping duplicate`);
+            return false;
+        }
+
+        // Check if we recently exported this same turn (race condition protection)
+        if (this.exportLock.currentTurn === currentTurn) {
+            const timeSinceLastLock = Date.now() - this.exportLock.lastLockTime;
+            if (timeSinceLastLock < 5000) { // 5 seconds cooldown
+                this.debugLog(`🔒 ${logPrefix} Recent export attempt for turn ${currentTurn}, skipping (${timeSinceLastLock}ms ago)`);
+                return false;
+            }
         }
 
         const turnsSinceLastExport = currentTurn - this.metadata.lastExportTurn;
         const shouldExport = turnsSinceLastExport >= this.config.exportInterval;
         
-        this.debugLog(`🔍 Turn ${currentTurn}: ${turnsSinceLastExport} turns since last export (interval: ${this.config.exportInterval})`);
-        this.debugLog(`📊 Should export: ${shouldExport}`);
+        this.debugLog(`🔍 ${logPrefix} Turn ${currentTurn}: ${turnsSinceLastExport} turns since last export (interval: ${this.config.exportInterval})`);
+        this.debugLog(`📊 ${logPrefix} Should export: ${shouldExport}`);
+        
+        // Track this export ID if we should export
+        if (shouldExport && exportId) {
+            this.exportLock.pendingExports.add(exportId);
+            this.debugLog(`📝 ${logPrefix} Added to pending exports (total: ${this.exportLock.pendingExports.size})`);
+        }
         
         return shouldExport;
     }
@@ -104,14 +163,27 @@ export class EntityExportManager {
     /**
      * Main export function - processes entities and creates files
      */
-    public static async exportEntities(gameState: SaveData): Promise<boolean> {
+    public static async exportEntities(gameState: SaveData, exportId?: string): Promise<boolean> {
+        const logPrefix = exportId ? `[${exportId}]` : '';
+        
+        // Acquire export lock
+        if (this.exportLock.isExporting) {
+            this.debugLog(`🔒 ${logPrefix} Export already in progress for turn ${this.exportLock.currentTurn}, skipping export for turn ${gameState.turnCount}`);
+            return false;
+        }
+
+        // Set export lock
+        this.exportLock.isExporting = true;
+        this.exportLock.currentTurn = gameState.turnCount;
+        this.exportLock.lastLockTime = Date.now();
+
         try {
             const timestamp = new Date().toISOString();
-            this.debugLog(`🚀 [${timestamp}] Starting entity export for turn ${gameState.turnCount}`);
+            this.debugLog(`🚀 ${logPrefix} [${timestamp}] Starting entity export for turn ${gameState.turnCount} (LOCKED)`);
 
             // Categorize entities by type
             const categorized = this.categorizeEntities(gameState.knownEntities);
-            this.debugLog('📋 Entity categorization complete:', {
+            this.debugLog(`📋 ${logPrefix} Entity categorization complete:`, {
                 characters: Object.keys(categorized.characters).length,
                 locations: Object.keys(categorized.locations).length,
                 items: Object.keys(categorized.items).length,
@@ -130,13 +202,21 @@ export class EntityExportManager {
             // Update metadata
             this.updateMetadata(gameState.turnCount, filesCreated, Object.keys(gameState.knownEntities).length);
             
-            this.debugLog(`✅ Export completed successfully. Files created: ${filesCreated.join(', ')}`);
+            this.debugLog(`✅ ${logPrefix} Export completed successfully. Files created: ${filesCreated.join(', ')}`);
             return true;
 
         } catch (error) {
-            console.error('🚨 EntityExportManager: Export failed:', error);
-            this.debugLog(`❌ Export failed: ${error}`);
+            console.error(`🚨 ${logPrefix} EntityExportManager: Export failed:`, error);
+            this.debugLog(`❌ ${logPrefix} Export failed: ${error}`);
             return false;
+        } finally {
+            // Always release the lock and clean up pending exports
+            this.exportLock.isExporting = false;
+            if (exportId) {
+                this.exportLock.pendingExports.delete(exportId);
+                this.debugLog(`🗑️ ${logPrefix} Removed from pending exports (remaining: ${this.exportLock.pendingExports.size})`);
+            }
+            this.debugLog(`🔓 ${logPrefix} Export lock released for turn ${gameState.turnCount}`);
         }
     }
 
@@ -414,11 +494,23 @@ export class EntityExportManager {
         config: ExportConfig;
         metadata: ExportMetadata;
         nextExportTurn: number;
+        lockStatus: {
+            isExporting: boolean;
+            currentTurn: number | null;
+            lastLockTime: number;
+            lockDuration?: number;
+        };
     } {
+        const lockStatus = {
+            ...this.exportLock,
+            lockDuration: this.exportLock.isExporting ? Date.now() - this.exportLock.lastLockTime : undefined
+        };
+
         return {
             config: this.config,
             metadata: this.metadata,
-            nextExportTurn: this.metadata.lastExportTurn + this.config.exportInterval
+            nextExportTurn: this.metadata.lastExportTurn + this.config.exportInterval,
+            lockStatus
         };
     }
 
@@ -427,6 +519,19 @@ export class EntityExportManager {
      */
     public static async forceExport(gameState: SaveData): Promise<boolean> {
         this.debugLog('🔄 Force export triggered');
+        
+        // For force exports, we can override the lock if it's been too long
+        if (this.exportLock.isExporting) {
+            const timeSinceLock = Date.now() - this.exportLock.lastLockTime;
+            if (timeSinceLock > 30000) { // 30 seconds timeout
+                this.debugLog('⚠️ Force export: Breaking stale lock (30s timeout)');
+                this.exportLock.isExporting = false;
+            } else {
+                this.debugLog(`🔒 Force export blocked: Export in progress for ${timeSinceLock}ms`);
+                return false;
+            }
+        }
+        
         return await this.exportEntities(gameState);
     }
 

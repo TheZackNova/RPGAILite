@@ -2,6 +2,7 @@ import type { SaveData, Entity, Status, Quest, GameHistoryEntry, CustomRule, Kno
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 import { EnhancedRAG } from './utils/EnhancedRAG';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
+import { ReferenceBasedRAG, type CompactRAGContext } from './utils/ReferenceBasedRAG';
 
 // Aggressive Token Management for 100k hard limit
 const TOKEN_CONFIG = {
@@ -15,7 +16,11 @@ const TOKEN_CONFIG = {
         IMPORTANT: 0.25,     // 22.5k tokens - Essential entities, key quests
         CONTEXTUAL: 0.15,    // 13.5k tokens - Minimal world info
         SUPPLEMENTAL: 0.10   // 9k tokens - Rules, misc (reduced)
-    }
+    },
+    
+    // Reference-based RAG settings
+    USE_REFERENCE_RAG: true,     // Enable reference-based RAG for token efficiency
+    REFERENCE_RAG_TOKEN_LIMIT: 600  // Max tokens for reference-based context
 };
 
 // Entity relevance scoring
@@ -54,16 +59,36 @@ export class EnhancedRAGSystem {
         const startTime = performance.now();
         
         try {
-            // Step 1: Phase 4 Enhancement - Build intelligent context using Enhanced RAG
-            const intelligentContext = EnhancedRAG.buildIntelligentContext(gameState, action, {
-                maxMemories: 5,
-                maxTokens: 1000,
-                importanceThreshold: 35,
-                recencyWeight: 0.3,
-                relevanceWeight: 0.5,
-                diversityWeight: 0.2,
-                includeArchived: false
-            });
+            // Step 1: Choose RAG strategy based on configuration
+            let intelligentContext;
+            let compactContext: CompactRAGContext | null = null;
+            
+            if (TOKEN_CONFIG.USE_REFERENCE_RAG) {
+                // Use Reference-based RAG for token efficiency
+                compactContext = ReferenceBasedRAG.buildCompactContext(gameState, action, {
+                    maxMemories: 6,
+                    maxTokens: TOKEN_CONFIG.REFERENCE_RAG_TOKEN_LIMIT,
+                    importanceThreshold: 35,
+                    recencyWeight: 0.3,
+                    relevanceWeight: 0.5,
+                    diversityWeight: 0.2,
+                    includeArchived: false
+                });
+                
+                // No traditional context needed when using reference RAG
+                intelligentContext = null;
+            } else {
+                // Use traditional Enhanced RAG
+                intelligentContext = EnhancedRAG.buildIntelligentContext(gameState, action, {
+                    maxMemories: 5,
+                    maxTokens: 1000,
+                    importanceThreshold: 35,
+                    recencyWeight: 0.3,
+                    relevanceWeight: 0.5,
+                    diversityWeight: 0.2,
+                    includeArchived: false
+                });
+            }
             
             // Step 2: Analyze action intent
             const actionIntent = this.analyzeActionIntent(action);
@@ -72,18 +97,29 @@ export class EnhancedRAGSystem {
             this.buildEntityGraph(gameState.knownEntities);
             
             // Step 4: Score and retrieve relevant entities (enhanced with context)
-            const relevantEntities = this.retrieveRelevantEntities(
-                action,
-                actionIntent,
-                gameState,
-                intelligentContext
-            );
+            const relevantEntities = compactContext ? 
+                // Use entity references from compact context when available
+                compactContext.entityReferences.map(ref => ({
+                    entity: ReferenceBasedRAG.getEntityByReference(ref.referenceId) || ref as any,
+                    score: ref.relevanceScore,
+                    reason: [`Reference: ${ref.referenceId}`]
+                })).filter(e => e.entity) :
+                // Traditional entity retrieval as fallback
+                this.retrieveRelevantEntities(
+                    action,
+                    actionIntent,
+                    gameState,
+                    intelligentContext
+                );
             
-            // Step 5: Calculate dynamic token budgets (accounting for intelligent context)
+            // Step 5: Calculate dynamic token budgets (accounting for context type)
+            const contextTokenUsage = compactContext ? 
+                (compactContext.originalTokens - compactContext.tokensSaved) : 
+                (intelligentContext?.tokenUsage || 0);
             const tokenBudget = this.calculateDynamicTokenBudget(
                 relevantEntities,
                 gameState,
-                intelligentContext.tokenUsage
+                contextTokenUsage
             );
             
             // Step 5: Build context sections with priority
@@ -93,14 +129,15 @@ export class EnhancedRAGSystem {
                 tokenBudget
             );
             
-            // Step 6: Assemble final prompt with intelligent context
+            // Step 6: Assemble final prompt with appropriate context
             const finalPrompt = this.assembleFinalPrompt(
                 action,
                 contextSections,
                 ruleChangeContext,
                 playerNsfwRequest,
                 gameState.worldData,
-                intelligentContext
+                intelligentContext,
+                compactContext
             );
             
             const endTime = performance.now();
@@ -976,7 +1013,8 @@ export class EnhancedRAGSystem {
         ruleChangeContext: string,
         nsfwContext: string,
         worldData: any,
-        intelligentContext?: any
+        intelligentContext?: any,
+        compactContext?: CompactRAGContext | null
     ): string {
         let prompt = "";
         
@@ -989,7 +1027,12 @@ export class EnhancedRAGSystem {
         prompt += sections.critical + "\n";
         
         // Phase 4: Intelligent Context (before important context)
-        if (intelligentContext && intelligentContext.relevantMemories.length > 0) {
+        if (compactContext) {
+            // Use compact reference-based context ONLY
+            prompt += ReferenceBasedRAG.formatCompactContextForPrompt(compactContext) + "\n";
+            console.log(`🔗 Using Reference-based RAG: ${compactContext.tokensSaved} tokens saved (${((compactContext.tokensSaved / compactContext.originalTokens) * 100).toFixed(1)}% reduction)`);
+        } else if (intelligentContext && intelligentContext.relevantMemories.length > 0) {
+            // Use traditional enhanced RAG context (fallback only)
             prompt += EnhancedRAG.formatContextForPrompt(intelligentContext) + "\n";
         }
         

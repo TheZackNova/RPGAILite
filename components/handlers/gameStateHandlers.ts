@@ -1,5 +1,6 @@
 import type { SaveData, CustomRule, Memory, Entity } from '../types';
 import { GameSettings } from '../GameSettingsModal';
+import { ReferenceIdGenerator } from '../utils/ReferenceIdGenerator';
 
 export interface GameStateHandlersParams {
     worldData: any;
@@ -102,6 +103,7 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
             appearance: worldData.characterAppearance || initialGameState.knownEntities[worldData.characterName || 'Vô Danh']?.appearance || '',
             personality: worldData.customPersonality || worldData.personalityFromList,
             learnedSkills: [],
+            referenceId: ReferenceIdGenerator.generateReferenceId(worldData.characterName || 'Vô Danh', 'pc'),
         };
         
         // Preserve LORE_CONCEPT entities but reset PC
