@@ -3,6 +3,20 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.34.0',
+    date: '2025-07-27',
+    changes: [
+      { type: 'feature', text: 'Triển khai hệ thống tự động tạo quest khởi đầu - Mỗi khi tạo thế giới mới, game sẽ tự động tạo một quest exploration để người chơi có mục tiêu ngay từ đầu cuộc phiêu lưu.' },
+      { type: 'feature', text: 'Tích hợp QuestGenerator và QuestIntegrator vào quy trình khởi tạo thế giới - Sử dụng AI để tạo quest phù hợp với bối cảnh thế giới, với fallback template nếu AI generation thất bại.' },
+      { type: 'improvement', text: 'Cải thiện progress tracking trong world creation - Thêm bước "Đang tạo quest khởi đầu" với progress indicator để người chơi biết hệ thống đang làm gì.' },
+      { type: 'improvement', text: 'Enhanced quest integration với automatic quest giver creation - Nếu quest giver chưa tồn tại, hệ thống sẽ tự động tạo NPC quest giver với thông tin phù hợp.' },
+      { type: 'improvement', text: 'Automatic initial quest memory creation - Khi quest được tạo, hệ thống tự động tạo memory tương ứng để AI nhớ và tham chiếu trong gameplay.' },
+      { type: 'technical', text: 'Enhanced createInitialQuest function với comprehensive error handling - Support cho multiple AI models, fallback system, và detailed logging cho debugging.' },
+      { type: 'technical', text: 'Integration với existing quest system architecture - Sử dụng QuestSeed, QuestGenerator.generateQuestsFromSeeds(), và QuestIntegrator.forceIntegrateQuest() để đảm bảo tính nhất quán.' },
+      { type: 'technical', text: 'Quest seed configuration optimized cho new worlds - Default exploration type quest với easy difficulty và relevant hooks về khám phá thế giới mới.' },
+    ],
+  },
+  {
     version: '1.33.0',
     date: '2025-07-27',
     changes: [
