@@ -20,6 +20,7 @@ interface DesktopHeaderProps {
     onParty: () => void;
     onQuests: () => void;
     onInventory: () => void;
+    onAdmin: () => void;
     onManualCleanup: () => void;
     hasActiveQuests: boolean;
     worldData: Partial<FormData>;
@@ -36,7 +37,7 @@ const getTokenColor = (tokens: number) => {
 };
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
     onHome, onSettings, onImport, onSave, onMap, onRules, onKnowledge, onMemory, onRestart,
-    onPCInfo, onParty, onQuests, onInventory, hasActiveQuests, onManualCleanup,
+    onPCInfo, onParty, onQuests, onInventory, onAdmin, hasActiveQuests, onManualCleanup,
     worldData, gameTime, turnCount, currentTurnTokens, totalTokens
 }) => {
     const [showGameMenu, setShowGameMenu] = React.useState(false);
@@ -192,6 +193,10 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <div className="border-t border-slate-200 dark:border-slate-600 my-1"></div>
                     <button onClick={() => { onManualCleanup(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-orange-600 dark:text-orange-400">
                         🧹 Cleanup
+                    </button>
+                    <div className="border-t border-slate-200 dark:border-slate-600 my-1"></div>
+                    <button onClick={() => { onAdmin(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                        ⚙️ Admin Panel
                     </button>
                     <button onClick={() => { onRestart(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-red-600 dark:text-red-400">
                         <RefreshIcon className="w-4 h-4" /> Bắt Đầu Lại

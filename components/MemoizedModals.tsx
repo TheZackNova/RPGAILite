@@ -12,6 +12,7 @@ import { MobileChoicesModal } from './game/MobileChoicesModal.tsx';
 import { PartyMemberTab } from './PartyMemberTab.tsx';
 import { QuestLog } from './QuestLog.tsx';
 import { InventoryModal } from './InventoryModal.tsx';
+import { AdminModal } from './AdminModal.tsx';
 
 import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
@@ -34,6 +35,7 @@ interface MemoizedModalsProps {
     isQuestLogModalOpen: boolean;
     isChoicesModalOpen: boolean;
     isInventoryModalOpen: boolean;
+    isAdminModalOpen: boolean;
 
     // Active data for detail modals
     activeEntity: Entity | null;
@@ -69,6 +71,7 @@ interface MemoizedModalsProps {
         questLog: () => void;
         choices: () => void;
         inventory: () => void;
+        admin: () => void;
     };
 
     // Game state data
@@ -418,6 +421,7 @@ const MemoizedModalsComponent = ({
     isQuestLogModalOpen,
     isChoicesModalOpen,
     isInventoryModalOpen,
+    isAdminModalOpen,
     activeEntity,
     activeStatus,
     activeQuest,
@@ -603,6 +607,22 @@ const MemoizedModalsComponent = ({
                 onEquipItem={handleEquipItem}
                 onUnequipItem={handleUnequipItem}
                 onDiscardItem={(item) => handleAction(`Vứt bỏ ${item.name}`)}
+            />
+
+            {/* Admin Modal */}
+            <AdminModal
+                isOpen={isAdminModalOpen}
+                onClose={modalCloseHandlers.admin}
+                currentPlayerExp={entityComputations.pcEntity?.currentExp || 0}
+                onAddExp={(amount) => {
+                    const pcEntity = entityComputations.pcEntity;
+                    if (pcEntity) {
+                        const newExp = (pcEntity.currentExp || 0) + amount;
+                        handleAction(`ADMIN: [ENTITY_UPDATE: name="${pcEntity.name}", currentExp=${newExp}] Thêm ${amount} kinh nghiệm cho ${pcEntity.name}`);
+                    }
+                }}
+                onAddItem={(itemData) => handleAction(`ADMIN: [ITEM_AQUIRED: name="${itemData.name}", description="${itemData.description}", type="item", owner="pc", usable=${itemData.usable}, equippable=${itemData.equippable}, consumable=${itemData.consumable}] Tạo vật phẩm ${itemData.name}`)}
+                onAddSkill={(skillData) => handleAction(`ADMIN: [LORE_SKILL: name="${skillData.name}", description="${skillData.description}", realm="${skillData.realm || ''}", element="${skillData.element || ''}", skillType="${(skillData as any).skillType || 'combat'}"] [SKILL_LEARNED: name="${skillData.name}"] Tạo và học kỹ năng ${skillData.name}`)}
             />
         </>
     );

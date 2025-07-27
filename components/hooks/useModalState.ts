@@ -17,6 +17,7 @@ export interface ModalState {
     isGameSettingsModalOpen: boolean;
     isEntityImportModalOpen: boolean;
     isInventoryModalOpen: boolean;
+    isAdminModalOpen: boolean;
     
     // Active modal entities
     activeEntity: Entity | null;
@@ -45,6 +46,7 @@ export interface ModalStateActions {
     setIsGameSettingsModalOpen: (open: boolean) => void;
     setIsEntityImportModalOpen: (open: boolean) => void;
     setIsInventoryModalOpen: (open: boolean) => void;
+    setIsAdminModalOpen: (open: boolean) => void;
     
     // Active modal entity setters
     setActiveEntity: (entity: Entity | null) => void;
@@ -69,6 +71,7 @@ export interface ModalStateActions {
         questLog: () => void;
         choices: () => void;
         inventory: () => void;
+        admin: () => void;
     };
 }
 
@@ -88,6 +91,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
     const [isGameSettingsModalOpen, setIsGameSettingsModalOpen] = useState(false);
     const [isEntityImportModalOpen, setIsEntityImportModalOpen] = useState(false);
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     
     // Active modal entities
     const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
@@ -112,6 +116,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         questLog: () => setIsQuestLogModalOpen(false),
         choices: () => setIsChoicesModalOpen(false),
         inventory: () => setIsInventoryModalOpen(false),
+        admin: () => setIsAdminModalOpen(false),
     }), []);
 
     const modalState: ModalState = {
@@ -129,6 +134,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         isGameSettingsModalOpen,
         isEntityImportModalOpen,
         isInventoryModalOpen,
+        isAdminModalOpen,
         activeEntity,
         activeStatus,
         activeQuest,
@@ -152,6 +158,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         setIsGameSettingsModalOpen,
         setIsEntityImportModalOpen,
         setIsInventoryModalOpen,
+        setIsAdminModalOpen,
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,

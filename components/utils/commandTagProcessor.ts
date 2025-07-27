@@ -19,6 +19,7 @@ export interface CommandTagProcessorParams {
     statuses: Status[];
     party: Entity[];
     turnCount?: number;
+    worldData?: any; // For accessing realm tiers and experience system
 }
 
 // Helper function to calculate new time
@@ -99,11 +100,40 @@ const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, 
     return finalResult;
 };
 
+// Helper function to check and update realm progression
+const checkRealmProgression = (entity: Entity, worldData: any): Entity => {
+    if (!entity || entity.type !== 'pc' || !worldData?.realmTiers || !entity.currentExp) {
+        return entity;
+    }
+
+    const { realmTiers } = worldData;
+    const currentExp = entity.currentExp;
+    let newRealm = entity.realm;
+
+    // Find the highest realm tier the player qualifies for
+    for (let i = realmTiers.length - 1; i >= 0; i--) {
+        const tier = realmTiers[i];
+        if (currentExp >= tier.requiredExp) {
+            newRealm = tier.name;
+            break;
+        }
+    }
+
+    // If realm changed, log and return updated entity
+    if (newRealm !== entity.realm) {
+        console.log(`🌟 Realm progression: ${entity.realm} → ${newRealm} (Exp: ${currentExp})`);
+        // You could also add a status effect here to indicate the breakthrough
+        return { ...entity, realm: newRealm };
+    }
+
+    return entity;
+};
+
 export const createCommandTagProcessor = (params: CommandTagProcessorParams) => {
     const {
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
         setQuests, setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party, turnCount
+        knownEntities, statuses, party, turnCount, worldData
     } = params;
 
     const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
@@ -383,16 +413,31 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     finalUpdateData.description = newDescription;
                                 }
                                 
+                                let updatedEntity;
                                 if (attributes.newName && attributes.newName !== targetName) {
                                     const oldEntity = newEntities[targetName];
                                     delete newEntities[targetName];
-                                    newEntities[attributes.newName] = {
+                                    updatedEntity = {
                                         ...oldEntity,
                                         ...finalUpdateData,
                                         name: attributes.newName
                                     };
+                                    
+                                    // Check realm progression if experience was updated
+                                    if (finalUpdateData.currentExp !== undefined) {
+                                        updatedEntity = checkRealmProgression(updatedEntity, worldData);
+                                    }
+                                    
+                                    newEntities[attributes.newName] = updatedEntity;
                                 } else {
-                                    newEntities[targetName] = { ...newEntities[targetName], ...finalUpdateData };
+                                    updatedEntity = { ...newEntities[targetName], ...finalUpdateData };
+                                    
+                                    // Check realm progression if experience was updated
+                                    if (finalUpdateData.currentExp !== undefined) {
+                                        updatedEntity = checkRealmProgression(updatedEntity, worldData);
+                                    }
+                                    
+                                    newEntities[targetName] = updatedEntity;
                                 }
                             }
                             return newEntities;

@@ -132,7 +132,7 @@ export const GameScreen: React.FC<{
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
         isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
         isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen, isEntityImportModalOpen,
-        isInventoryModalOpen, activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
+        isInventoryModalOpen, isAdminModalOpen, activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
         notification
     } = modalState;
 
@@ -140,7 +140,7 @@ export const GameScreen: React.FC<{
         setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
         setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
         setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen, setIsEntityImportModalOpen,
-        setIsInventoryModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
+        setIsInventoryModalOpen, setIsAdminModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
         setNotification, modalCloseHandlers
     } = modalStateActions;
 
@@ -166,8 +166,8 @@ export const GameScreen: React.FC<{
     const commandTagProcessor = useMemo(() => createCommandTagProcessor({
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
         setQuests, setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party, turnCount
-    }), [knownEntities, statuses, party, turnCount]);
+        knownEntities, statuses, party, turnCount, worldData
+    }), [knownEntities, statuses, party, turnCount, worldData]);
     
     const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
         return commandTagProcessor.parseStoryAndTags(storyText, applySideEffects);
@@ -1153,6 +1153,7 @@ export const GameScreen: React.FC<{
                 onParty={() => setIsPartyModalOpen(true)}
                 onQuests={() => setIsQuestLogModalOpen(true)}
                 onInventory={() => setIsInventoryModalOpen(true)}
+                onAdmin={() => setIsAdminModalOpen(true)}
                 onManualCleanup={handleManualCleanup}
                 worldData={worldData}
                 gameTime={gameTime}
@@ -1207,6 +1208,7 @@ export const GameScreen: React.FC<{
                 isQuestLogModalOpen={isQuestLogModalOpen}
                 isChoicesModalOpen={isChoicesModalOpen}
                 isInventoryModalOpen={isInventoryModalOpen}
+                isAdminModalOpen={isAdminModalOpen}
                 activeEntity={activeEntity}
                 activeStatus={activeStatus}
                 activeQuest={activeQuest}
