@@ -34,7 +34,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const [skillName, setSkillName] = useState<string>('');
     const [skillDescription, setSkillDescription] = useState<string>('');
     const [skillType, setSkillType] = useState<'combat' | 'movement' | 'cultivation' | 'utility' | 'passive'>('combat');
-    const [skillRealm, setSkillRealm] = useState<string>('');
+    const [skillMastery, setSkillMastery] = useState<string>('');
     const [skillElement, setSkillElement] = useState<string>('');
     const [skillCooldown, setSkillCooldown] = useState<string>('');
     const [skillManaCost, setSkillManaCost] = useState<string>('');
@@ -99,7 +99,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             name: skillName.trim(),
             type: 'skill',
             description: skillDescription.trim() || 'Kỹ năng được tạo bởi Admin',
-            realm: skillRealm.trim() || undefined,
+            mastery: skillMastery.trim() || undefined,
             element: skillElement.trim() || undefined
         };
 
@@ -121,7 +121,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         setSkillName('');
         setSkillDescription('');
         setSkillType('combat');
-        setSkillRealm('');
+        setSkillMastery('');
         setSkillElement('');
         setSkillCooldown('');
         setSkillManaCost('');
@@ -134,7 +134,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
             <div 
-                className="bg-slate-900/95 backdrop-blur-sm border-2 border-red-600/80 rounded-lg shadow-2xl w-full max-w-2xl text-white flex flex-col" 
+                className="bg-slate-900/95 backdrop-blur-sm border-2 border-red-600/80 rounded-lg shadow-2xl w-full max-w-2xl text-white flex flex-col max-h-[90vh] md:max-h-[80vh]" 
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
@@ -146,36 +146,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         </h3>
                         
                         {/* Tab buttons */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 md:gap-2">
                             <button
                                 onClick={() => setActiveTab('EXP')}
-                                className={`px-3 py-2 rounded-md font-semibold transition-colors text-sm ${
+                                className={`px-2 md:px-3 py-2 rounded-md font-semibold transition-colors text-xs md:text-sm ${
                                     activeTab === 'EXP' 
                                         ? 'bg-red-600 text-white' 
                                         : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
                                 }`}
                             >
-                                KINH NGHIỆM
+                                EXP
                             </button>
                             <button
                                 onClick={() => setActiveTab('ITEM')}
-                                className={`px-3 py-2 rounded-md font-semibold transition-colors text-sm ${
+                                className={`px-2 md:px-3 py-2 rounded-md font-semibold transition-colors text-xs md:text-sm ${
                                     activeTab === 'ITEM' 
                                         ? 'bg-red-600 text-white' 
                                         : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
                                 }`}
                             >
-                                VẬT PHẨM
+                                ITEM
                             </button>
                             <button
                                 onClick={() => setActiveTab('SKILL')}
-                                className={`px-3 py-2 rounded-md font-semibold transition-colors text-sm ${
+                                className={`px-2 md:px-3 py-2 rounded-md font-semibold transition-colors text-xs md:text-sm ${
                                     activeTab === 'SKILL' 
                                         ? 'bg-red-600 text-white' 
                                         : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
                                 }`}
                             >
-                                KỸ NĂNG
+                                SKILL
                             </button>
                         </div>
                     </div>
@@ -189,7 +189,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
 
                 {/* Content */}
-                <div className="p-6 flex-1 overflow-y-auto">
+                <div className="p-4 md:p-6 flex-1 overflow-y-auto min-h-0">
                     {activeTab === 'EXP' && (
                         <div className="space-y-6">
                             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-600">
@@ -333,7 +333,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <div className="space-y-4">
                             <h4 className="text-lg font-semibold text-white">Tạo kỹ năng mới</h4>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Tên kỹ năng *
@@ -378,16 +378,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                 />
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Thực lực yêu cầu
+                                        Mức độ thành thạo
                                     </label>
                                     <input
                                         type="text"
-                                        value={skillRealm}
-                                        onChange={(e) => setSkillRealm(e.target.value)}
-                                        placeholder="VD: Luyện Khí, Trúc Cơ..."
+                                        value={skillMastery}
+                                        onChange={(e) => setSkillMastery(e.target.value)}
+                                        placeholder="VD: Sơ cấp, Trung cấp, Cao cấp..."
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
@@ -404,9 +404,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Thời gian hồi chiêu

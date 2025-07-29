@@ -1127,6 +1127,7 @@ export const GameScreen: React.FC<{
                 onPCInfo={() => setIsPcInfoModalOpen(true)}
                 onParty={() => setIsPartyModalOpen(true)}
                 onQuests={() => setIsQuestLogModalOpen(true)}
+                onAdmin={() => setIsAdminModalOpen(true)}
                 onManualCleanup={handleManualCleanup}
                 hasActiveQuests={hasActiveQuests}
                 currentTurnTokens={currentTurnTokens}

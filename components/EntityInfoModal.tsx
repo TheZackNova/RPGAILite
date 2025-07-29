@@ -188,8 +188,8 @@ export const EntityInfoModal: React.FC<{
                             </>
                         )}
 
-                        {/* Realm for skills only (characters already have realm display above) */}
-                        {entity.realm && entity.type === 'skill' && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Cảnh giới Công Pháp:</strong> <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{entity.realm}</span></p>}
+                        {/* Mastery for skills only (characters already have realm display above) */}
+                        {entity.mastery && entity.type === 'skill' && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Mức độ thành thạo:</strong> <span className="text-cyan-600 dark:text-cyan-400 font-semibold">{entity.mastery}</span></p>}
                     </div>
 
                     {/* PC specific info - Skills */}

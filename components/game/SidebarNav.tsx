@@ -20,6 +20,7 @@ interface SidebarNavProps {
     onPCInfo: () => void;
     onParty: () => void;
     onQuests: () => void;
+    onAdmin: () => void;
     hasActiveQuests: boolean;
     currentTurnTokens: number;
     totalTokens: number;
@@ -40,7 +41,7 @@ interface SidebarNavProps {
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({ 
     isOpen, onClose, onHome, onSettings, onImport, onSave, onMap, onRules, onKnowledge, onMemory, onRestart, 
-    onPCInfo, onParty, onQuests, hasActiveQuests, currentTurnTokens, totalTokens,
+    onPCInfo, onParty, onQuests, onAdmin, hasActiveQuests, currentTurnTokens, totalTokens,
     historyStats, compressedSegments, gameHistory, cleanupStats, onManualCleanup
 }) => {
     const handleNavigation = (action: () => void) => {
@@ -65,6 +66,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
                     <button onClick={() => handleNavigation(onRules)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><DocumentAddIcon className="w-5 h-5 mr-3" /> Nạp Tri Thức</button>
                     <button onClick={() => handleNavigation(onKnowledge)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><BrainIcon className="w-5 h-5 mr-3" /> Tri Thức <span className="ml-auto text-xs text-slate-400">K</span></button>
                     <button onClick={() => handleNavigation(onMemory)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><MemoryIcon className="w-5 h-5 mr-3" /> Ký Ức</button>
+                    <button onClick={() => handleNavigation(onAdmin)} className="flex items-center text-left w-full px-3 py-2 bg-purple-600/80 hover:bg-purple-500 rounded text-white">⚙️ <span className="ml-3">Admin Panel</span></button>
                     <button onClick={() => handleNavigation(onRestart)} className="flex items-center text-left w-full px-3 py-2 bg-red-600/80 hover:bg-red-500 rounded text-white"><RefreshIcon className="w-5 h-5 mr-3" /> Bắt Đầu Lại</button>
                     <div className="border-t border-slate-300 dark:border-slate-700 pt-4 mt-4 space-y-3">
                         <button onClick={() => handleNavigation(onPCInfo)} className="flex items-center text-left w-full px-3 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded"><UserIcon className="w-5 h-5 mr-3" /> Thông tin</button>

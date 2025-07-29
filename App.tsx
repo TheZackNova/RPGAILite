@@ -120,7 +120,7 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 \`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, durability=100]\`
 
 3. **Kỹ năng mới:**
-\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", realm="Cảnh giới nếu có"]\`
+\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", mastery="Mức độ thành thạo nếu có"]\`
 
 4.Thế lực mới
 \`[LORE_FACTION: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
@@ -144,8 +144,8 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 
 *   **Các Thẻ Quan Trọng Khác:**
         *   \`[COMPANION: name="...", description="...", personality="...", relationship="Quan hệ với PC", skills="Kỹ năng 1, Kỹ năng 2", realm="Cảnh giới", motivation="Động cơ đồng hành"]\`: **NÂNG CẤP** - Đồng hành với thông tin chi tiết. Tất cả đồng hành PHẢI có personality và relationship rõ ràng để AI có thể thể hiện cá tính riêng.
-        *   \`[SKILL_LEARNED: name="...", description="...", realm="..."]\`: Kỹ năng được học.
-        *   \`[REALM_UPDATE: target="Tên Thực Thể", realm="..."]\`: Cập nhật cảnh giới cho một thực thể (nhân vật, NPC, hoặc kỹ năng/công pháp). Nếu việc tăng cảnh giới làm thay đổi mô tả của kỹ năng, hãy sử dụng thêm thẻ \`[ENTITY_UPDATE]\`.
+        *   \`[SKILL_LEARNED: name="...", description="...", mastery="..."]\`: Kỹ năng được học.
+        *   \`[REALM_UPDATE: target="Tên Thực Thể", realm="..."]\`: Cập nhật cảnh giới cho nhân vật hoặc NPC. Đối với kỹ năng, sử dụng \`[ENTITY_UPDATE: name="Tên kỹ năng", mastery="Mức độ mới"]\`.
         *   \`[RELATIONSHIP_CHANGED: npcName="Tên NPC", relationship="Mối quan hệ"]\`
         *   \`[ENTITY_UPDATE: name="Tên Thực Thể", newDescription="Mô tả mới đầy đủ..."]\`: **QUAN TRỌNG:** Sử dụng thuộc tính \`newDescription\` để cập nhật mô tả.
         *   \`[MEMORY_ADD: text="..."]\`
