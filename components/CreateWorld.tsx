@@ -64,6 +64,7 @@ export const CreateWorld: React.FC<{
     const [isGenreModalOpen, setIsGenreModalOpen] = useState(false);
     const settingsFileInputRef = useRef<HTMLInputElement>(null);
     const rulesFileInputRef = useRef<HTMLInputElement>(null);
+    const worldSetupFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -387,6 +388,74 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
             } catch (error) {
                 console.error('Lỗi khi tải tệp luật:', error);
                 alert('Không thể đọc tệp luật. Tệp có thể bị hỏng hoặc không đúng định dạng.');
+            }
+        };
+        reader.readAsText(file);
+        
+        if (event.target) {
+            event.target.value = '';
+        }
+    };
+
+    const handleLoadWorldSetupClick = () => {
+        worldSetupFileInputRef.current?.click();
+    };
+    
+    const handleLoadWorldSetupFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text === 'string') {
+                    const worldSetupData = JSON.parse(text);
+                    
+                    // Validate WorldSetup structure
+                    if (worldSetupData.worldData && worldSetupData.customRules && Array.isArray(worldSetupData.customRules)) {
+                        const { worldData, customRules } = worldSetupData;
+                        
+                        // Merge the worldData with current formData, preserving the structure
+                        const updatedFormData: FormData = {
+                            ...formData,
+                            // Import worldData fields
+                            storyName: worldData.storyName || formData.storyName,
+                            genre: worldData.genre || formData.genre,
+                            worldName: worldData.worldName || formData.worldName,
+                            worldDescription: worldData.worldDescription || formData.worldDescription,
+                            worldDetail: worldData.worldDetail || formData.worldDetail,
+                            worldTime: worldData.worldTime || formData.worldTime,
+                            startLocation: worldData.startLocation || formData.startLocation,
+                            customStartLocation: worldData.customStartLocation || formData.customStartLocation,
+                            expName: worldData.expName || formData.expName,
+                            realmTiers: worldData.realmTiers || formData.realmTiers,
+                            writingStyle: worldData.writingStyle || formData.writingStyle,
+                            difficulty: worldData.difficulty || formData.difficulty,
+                            allowNsfw: worldData.allowNsfw !== undefined ? worldData.allowNsfw : formData.allowNsfw,
+                            // Keep existing character data or use imported if available
+                            characterName: worldData.characterName || formData.characterName,
+                            characterAge: worldData.characterAge || formData.characterAge,
+                            characterAppearance: worldData.characterAppearance || formData.characterAppearance,
+                            customPersonality: worldData.customPersonality || formData.customPersonality,
+                            personalityFromList: worldData.personalityFromList || formData.personalityFromList,
+                            gender: worldData.gender || formData.gender,
+                            bio: worldData.bio || formData.bio,
+                            startSkill: worldData.startSkill || formData.startSkill,
+                            addGoal: worldData.addGoal !== undefined ? worldData.addGoal : formData.addGoal,
+                            // Import custom rules
+                            customRules: customRules
+                        };
+
+                        setFormData(updatedFormData);
+                        alert(`Đã tải thành công WorldSetup: "${worldData.storyName || 'Unnamed'}" với ${customRules.length} luật tùy chỉnh.`);
+                    } else {
+                        throw new Error('Định dạng WorldSetup không hợp lệ. Cần có worldData và customRules.');
+                    }
+                }
+            } catch (error) {
+                console.error('Lỗi khi tải WorldSetup:', error);
+                alert('Không thể đọc tệp WorldSetup. Tệp có thể bị hỏng hoặc không đúng định dạng.');
             }
         };
         reader.readAsText(file);
@@ -930,6 +999,13 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                             accept=".json"
                             className="hidden"
                         />
+                        <input
+                            type="file"
+                            ref={worldSetupFileInputRef}
+                            onChange={handleLoadWorldSetupFileChange}
+                            accept=".json"
+                            className="hidden"
+                        />
                         
                         <div className="flex justify-between items-center mb-6">
                             <button 
@@ -954,6 +1030,13 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                 >
                                     <FileIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     <span className="text-sm font-medium">Tải Thiết Lập</span>
+                                </button>
+                                <button 
+                                    onClick={handleLoadWorldSetupClick} 
+                                    className="group flex items-center gap-2 px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 rounded-xl border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-100 transition-all duration-300 backdrop-blur-sm"
+                                >
+                                    <DocumentAddIcon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    <span className="text-sm font-medium">Nhập WorldSetup</span>
                                 </button>
                             </div>
                         </div>
