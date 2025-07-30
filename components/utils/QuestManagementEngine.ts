@@ -40,7 +40,7 @@ export interface QuestManagementResult {
 export class QuestManagementEngine {
     
     private static readonly DEFAULT_CONFIG: QuestGenerationConfig = {
-        maxQuestsPerGeneration: 3,
+        maxQuestsPerGeneration: 1,
         enableAnalysis: true,
         enableGeneration: true,
         enableValidation: true,
@@ -54,7 +54,7 @@ export class QuestManagementEngine {
             autoFix: true
         },
         integrationConfig: {
-            maxSimultaneousQuests: 3,
+            maxSimultaneousQuests: 2,
             createIntegrationMemories: true,
             updateEntityRelationships: true,
             checkForDuplicates: true,
