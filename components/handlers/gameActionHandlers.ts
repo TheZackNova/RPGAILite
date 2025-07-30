@@ -221,18 +221,8 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
                 
                 setTimeout(async () => {
                     try {
-                        console.log(`🔍 [Turn ${newTurn}] Checking export eligibility (ID: ${exportId})`);
                         if (EntityExportManager.shouldExport(newTurn, exportId)) {
-                            console.log(`🚀 [Turn ${newTurn}] Triggering auto-export (ID: ${exportId})`);
                             const exportSuccess = await EntityExportManager.exportEntities(currentGameState, exportId);
-                            
-                            if (exportSuccess) {
-                                console.log(`✅ [Turn ${newTurn}] Entity export completed successfully (ID: ${exportId})`);
-                            } else {
-                                console.warn(`⚠️ [Turn ${newTurn}] Entity export failed (ID: ${exportId})`);
-                            }
-                        } else {
-                            console.log(`⏭️ [Turn ${newTurn}] Export not needed (ID: ${exportId})`);
                         }
                     } catch (error) {
                         console.error(`🚨 [Turn ${newTurn}] Entity export error (ID: ${exportId}):`, error);
@@ -241,12 +231,9 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
                 
                 // 🎯 Auto-quest generation check
                 const questGenId = `questgen_${newTurn}_${Date.now()}_${Math.random().toString(36)}`;
-                console.log(`🎯 [Turn ${newTurn}] Scheduling quest generation check (ID: ${questGenId})`);
                 
                 setTimeout(async () => {
                     try {
-                        console.log(`🎯 [Turn ${newTurn}] Checking quest auto-generation eligibility (ID: ${questGenId})`);
-                        
                         // Check if we should trigger auto-generation
                         const defaultConfig = {
                             maxQuestsPerGeneration: 3,
@@ -279,19 +266,7 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
                         const triggerCheck = QuestManagementEngine.shouldTriggerAutoGeneration(currentGameState, defaultConfig);
                         
                         if (triggerCheck.shouldTrigger && ai) {
-                            console.log(`🎯 [Turn ${newTurn}] Triggering auto-quest generation (ID: ${questGenId}). Reasons:`, triggerCheck.reasons);
-                            
                             const result = await QuestManagementEngine.generateQuestsFromMemories(currentGameState, ai, selectedModel);
-                            
-                            if (result.success && result.integration?.integratedQuests.length > 0) {
-                                const questCount = result.integration.integratedQuests.length;
-                                const questTitles = result.integration.integratedQuests.map((q: any) => q.title).join(', ');
-                                console.log(`✅ [Turn ${newTurn}] Auto-generated ${questCount} quests: ${questTitles} (ID: ${questGenId})`);
-                            } else {
-                                console.log(`⚠️ [Turn ${newTurn}] Quest auto-generation completed but no quests created (ID: ${questGenId})`);
-                            }
-                        } else {
-                            console.log(`⏭️ [Turn ${newTurn}] Quest auto-generation not needed (ID: ${questGenId}). Reasons: ${triggerCheck.reasons.join(', ') || 'No triggers met'}`);
                         }
                     } catch (error) {
                         console.error(`🚨 [Turn ${newTurn}] Quest auto-generation error (ID: ${questGenId}):`, error);
@@ -315,15 +290,46 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
         }
     };
 
-    const handleSuggestAction = async (storyLog: string[]) => {
+    const handleSuggestAction = async (storyLog: string[], currentGameState?: SaveData) => {
         if (!ai) return;
         setIsLoading(true);
         try {
+            // Get the last few story entries for better context
+            const recentStory = storyLog.slice(-3).join('\n\n');
+            
+            // Build a comprehensive prompt for action suggestion
+            const suggestionPrompt = `Bạn là AI hỗ trợ người chơi trong game RPG. Dựa vào bối cảnh câu chuyện gần đây, hãy gợi ý một hành động thú vị và sáng tạo cho người chơi.
+
+=== BỐI CẢNH GAN ĐÂY ===
+${recentStory}
+
+=== YÊU CẦU ===
+- Gợi ý 1 hành động cụ thể, sáng tạo và phù hợp với bối cảnh
+- Hành động phải ngắn gọn, dài 10-20 từ
+- Hành động phải có thể thực hiện được trong tình huống hiện tại
+- Đừng giải thích hay thêm gì khác, chỉ trả về hành động duy nhất
+
+VÍ DỤ:
+- "Quan sát kỹ xung quanh để tìm manh mối"
+- "Hỏi người địa phương về truyền thuyết"
+- "Thử sử dụng kỹ năng để giải quyết vấn đề"
+
+Hãy gợi ý hành động:`;
+
             const response = await ai.models.generateContent({
                 model: selectedModel,
-                contents: `Bối cảnh: "${storyLog.slice(-1)[0]}". Gợi ý một hành động sáng tạo.`,
+                contents: [{ role: 'user', parts: [{ text: suggestionPrompt }] }],
             });
-            setCustomAction(response.text?.trim() || 'Không thể nhận gợi ý lúc này.');
+            
+            const suggestedAction = response.text?.trim() || 'Không thể nhận gợi ý lúc này.';
+            
+            // Clean up the response to remove quotes and extra formatting
+            const cleanAction = suggestedAction
+                .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+                .replace(/^- /, '') // Remove leading dash
+                .trim();
+                
+            setCustomAction(cleanAction);
         } catch (error) {
             console.error("Error suggesting action:", error);
             setCustomAction("Không thể nhận gợi ý lúc này.");

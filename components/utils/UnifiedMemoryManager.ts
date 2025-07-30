@@ -197,11 +197,21 @@ export class UnifiedMemoryManager {
             const memoryTokens = this.estimateMemoryTokens(memory);
             const importance = memory.importance || 0;
 
-            // Always keep pinned memories and high-importance memories
-            if (memory.pinned || importance >= 70) {
-                kept.push(memory);
-                currentTokenUsage += memoryTokens;
-                continue;
+            // Always keep pinned memories (but still respect maxActiveMemories)
+            if (memory.pinned) {
+                if (kept.length + enhanced.length < config.maxActiveMemories) {
+                    kept.push(memory);
+                    currentTokenUsage += memoryTokens;
+                    continue;
+                } else {
+                    // Even pinned memories must be archived if over limit
+                    archived.push({
+                        ...memory,
+                        category: 'archived' as any,
+                        lastAccessed: gameState.turnCount
+                    });
+                    continue;
+                }
             }
 
             // Archive low-importance memories

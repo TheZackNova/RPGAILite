@@ -47,9 +47,9 @@ Files are automatically downloaded with naming pattern:
 ### 1. Debug Tools Available
 ```javascript
 // In browser console (development mode):
-EntityExportDebugger.testExportPipeline();  // Full test
-EntityExportDebugger.forceTestExport();     // Manual export
-EntityExportDebugger.startExportMonitoring(); // Monitor activity
+// EntityExportDebugger has been removed - use EntityExportManager directly
+EntityExportManager.forceExport(currentGameState);     // Manual export
+EntityExportManager.getExportStatus();                 // Check status
 EntityExportManager.getExportStatus();      // Current status
 ```
 
@@ -166,7 +166,7 @@ EntityExportManager.configure({
 components/
 ├── utils/
 │   ├── EntityExportManager.ts     # Core export logic
-│   └── EntityExportDebugger.ts    # Debug utilities
+│   └── (EntityExportDebugger.ts removed)  # Debug utilities now in EntityExportManager
 ├── handlers/
 │   └── gameActionHandlers.ts      # Turn trigger integration
 ├── GameSettingsModal.tsx          # Settings UI

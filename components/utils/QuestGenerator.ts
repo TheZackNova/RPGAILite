@@ -107,11 +107,6 @@ export class QuestGenerator {
         maxQuests: number = 3
     ): Promise<QuestGenerationResult> {
         const timestamp = new Date().toLocaleTimeString();
-        console.log(`🎯 [${timestamp}] Quest Generation Started:`, {
-            seedsToProcess: seeds.length,
-            maxQuests,
-            turnNumber: gameState.turnCount
-        });
 
         const quests: GeneratedQuest[] = [];
         const errors: string[] = [];
@@ -135,7 +130,6 @@ export class QuestGenerator {
                 if (i > 0) {
                     const delayMs = this.getModelDelay(selectedModel);
                     if (delayMs > 0) {
-                        console.log(`⏳ Waiting ${delayMs}ms before next quest generation (${selectedModel})...`);
                         await this.delay(delayMs);
                     }
                 }
@@ -145,7 +139,6 @@ export class QuestGenerator {
                     quests.push(generatedQuest);
                 }
             } catch (error) {
-                console.error(`Failed to generate quest from seed ${seed.id}:`, error);
                 errors.push(`Quest generation failed for ${seed.type} quest: ${error}`);
             }
         }
@@ -158,7 +151,6 @@ export class QuestGenerator {
                 quests.reduce((sum, q) => sum + q.generationMetadata.confidence, 0) / quests.length : 0
         };
 
-        console.log(`✅ [${timestamp}] Quest Generation Complete:`, stats);
 
         return {
             quests,
@@ -193,19 +185,14 @@ export class QuestGenerator {
             const currentModel = uniqueModels[i];
             
             try {
-                console.log(`🎯 Quest Generation Attempt ${i + 1}/${uniqueModels.length} with model: ${currentModel}`);
-                console.log('🎯 Quest Generation Prompt:', prompt.substring(0, 200) + '...');
-                
                 // Check if model string looks valid
                 if (!currentModel || typeof currentModel !== 'string') {
-                    console.warn(`⚠️ Invalid model name: ${currentModel}, skipping...`);
                     continue;
                 }
                 
                 // Add initial delay for fast models to prevent immediate empty responses
                 if (this.isFastModel(currentModel)) {
                     const initialDelay = Math.min(800, this.getModelDelay(currentModel) * 0.5);
-                    console.log(`⚡ Pre-request delay for fast model ${currentModel}: ${initialDelay}ms`);
                     await this.delay(initialDelay);
                 }
                 
@@ -219,13 +206,10 @@ export class QuestGenerator {
                 });
                 
                 const responseText = response.text?.trim() || '';
-                console.log('🎯 Quest Generation Raw Response:', responseText.length > 0 ? responseText.substring(0, 100) + '...' : '[EMPTY RESPONSE]');
                 
                 if (!responseText) {
                     // Special handling for fast models that might need a retry with delay
                     if (this.isFastModel(currentModel)) {
-                        console.warn(`⚡ Empty response from fast model ${currentModel}, retrying with delay...`);
-                        
                         // Wait before retry
                         const retryDelay = this.getModelDelay(currentModel) * 1.5; // 1.5x the normal delay
                         await this.delay(retryDelay);
@@ -242,14 +226,12 @@ export class QuestGenerator {
                             });
                             
                             const retryText = retryResponse.text?.trim() || '';
-                            console.log('🔄 Retry Response:', retryText.length > 0 ? retryText.substring(0, 100) + '...' : '[STILL EMPTY]');
                             
                             if (retryText) {
                                 // Use the retry response
                                 const questData = this.parseQuestResponse(retryText);
                                 if (questData) {
                                     // Continue with quest creation using retry response
-                                    console.log('✅ Retry successful, using response from retry');
                                     
                                     // Generate unique ID for quest with counter to prevent collisions
                                     this.uniqueCounter++;
@@ -279,23 +261,20 @@ export class QuestGenerator {
                                         }
                                     };
 
-                                    console.log(`✅ Quest generated successfully with model: ${currentModel} (after retry)`);
                                     return generatedQuest;
                                 }
                             }
                         } catch (retryError) {
-                            console.warn(`❌ Retry failed for ${currentModel}:`, retryError);
+                            // Retry failed, continue to next model
                         }
                     }
                     
-                    console.warn(`Empty response from ${currentModel}, trying next model...`);
                     continue;
                 }
                 
                 let questData = this.parseQuestResponse(responseText);
                 
                 if (!questData) {
-                    console.warn(`Parsing failed for ${currentModel}, trying next model...`);
                     continue;
                 }
                 
@@ -327,34 +306,19 @@ export class QuestGenerator {
                     }
                 };
 
-                console.log(`✅ Quest generated successfully with model: ${currentModel}`);
                 return generatedQuest;
                 
             } catch (error) {
-                console.warn(`❌ Error with model ${currentModel}:`, error);
-                
-                // Log specific error details for debugging newer models
-                if (error instanceof Error) {
-                    console.warn(`❌ Error details for ${currentModel}:`, {
-                        message: error.message,
-                        name: error.name,
-                        stack: error.stack?.split('\n').slice(0, 3).join('\n')
-                    });
-                }
-                
                 if (i === uniqueModels.length - 1) {
                     // Last model failed, use fallback
-                    console.warn('❌ All AI models failed, using fallback quest template');
                     return this.generateFallbackQuest(seed, gameState);
                 }
                 // Try next model
-                console.log(`🔄 Trying next model due to error with ${currentModel}...`);
                 continue;
             }
         }
         
         // If we somehow get here, use fallback
-        console.warn('Unexpected fallthrough, using fallback quest template');
         return this.generateFallbackQuest(seed, gameState);
     }
 
@@ -505,7 +469,6 @@ Hãy đảm bảo quest phù hợp với bối cảnh, có tính logic và thú 
      */
     private static parseQuestResponse(responseText: string): any {
         try {
-            console.log('🔍 Parsing quest response, length:', responseText.length);
             
             if (!responseText || responseText.length === 0) {
                 throw new Error("Empty response text");
@@ -533,14 +496,12 @@ Hãy đảm bảo quest phù hợp với bối cảnh, có tính logic và thú 
                 cleanText = jsonMatch[0];
             }
             
-            console.log('🔍 Cleaned text for parsing:', cleanText.substring(0, 200) + '...');
             
             if (!cleanText || cleanText.length === 0) {
                 throw new Error("No valid JSON content found");
             }
             
             const questData = JSON.parse(cleanText);
-            console.log('🔍 Parsed quest data:', questData);
             
             // Validate required fields
             if (!questData.title || !questData.description || !questData.objectives) {
@@ -581,7 +542,6 @@ Hãy đảm bảo quest phù hợp với bối cảnh, có tính logic và thú 
             };
             
         } catch (error) {
-            console.error('Failed to parse quest response:', error, 'Raw response:', responseText);
             return null;
         }
     }

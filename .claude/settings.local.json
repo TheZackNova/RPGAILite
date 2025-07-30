@@ -16,7 +16,8 @@
       "Bash(npx tsc:*)",
       "Bash(timeout 10 npm run dev)",
       "Bash(grep:*)",
-      "WebFetch"
+      "WebFetch",
+      "Bash(true)"
     ],
     "deny": []
   }

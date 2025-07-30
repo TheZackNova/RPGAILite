@@ -42,7 +42,6 @@ import { UnifiedMemoryManager } from './utils/UnifiedMemoryManager';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
 import { QuestManagementEngine } from './utils/QuestManagementEngine';
 import { EntityExportManager } from './utils/EntityExportManager';
-import { EntityExportDebugger } from './utils/EntityExportDebugger';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
 import { getThemeColors } from './utils/themeUtils';
@@ -248,15 +247,7 @@ export const GameScreen: React.FC<{
             backupBeforeImport: gameSettings.entityBackupBeforeImport
         });
         
-        // Make debugging tools available globally in development
-        if (process.env.NODE_ENV === 'development') {
-            (window as any).EntityExportManager = EntityExportManager;
-            (window as any).EntityExportDebugger = EntityExportDebugger;
-            console.log('🐛 EntityExport debugging tools available:', {
-                EntityExportManager: 'window.EntityExportManager',
-                EntityExportDebugger: 'window.EntityExportDebugger'
-            });
-        }
+        // Entity export debugging disabled
     }, [gameSettings.entityExportEnabled, gameSettings.entityExportInterval, gameSettings.entityExportDebugLogging]);
     
     // Define generateInitialStory callback before using it
@@ -301,15 +292,15 @@ export const GameScreen: React.FC<{
         let unifiedCleanupResult = null;
         
         if (gameSettings.memoryAutoClean || gameSettings.historyAutoCompress) {
-            // Try unified cleanup first with smart memory generation
+            // Try unified cleanup first with smart memory generation (more aggressive settings)
             unifiedCleanupResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
-                maxActiveMemories: 50,
-                memoryCleanupThreshold: 70,
-                lowImportanceThreshold: 30,
-                maxActiveHistoryEntries: 30,
-                historyCompressionThreshold: 30,
+                maxActiveMemories: 45,               // More aggressive than before (50->45)
+                memoryCleanupThreshold: 65,          // More aggressive than before (70->65)
+                lowImportanceThreshold: 28,          // More aggressive than before (30->28)
+                maxActiveHistoryEntries: 28,         // More aggressive than before (30->28)
+                historyCompressionThreshold: 28,     // More aggressive than before (30->28)
                 maxTokenBudget: 8000,
-                memoryTokenRatio: 0.3,
+                memoryTokenRatio: 0.32,              // Slightly higher than before (0.3->0.32)
                 enableSmartMemoryGeneration: true,
                 smartMemoryConfig: {
                     enableEventMemories: true,
@@ -317,14 +308,14 @@ export const GameScreen: React.FC<{
                     enableDiscoveryMemories: true,
                     enableCombatMemories: true,
                     enableAchievementMemories: true,
-                    minImportanceThreshold: 60,  // Increased from 45 to reduce memory creation
-                    maxMemoriesPerTurn: 1,       // Reduced from 2 to limit growth
-                    lookbackTurns: 2             // Reduced from 3 to analyze fewer turns
+                    minImportanceThreshold: 45,      // Reduced from 60 to allow more memory creation
+                    maxMemoriesPerTurn: 3,           // Increased from 1 to create more memories
+                    lookbackTurns: 6                 // Increased from 2 to analyze more turns
                 }
             });
             
             if (unifiedCleanupResult.cleanupTriggered) {
-                console.log("🔄 Applying unified auto cleanup...");
+                console.log("🔄 Applying unified auto cleanup (improved settings)...");
                 
                 // Update memories
                 const activeMemories = [...unifiedCleanupResult.memoriesProcessed.kept, ...unifiedCleanupResult.memoriesProcessed.enhanced];
@@ -355,15 +346,12 @@ export const GameScreen: React.FC<{
                     }));
                 }
                 
-                // Run additional entity cleanup
-                optimizerResult = GameStateOptimizer.performCleanup(currentState);
-                if (optimizerResult.shouldRunCleanup) {
-                    const { optimizedState, stats } = optimizerResult;
-                    setKnownEntities(optimizedState.knownEntities);
-                    setStatuses(optimizedState.statuses);
-                    setQuests(optimizedState.quests);
-                    setChronicle(optimizedState.chronicle);
-                }
+                // Run additional entity cleanup (use more aggressive force cleanup like manual)
+                optimizerResult = GameStateOptimizer.forceCleanup(currentState, false); // false = auto mode, less aggressive than manual
+                setKnownEntities(optimizerResult.optimizedState.knownEntities);
+                setStatuses(optimizerResult.optimizedState.statuses);
+                setQuests(optimizerResult.optimizedState.quests);
+                setChronicle(optimizerResult.optimizedState.chronicle);
                 
                 setCleanupStats(prev => ({
                     totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
@@ -376,30 +364,30 @@ export const GameScreen: React.FC<{
                     }]
                 }));
                 
-                console.log("✅ Unified auto cleanup completed:", {
+                console.log("✅ Improved auto cleanup completed:", {
                     memoriesArchived: unifiedCleanupResult.memoriesProcessed.archived.length,
                     memoriesEnhanced: unifiedCleanupResult.memoriesProcessed.enhanced.length,
+                    smartMemoriesGenerated: unifiedCleanupResult.smartMemoriesGenerated?.memories.length || 0,
                     historyCompressed: !!unifiedCleanupResult.historyProcessed.compressed,
-                    tokensSaved: unifiedCleanupResult.tokensSaved
+                    tokensSaved: unifiedCleanupResult.tokensSaved,
+                    entitiesOptimized: optimizerResult?.stats.entitiesArchived || 0
                 });
             } else if (gameSettings.memoryAutoClean) {
                 // Fallback to legacy cleanup if unified didn't trigger but memory auto clean is enabled
-                optimizerResult = GameStateOptimizer.performCleanup(currentState);
-                if (optimizerResult.shouldRunCleanup) {
-                    console.log("🔄 Applying legacy auto cleanup...");
-                    const { optimizedState, stats } = optimizerResult;
-                    setKnownEntities(optimizedState.knownEntities);
-                    setStatuses(optimizedState.statuses);
-                    setQuests(optimizedState.quests);
-                    setMemories(optimizedState.memories);
-                    setChronicle(optimizedState.chronicle);
-                    setCleanupStats(prev => ({
-                        totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
-                        totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
-                        lastCleanupTurn: turnCount,
-                        cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
-                    }));
-                }
+                console.log("🔄 Applying fallback auto cleanup (unified didn't trigger)...");
+                optimizerResult = GameStateOptimizer.forceCleanup(currentState, false); // Use forceCleanup for better results
+                const { optimizedState, stats } = optimizerResult;
+                setKnownEntities(optimizedState.knownEntities);
+                setStatuses(optimizedState.statuses);
+                setQuests(optimizedState.quests);
+                setMemories(optimizedState.memories);
+                setChronicle(optimizedState.chronicle);
+                setCleanupStats(prev => ({
+                    totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
+                    totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
+                    lastCleanupTurn: turnCount,
+                    cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
+                }));
             }
         }
 
@@ -523,8 +511,11 @@ export const GameScreen: React.FC<{
     const handleQuestClick = useCallback((quest: Quest) => entityHandlers.handleQuestClick(quest), [entityHandlers]);
     
     const handleSuggestAction = useCallback(async () => {
-        await gameActionHandlers.handleSuggestAction(storyLog);
-    }, [gameActionHandlers, storyLog]);
+        const currentGameState: SaveData = {
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
+        };
+        await gameActionHandlers.handleSuggestAction(storyLog, currentGameState);
+    }, [gameActionHandlers, storyLog, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
 
     const handleSaveGame = useCallback(() => {
         gameStateHandlers.handleSaveGame();
@@ -1004,6 +995,39 @@ export const GameScreen: React.FC<{
         }
     }, [ai, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, isGeneratingQuests]);
 
+    // WorldSetup export functionality
+    const handleExportWorldSetup = useCallback(() => {
+        try {
+            const worldSetupData = {
+                worldData,
+                customRules,
+                exportTimestamp: new Date().toISOString(),
+                exportVersion: "1.0.0"
+            };
+
+            const dataStr = JSON.stringify(worldSetupData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T').join('_').slice(0, -5);
+            const storyName = (worldData.storyName || 'unnamed_story').replace(/\s+/g, '_');
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `worldsetup_${storyName}_${timestamp}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            
+            setNotification('📤 WorldSetup đã được xuất thành công!');
+            setTimeout(() => setNotification(null), 3000);
+        } catch (error) {
+            console.error('Error exporting WorldSetup:', error);
+            setNotification('❌ Lỗi khi xuất WorldSetup');
+            setTimeout(() => setNotification(null), 3000);
+        }
+    }, [worldData, customRules]);
+
     // Expose debug functions to window for manual testing
     React.useEffect(() => {
         (window as any).debugGameSystems = debugSystemStatus;
@@ -1119,6 +1143,7 @@ export const GameScreen: React.FC<{
                 onSettings={() => setIsGameSettingsModalOpen(true)}
                 onImport={() => setIsEntityImportModalOpen(true)}
                 onSave={handleSaveGame}
+                onExportWorldSetup={handleExportWorldSetup}
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
                 onKnowledge={() => setIsKnowledgeModalOpen(true)}
@@ -1145,6 +1170,7 @@ export const GameScreen: React.FC<{
                 onSettings={() => setIsGameSettingsModalOpen(true)}
                 onImport={() => setIsEntityImportModalOpen(true)}
                 onSave={handleSaveGame} 
+                onExportWorldSetup={handleExportWorldSetup}
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
                 onKnowledge={() => setIsKnowledgeModalOpen(true)}
@@ -1192,6 +1218,7 @@ export const GameScreen: React.FC<{
                 setCustomAction={setCustomAction}
                 handleAction={handleAction}
                 debouncedHandleAction={debouncedHandleAction}
+                handleSuggestAction={handleSuggestAction}
                 isLoading={isLoading}
                 isAiReady={isAiReady}
                 isCustomActionLocked={isCustomActionLocked}

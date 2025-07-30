@@ -203,14 +203,12 @@ The Entity Import System allows players to import previously exported entity dat
 
 ### Browser Console Commands
 ```javascript
-// Test the complete import pipeline
-EntityExportDebugger.testExportPipeline();
-
+// EntityExportDebugger has been removed - use EntityExportManager directly
 // Force create test export files
-EntityExportDebugger.forceTestExport();
+EntityExportManager.forceExport(currentGameState);
 
-// Monitor import activity
-EntityExportDebugger.startExportMonitoring();
+// Check export status and activity
+EntityExportManager.getExportStatus();
 
 // Check current import/export status
 EntityExportManager.getExportStatus();

@@ -836,10 +836,8 @@ export class EntityExportManager {
      * Debug logging utility
      */
     private static debugLog(message: string, data?: any): void {
-        if (!this.config.enableDebugLogging) return;
-        
-        const timestamp = new Date().toISOString();
-        console.log(`[${timestamp}] EntityExportManager: ${message}`, data || '');
+        // Debug logging disabled
+        return;
     }
 }
 

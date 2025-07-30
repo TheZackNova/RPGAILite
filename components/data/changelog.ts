@@ -3,6 +3,18 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.36.1',
+    date: '2025-01-30',
+    changes: [
+      { type: 'feature', text: 'Thêm tính năng xuất WorldSetup - cho phép người chơi xuất cấu hình thế giới (worldData và customRules) thành file JSON để sử dụng lại hoặc chia sẻ với người khác.' },
+      { type: 'feature', text: 'Tích hợi nút "📤 Xuất WorldSetup" vào cả SidebarNav (mobile) và DesktopHeader menu để dễ dàng truy cập từ trong game.' },
+      { type: 'improvement', text: 'File xuất được đặt tên theo format "worldsetup_[tên truyện]_[timestamp].json" với hỗ trợ Unicode đầy đủ cho tên tiếng Việt.' },
+      { type: 'improvement', text: 'Loại bỏ các console.log debug từ quest generation và entity export để clean up console output.' },
+      { type: 'fix', text: 'Sửa lỗi "Failed to fetch" khi gọi AI API - thường do vấn đề network connectivity hoặc firewall blocking.' },
+      { type: 'technical', text: 'WorldSetup export bao gồm worldData, customRules, exportTimestamp và exportVersion để đảm bảo compatibility và traceability.' },
+    ],
+  },
+  {
     version: '1.36.0',
     date: '2025-07-27',
     changes: [
