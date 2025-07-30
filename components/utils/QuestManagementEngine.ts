@@ -40,7 +40,7 @@ export interface QuestManagementResult {
 export class QuestManagementEngine {
     
     private static readonly DEFAULT_CONFIG: QuestGenerationConfig = {
-        maxQuestsPerGeneration: 3,
+        maxQuestsPerGeneration: 1,
         enableAnalysis: true,
         enableGeneration: true,
         enableValidation: true,
@@ -62,7 +62,7 @@ export class QuestManagementEngine {
             minimumConfidence: 0.3
         },
         autoGenerationTriggers: {
-            memoryThreshold: 15,
+            memoryThreshold: 25,
             turnInterval: 25,
             completedQuestTrigger: true
         }
