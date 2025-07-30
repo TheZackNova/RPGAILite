@@ -31,7 +31,7 @@ export class SmartMemoryGenerator {
         enableDiscoveryMemories: true,
         enableCombatMemories: true,
         enableAchievementMemories: true,
-        minImportanceThreshold: 60,  // Increased from 40 to reduce memory creation
+        minImportanceThreshold: 70,  // Increased from 40 to reduce memory creation
         maxMemoriesPerTurn: 1,       // Reduced from 3 to limit growth
         lookbackTurns: 2             // Reduced from 5 to analyze fewer turns
     };

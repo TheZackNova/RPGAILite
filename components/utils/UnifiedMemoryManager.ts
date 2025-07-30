@@ -48,7 +48,7 @@ export interface CleanupResult {
 export class UnifiedMemoryManager {
     private static readonly DEFAULT_CONFIG: CleanupConfig = {
         maxActiveMemories: 50,
-        memoryCleanupThreshold: 30,
+        memoryCleanupThreshold: 50,
         lowImportanceThreshold: 40,
         maxActiveHistoryEntries: 20,
         historyCompressionThreshold: 16,
