@@ -132,7 +132,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 {/* Right: Player Actions */}
                 <div className="flex items-center gap-2">
                     <div className="text-xs text-slate-500 dark:text-slate-400 mr-2">
-                        Năm {Number.isFinite(gameTime.year) ? gameTime.year : 1}, Tháng {Number.isFinite(gameTime.month) ? gameTime.month : 1}, Ngày {Number.isFinite(gameTime.day) ? gameTime.day : 1}
+                        Năm {Number.isFinite(gameTime.year) ? gameTime.year : 1}, Tháng {Number.isFinite(gameTime.month) ? gameTime.month : 1}, Ngày {Number.isFinite(gameTime.day) ? gameTime.day : 1}, {Number.isFinite(gameTime.hour) ? gameTime.hour : 0}:00
                     </div>
                     
                     <div className="relative">
