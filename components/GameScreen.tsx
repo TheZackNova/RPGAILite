@@ -34,6 +34,7 @@ import { ActionPanel } from './game/ActionPanel.tsx';
 import { SidebarNav } from './game/SidebarNav.tsx';
 import { GameNotifications } from './game/GameNotifications.tsx';
 import { MobileInputFooter } from './game/MobileInputFooter.tsx';
+import { FloatingTimeDisplay } from './FloatingTimeDisplay.tsx';
 
 // Optimization and Management
 import { HistoryManager } from './HistoryManager';
@@ -1308,6 +1309,11 @@ export const GameScreen: React.FC<{
                     setTimeout(() => setNotification(null), 5000);
                 }}
             />
+
+            {/* Floating Time Display - Only show on mobile */}
+            <div className="md:hidden">
+                <FloatingTimeDisplay gameTime={gameTime} />
+            </div>
             </div>
         </div>
     );
