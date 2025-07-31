@@ -2,7 +2,9 @@
 import React, { memo, useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { SpinnerIcon } from '../Icons';
 import { OptimizedInteractiveText } from '../OptimizedInteractiveText';
+import { StatusPanelContent } from './StatusPanelContent';
 import { useOptimizedScroll } from '../hooks/useOptimizedScroll';
+import { isHTMLContent } from '../utils/htmlParser';
 import type { KnownEntities } from '../types';
 
 interface VirtualItem {
@@ -69,13 +71,23 @@ const VirtualStoryItem = memo<{
         }
     }, [item.content, item.id, item.actualHeight, onHeightMeasured]);
 
+    const isHTML = isHTMLContent(item.content);
+
     return (
         <div ref={itemRef} className="story-item bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all duration-300">
-            <OptimizedInteractiveText
-                text={item.content}
-                onEntityClick={onEntityClick}
-                knownEntities={knownEntities}
-            />
+            {isHTML ? (
+                <StatusPanelContent
+                    htmlContent={item.content}
+                    onEntityClick={onEntityClick}
+                    knownEntities={knownEntities}
+                />
+            ) : (
+                <OptimizedInteractiveText
+                    text={item.content}
+                    onEntityClick={onEntityClick}
+                    knownEntities={knownEntities}
+                />
+            )}
         </div>
     );
 });
