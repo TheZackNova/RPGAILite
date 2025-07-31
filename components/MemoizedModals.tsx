@@ -494,6 +494,7 @@ const MemoizedModalsComponent = ({
                 quest={activeQuest} 
                 onClose={() => setActiveQuest(null)} 
             />
+            
 
             {/* Game Content Modals */}
             <MemoryModal 

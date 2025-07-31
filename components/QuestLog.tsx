@@ -1,29 +1,20 @@
 import React from 'react';
-import type { Quest } from './types.ts';
-import { getIconForQuest } from './utils.ts';
+import type { Quest } from './types';
+import * as GameIcons from './GameIcons';
+import { CrossIcon } from './Icons';
 
-// Helper function to create unique keys for quests
-const getQuestKey = (quest: Quest): string => {
-    // Check if it's a generated quest with uniqueId
-    const generatedQuest = quest as any;
-    if (generatedQuest.generationMetadata?.uniqueId) {
-        return generatedQuest.generationMetadata.uniqueId;
-    }
-    
-    // Fallback: create hash from title + description
-    const content = quest.title + quest.description;
-    let hash = 0;
-    for (let i = 0; i < content.length; i++) {
-        const char = content.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32-bit integer
-    }
-    return `quest_${Math.abs(hash)}`;
+const getIconForQuest = (quest: Quest): React.ReactNode => {
+    if (!quest) return <GameIcons.ScrollIcon />;
+    if (quest.status === 'completed') return <GameIcons.CheckmarkIcon />;
+    if (quest.status === 'failed') return <CrossIcon />;
+    return <GameIcons.ScrollIcon />;
 };
 
 export const QuestLog: React.FC<{ quests: Quest[]; onQuestClick: (quest: Quest) => void }> = ({ quests, onQuestClick }) => {
-    const activeQuests = quests.filter(q => q.status === 'active');
-    const finishedQuests = quests.filter(q => q.status !== 'active');
+    // Handle undefined quests prop
+    const questsArray = quests || [];
+    const activeQuests = questsArray.filter(q => q.status === 'active');
+    const finishedQuests = questsArray.filter(q => q.status !== 'active');
 
     return (
         <div className="p-4 h-full flex flex-col">
@@ -33,7 +24,7 @@ export const QuestLog: React.FC<{ quests: Quest[]; onQuestClick: (quest: Quest) 
                     {activeQuests.length > 0 ? (
                         <ul className="space-y-2">
                             {activeQuests.map(quest => (
-                                <li key={getQuestKey(quest)} onClick={() => onQuestClick(quest)} className="text-sm p-2 bg-yellow-400/10 dark:bg-yellow-500/10 border-l-4 border-yellow-600 dark:border-yellow-400 rounded-r-md hover:bg-yellow-400/20 dark:hover:bg-yellow-500/20 transition-colors cursor-pointer">
+                                <li key={quest.title} onClick={() => onQuestClick(quest)} className="text-sm p-2 bg-yellow-400/10 dark:bg-yellow-500/10 border-l-4 border-yellow-600 dark:border-yellow-400 rounded-r-md hover:bg-yellow-400/20 dark:hover:bg-yellow-500/20 transition-colors cursor-pointer">
                                     <p className="font-semibold text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
                                         <span className="w-4 h-4">{getIconForQuest(quest)}</span>
                                         {quest.title}
@@ -50,7 +41,7 @@ export const QuestLog: React.FC<{ quests: Quest[]; onQuestClick: (quest: Quest) 
                         <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 border-b border-slate-300 dark:border-slate-600 pb-1">Đã Kết Thúc</h4>
                         <ul className="space-y-2">
                             {finishedQuests.sort((a,b) => a.title.localeCompare(b.title)).map(quest => (
-                                <li key={getQuestKey(quest)} onClick={() => onQuestClick(quest)} className="text-sm p-2 bg-slate-200/50 dark:bg-slate-700/50 border-l-4 border-slate-400 dark:border-slate-500 rounded-r-md hover:bg-slate-300/50 dark:hover:bg-slate-600/50 transition-colors cursor-pointer opacity-70">
+                                <li key={quest.title} onClick={() => onQuestClick(quest)} className="text-sm p-2 bg-slate-200/50 dark:bg-slate-700/50 border-l-4 border-slate-400 dark:border-slate-500 rounded-r-md hover:bg-slate-300/50 dark:hover:bg-slate-600/50 transition-colors cursor-pointer opacity-70">
                                     <p className={`font-semibold ${quest.status === 'completed' ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'} flex items-center gap-2`}>
                                         <span className="w-4 h-4">{getIconForQuest(quest)}</span>
                                         <span className="line-through">{quest.title}</span>

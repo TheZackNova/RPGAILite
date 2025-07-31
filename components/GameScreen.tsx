@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
-import type { SaveData, FormData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle, CompressedHistorySegment } from './types.ts';
+import type { SaveData, FormData, KnownEntities, Status, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle, CompressedHistorySegment } from './types.ts';
 import { buildEnhancedRagPrompt } from './promptBuilder.ts';
 
 // Extracted Handlers
@@ -41,7 +41,6 @@ import { HistoryManager } from './HistoryManager';
 import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
 import { UnifiedMemoryManager } from './utils/UnifiedMemoryManager';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
-import { QuestManagementEngine } from './utils/QuestManagementEngine';
 import { EntityExportManager } from './utils/EntityExportManager';
 import { useDebouncedCallback } from './hooks/useDebounce.ts';
 import { OptimizedInteractiveText } from './OptimizedInteractiveText.tsx';
@@ -165,7 +164,7 @@ export const GameScreen: React.FC<{
     // Initialize handlers with current state
     const commandTagProcessor = useMemo(() => createCommandTagProcessor({
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
-        setQuests, setParty, setLocationDiscoveryOrder,
+        setParty, setLocationDiscoveryOrder,
         knownEntities, statuses, party, turnCount, worldData
     }), [knownEntities, statuses, party, turnCount, worldData]);
     
@@ -201,21 +200,20 @@ export const GameScreen: React.FC<{
         knownEntities,
         setActiveEntity,
         setActiveStatus,
-        setActiveQuest,
         handleAction: gameActionHandlers.handleAction
     }), [knownEntities, gameActionHandlers]);
 
     // Initialize game state handlers
     const gameStateHandlers = useMemo(() => createGameStateHandlers({
-        worldData, knownEntities, statuses, quests, gameHistory, memories, party,
+        worldData, knownEntities, statuses, gameHistory, memories, party,
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
         compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
         storyLog, choices, locationDiscoveryOrder,
-        setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
+        setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setMemories,
         setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
-    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder]);
+    }), [worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
@@ -283,7 +281,7 @@ export const GameScreen: React.FC<{
         }
 
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, // This seems to be used as an indicator, not a turn number
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -351,7 +349,6 @@ export const GameScreen: React.FC<{
                 optimizerResult = GameStateOptimizer.forceCleanup(currentState, false); // false = auto mode, less aggressive than manual
                 setKnownEntities(optimizerResult.optimizedState.knownEntities);
                 setStatuses(optimizerResult.optimizedState.statuses);
-                setQuests(optimizerResult.optimizedState.quests);
                 setChronicle(optimizerResult.optimizedState.chronicle);
                 
                 setCleanupStats(prev => ({
@@ -361,7 +358,7 @@ export const GameScreen: React.FC<{
                     cleanupHistory: [...(prev?.cleanupHistory || []), { 
                         turn: turnCount, 
                         tokensSaved: unifiedCleanupResult.tokensSaved + (optimizerResult?.stats.totalTokensSaved || 0), 
-                        itemsRemoved: unifiedCleanupResult.memoriesProcessed.archived.length + (optimizerResult?.stats.memoriesRemoved || 0) + (optimizerResult?.stats.chronicleEntriesRemoved || 0) + (optimizerResult?.stats.questsArchived || 0) + (optimizerResult?.stats.entitiesArchived || 0)
+                        itemsRemoved: unifiedCleanupResult.memoriesProcessed.archived.length + (optimizerResult?.stats.memoriesRemoved || 0) + (optimizerResult?.stats.chronicleEntriesRemoved || 0) + (optimizerResult?.stats.entitiesArchived || 0)
                     }]
                 }));
                 
@@ -380,14 +377,13 @@ export const GameScreen: React.FC<{
                 const { optimizedState, stats } = optimizerResult;
                 setKnownEntities(optimizedState.knownEntities);
                 setStatuses(optimizedState.statuses);
-                setQuests(optimizedState.quests);
                 setMemories(optimizedState.memories);
                 setChronicle(optimizedState.chronicle);
                 setCleanupStats(prev => ({
                     totalCleanupsPerformed: (prev?.totalCleanupsPerformed || 0) + 1,
                     totalTokensSavedFromCleanup: (prev?.totalTokensSavedFromCleanup || 0) + stats.totalTokensSaved,
                     lastCleanupTurn: turnCount,
-                    cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.questsArchived + stats.entitiesArchived }]
+                    cleanupHistory: [...(prev?.cleanupHistory || []), { turn: turnCount, tokensSaved: stats.totalTokensSaved, itemsRemoved: stats.memoriesRemoved + stats.chronicleEntriesRemoved + stats.entitiesArchived }]
                 }));
             }
         }
@@ -493,10 +489,10 @@ export const GameScreen: React.FC<{
     const handleAction = useCallback(async (action: string) => {
         if (isLoading || !ai) return;
         const currentGameState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
+            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
         };
         await gameActionHandlers.handleAction(action, currentGameState);
-    }, [gameActionHandlers, isLoading, ai, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
+    }, [gameActionHandlers, isLoading, ai, worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
 
     const debouncedHandleAction = useDebouncedCallback((action: string) => {
         handleAction(action);
@@ -509,14 +505,13 @@ export const GameScreen: React.FC<{
     const handleUnequipItem = useCallback((itemName: string) => entityHandlers.handleUnequipItem(itemName), [entityHandlers]);
     const handleStatusClick = useCallback((status: Status) => entityHandlers.handleStatusClick(status), [entityHandlers]);
     const handleToggleMemoryPin = useCallback((index: number) => gameStateHandlers.handleToggleMemoryPin(index), [gameStateHandlers]);
-    const handleQuestClick = useCallback((quest: Quest) => entityHandlers.handleQuestClick(quest), [entityHandlers]);
     
     const handleSuggestAction = useCallback(async () => {
         const currentGameState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
+            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
         };
         await gameActionHandlers.handleSuggestAction(storyLog, currentGameState);
-    }, [gameActionHandlers, storyLog, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
+    }, [gameActionHandlers, storyLog, worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
 
     const handleSaveGame = useCallback(() => {
         gameStateHandlers.handleSaveGame();
@@ -559,7 +554,6 @@ export const GameScreen: React.FC<{
             beforeCleanup: {
                 entities: Object.keys(knownEntities).length,
                 statuses: statuses.length,
-                quests: quests.length,
                 memories: memories.length,
                 historyEntries: gameHistory.length,
                 chronicleEntries: `memoir:${chronicle.memoir.length}, chapter:${chronicle.chapter.length}, turn:${chronicle.turn.length}`
@@ -567,7 +561,7 @@ export const GameScreen: React.FC<{
         });
         
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -629,7 +623,6 @@ export const GameScreen: React.FC<{
             const legacyResult = GameStateOptimizer.forceCleanup(currentState, true);
             setKnownEntities(legacyResult.optimizedState.knownEntities);
             setStatuses(legacyResult.optimizedState.statuses);
-            setQuests(legacyResult.optimizedState.quests);
             setChronicle(legacyResult.optimizedState.chronicle);
             
             setCleanupStats(prev => ({
@@ -651,8 +644,7 @@ export const GameScreen: React.FC<{
                 },
                 legacyCleanup: {
                     entitiesRemoved: Object.keys(knownEntities).length - Object.keys(legacyResult.optimizedState.knownEntities).length,
-                    statusesRemoved: statuses.length - legacyResult.optimizedState.statuses.length,
-                    questsRemoved: quests.length - legacyResult.optimizedState.quests.length
+                    statusesRemoved: statuses.length - legacyResult.optimizedState.statuses.length
                 },
                 totalTokensSaved: unifiedResult.tokensSaved + legacyResult.stats.totalTokensSaved
             });
@@ -663,7 +655,6 @@ export const GameScreen: React.FC<{
             const result = GameStateOptimizer.forceCleanup(currentState, true);
             setKnownEntities(result.optimizedState.knownEntities);
             setStatuses(result.optimizedState.statuses);
-            setQuests(result.optimizedState.quests);
             setMemories(result.optimizedState.memories);
             setChronicle(result.optimizedState.chronicle);
             
@@ -671,7 +662,7 @@ export const GameScreen: React.FC<{
         }
         
         setTimeout(() => setNotification(null), 4000);
-    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
+    }, [worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
 
     // Debug function to show current system status
     const debugSystemStatus = useCallback(() => {
@@ -697,7 +688,6 @@ export const GameScreen: React.FC<{
             gameState: {
                 entities: Object.keys(knownEntities).length,
                 statuses: statuses.length,
-                quests: quests.length,
                 memories: memories.length,
                 chronicleMemoir: chronicle.memoir.length,
                 chronicleChapter: chronicle.chapter.length,
@@ -709,7 +699,7 @@ export const GameScreen: React.FC<{
     // Phase 4: Memory Analytics and Insights
     const analyzeMemories = useCallback(() => {
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -727,12 +717,12 @@ export const GameScreen: React.FC<{
         }
         
         setTimeout(() => setNotification(null), 6000);
-    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
+    }, [worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
 
     // Manual smart memory generation for testing
     const generateSmartMemories = useCallback(() => {
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -757,244 +747,12 @@ export const GameScreen: React.FC<{
         }
         
         setTimeout(() => setNotification(null), 5000);
-    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
+    }, [worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
 
-    // Phase 5: AI-Driven Quest Generation
-    // Track if quest generation is in progress to prevent duplicates
-    const [isGeneratingQuests, setIsGeneratingQuests] = useState(false);
 
-    const generateQuestsFromMemories = useCallback(async () => {
-        if (!ai) {
-            setNotification('❌ AI không khả dụng cho quest generation');
-            return;
-        }
 
-        // Prevent concurrent quest generation calls
-        if (isGeneratingQuests) {
-            setNotification('⏳ Quest generation đang chạy, vui lòng đợi...');
-            return;
-        }
 
-        setIsGeneratingQuests(true);
 
-        const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount, 
-            historyStats, cleanupStats, archivedMemories, memoryStats
-        };
-
-        try {
-            setNotification('🎯 Đang phân tích memories để tạo quest...');
-            
-            const result = await QuestManagementEngine.generateQuestsFromMemories(currentState, ai, selectedModel);
-            
-            if (result.success && result.integration?.integratedQuests.length > 0) {
-                const questCount = result.integration.integratedQuests.length;
-                const questTitles = result.integration.integratedQuests.map((q: any) => q.title).join(', ');
-                
-                setNotification(`🎯 Đã tạo ${questCount} quest mới: ${questTitles}`);
-                console.log('🎯 Quest Generation Success:', result);
-                
-                // Update React state with new quests
-                console.log('🔄 Updating React state with new quests:', result.integration.integratedQuests.map((q: any) => q.title));
-                setQuests(prev => {
-                    // Deduplicate by uniqueId to prevent React key conflicts
-                    const existingIds = new Set(prev.map((q: any) => 
-                        q.generationMetadata?.uniqueId || `${q.title}_${q.description.slice(0, 20)}`
-                    ));
-                    
-                    const newUniqueQuests = result.integration.integratedQuests.filter((q: any) => {
-                        const questId = q.generationMetadata?.uniqueId || `${q.title}_${q.description.slice(0, 20)}`;
-                        return !existingIds.has(questId);
-                    });
-                    
-                    console.log('🔄 New unique quests to add:', newUniqueQuests.length);
-                    console.log('🔄 Filtered out duplicates:', result.integration.integratedQuests.length - newUniqueQuests.length);
-                    
-                    const newQuests = [...prev, ...newUniqueQuests];
-                    console.log('🔄 Total quest count after update:', newQuests.length);
-                    return newQuests;
-                });
-                
-                // Update memories if new ones were created with deduplication
-                if (result.integration.createdMemories.length > 0) {
-                    console.log('🔄 Updating React state with new memories:', result.integration.createdMemories.length);
-                    setMemories(prev => {
-                        // Create a map of existing memory texts for fast lookup
-                        const existingTexts = new Set(prev.map(m => m.text));
-                        
-                        // Filter out duplicate memories by text content
-                        const uniqueMemories = result.integration.createdMemories.filter((memory: any) => 
-                            !existingTexts.has(memory.text)
-                        );
-                        
-                        console.log('🔄 New unique memories to add:', uniqueMemories.length);
-                        console.log('🔄 Filtered out duplicate memories:', result.integration.createdMemories.length - uniqueMemories.length);
-                        
-                        return [...prev, ...uniqueMemories];
-                    });
-                }
-                
-            } else if (result.warnings.length > 0) {
-                setNotification(`⚠️ Quest Generation: ${result.warnings[0]}`);
-            } else if (result.errors.length > 0) {
-                setNotification(`❌ Quest Generation Error: ${result.errors[0]}`);
-            } else {
-                setNotification('ℹ️ Không tìm thấy cơ hội quest từ memories hiện tại');
-            }
-            
-            setTimeout(() => setNotification(null), 8000);
-            
-        } catch (error) {
-            console.error('Quest generation error:', error);
-            setNotification('❌ Lỗi khi tạo quest. Xem console để biết chi tiết.');
-            setTimeout(() => setNotification(null), 5000);
-        } finally {
-            setIsGeneratingQuests(false);
-        }
-    }, [ai, selectedModel, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, isGeneratingQuests]);
-
-    const analyzeQuestOpportunities = useCallback(() => {
-        const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount, 
-            historyStats, cleanupStats, archivedMemories, memoryStats
-        };
-
-        const analysis = QuestManagementEngine.analyzeQuestOpportunities(currentState);
-        
-        console.log('🔍 Quest Opportunity Analysis:', analysis);
-        
-        if (analysis.seeds.length > 0) {
-            const highPrioritySeeds = analysis.seeds.filter(s => s.priority === 'high').length;
-            const questTypes = [...new Set(analysis.seeds.map(s => s.type))].join(', ');
-            
-            setNotification(`🔍 Tìm thấy ${analysis.seeds.length} cơ hội quest (${highPrioritySeeds} ưu tiên cao). Loại: ${questTypes}`);
-        } else {
-            setNotification('🔍 Không tìm thấy cơ hội quest nào từ memories hiện tại');
-        }
-        
-        setTimeout(() => setNotification(null), 6000);
-    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats]);
-
-    const generateQuickQuest = useCallback(async (questType?: 'consequence' | 'mystery' | 'exploration' | 'character_arc') => {
-        if (!ai) {
-            setNotification('❌ AI không khả dụng cho quest generation');
-            return;
-        }
-
-        // Prevent concurrent quest generation calls
-        if (isGeneratingQuests) {
-            setNotification('⏳ Quest generation đang chạy, vui lòng đợi...');
-            return;
-        }
-
-        setIsGeneratingQuests(true);
-
-        const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount, 
-            historyStats, cleanupStats, archivedMemories, memoryStats
-        };
-
-        try {
-            setNotification(`🚀 Đang tạo quest nhanh${questType ? ` loại ${questType}` : ''}...`);
-            
-            const result = await QuestManagementEngine.generateQuickQuest(currentState, ai, selectedModel, questType);
-            
-            if (result.success && result.integration?.integratedQuests.length > 0) {
-                const quest = result.integration.integratedQuests[0];
-                setNotification(`🚀 Quest nhanh đã tạo: "${quest.title}"`);
-            } else {
-                setNotification('❌ Không thể tạo quest nhanh. Xem console để biết chi tiết.');
-            }
-            
-        } catch (error) {
-            console.error('Quick quest generation error:', error);
-            setNotification('❌ Lỗi khi tạo quest nhanh');
-        } finally {
-            setIsGeneratingQuests(false);
-        }
-        
-        setTimeout(() => setNotification(null), 5000);
-    }, [ai, selectedModel, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, isGeneratingQuests]);
-
-    const generateQuestsWithModel = useCallback(async (modelName: string) => {
-        if (!ai) {
-            setNotification('❌ AI không khả dụng cho quest generation');
-            return;
-        }
-
-        // Prevent concurrent quest generation calls
-        if (isGeneratingQuests) {
-            setNotification('⏳ Quest generation đang chạy, vui lòng đợi...');
-            return;
-        }
-
-        setIsGeneratingQuests(true);
-
-        const currentState: SaveData = {
-            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
-            lastCompressionTurn: historyStats.compressionCount, 
-            historyStats, cleanupStats, archivedMemories, memoryStats
-        };
-
-        try {
-            setNotification(`🎯 Đang tạo quest với model ${modelName}...`);
-            
-            const result = await QuestManagementEngine.generateQuestsFromMemories(currentState, ai, modelName);
-            
-            if (result.success && result.integration?.integratedQuests.length > 0) {
-                const questCount = result.integration.integratedQuests.length;
-                const quest = result.integration.integratedQuests[0];
-                const modelUsed = quest.generationMetadata?.modelUsed || modelName;
-                
-                setNotification(`🎯 Đã tạo ${questCount} quest với ${modelUsed}: "${quest.title}"`);
-                console.log('🎯 Quest Generation Success with model:', modelUsed, result);
-                
-                // Update React state with new quests
-                // Update React state with deduplication
-                setQuests(prev => {
-                    const existingIds = new Set(prev.map((q: any) => 
-                        q.generationMetadata?.uniqueId || `${q.title}_${q.description.slice(0, 20)}`
-                    ));
-                    
-                    const newUniqueQuests = result.integration.integratedQuests.filter((q: any) => {
-                        const questId = q.generationMetadata?.uniqueId || `${q.title}_${q.description.slice(0, 20)}`;
-                        return !existingIds.has(questId);
-                    });
-                    
-                    return [...prev, ...newUniqueQuests];
-                });
-                
-                // Update memories if new ones were created
-                if (result.integration.createdMemories.length > 0) {
-                    // Update memories with deduplication
-                    setMemories(prev => {
-                        const existingTexts = new Set(prev.map(m => m.text));
-                        const uniqueMemories = result.integration.createdMemories.filter((memory: any) => 
-                            !existingTexts.has(memory.text)
-                        );
-                        return [...prev, ...uniqueMemories];
-                    });
-                }
-                
-            } else if (result.warnings.length > 0) {
-                setNotification(`⚠️ Quest Generation: ${result.warnings[0]}`);
-            } else if (result.errors.length > 0) {
-                setNotification(`❌ Quest Generation Error: ${result.errors[0]}`);
-            }
-            
-            setTimeout(() => setNotification(null), 8000);
-            
-        } catch (error) {
-            console.error('Quest generation error:', error);
-            setNotification(`❌ Lỗi khi tạo quest với ${modelName}`);
-            setTimeout(() => setNotification(null), 5000);
-        } finally {
-            setIsGeneratingQuests(false);
-        }
-    }, [ai, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, isGeneratingQuests]);
 
     // WorldSetup export functionality
     const handleExportWorldSetup = useCallback(() => {
@@ -1034,30 +792,7 @@ export const GameScreen: React.FC<{
         (window as any).debugGameSystems = debugSystemStatus;
         (window as any).generateSmartMemories = generateSmartMemories;
         (window as any).analyzeMemories = analyzeMemories;
-        (window as any).generateQuestsFromMemories = generateQuestsFromMemories;
         
-        // Debug function to clean duplicate quests
-        (window as any).cleanDuplicateQuests = () => {
-            setQuests(prev => {
-                const uniqueQuests = [];
-                const seenIds = new Set();
-                
-                for (const quest of prev) {
-                    const questId = quest.generationMetadata?.uniqueId || `${quest.title}_${quest.description.slice(0, 20)}`;
-                    if (!seenIds.has(questId)) {
-                        seenIds.add(questId);
-                        uniqueQuests.push(quest);
-                    }
-                }
-                
-                console.log(`🧹 Cleaned duplicate quests: ${prev.length} → ${uniqueQuests.length}`);
-                setNotification(`🧹 Đã xóa ${prev.length - uniqueQuests.length} quest trùng lặp`);
-                setTimeout(() => setNotification(null), 3000);
-                
-                return uniqueQuests;
-            });
-        };
-
         // Debug function to clean duplicate memories
         (window as any).cleanDuplicateMemories = () => {
             setMemories(prev => {
@@ -1078,24 +813,15 @@ export const GameScreen: React.FC<{
                 return uniqueMemories;
             });
         };
-        (window as any).analyzeQuestOpportunities = analyzeQuestOpportunities;
-        (window as any).generateQuickQuest = generateQuickQuest;
-        (window as any).generateQuestsWithModel = generateQuestsWithModel;
         return () => {
             delete (window as any).debugGameSystems;
             delete (window as any).generateSmartMemories;
             delete (window as any).analyzeMemories;
-            delete (window as any).generateQuestsFromMemories;
-            delete (window as any).cleanDuplicateQuests;
             delete (window as any).cleanDuplicateMemories;
-            delete (window as any).analyzeQuestOpportunities;
-            delete (window as any).generateQuickQuest;
-            delete (window as any).generateQuestsWithModel;
         };
-    }, [debugSystemStatus, generateSmartMemories, analyzeMemories, generateQuestsFromMemories, analyzeQuestOpportunities, generateQuickQuest, generateQuestsWithModel]);
+    }, [debugSystemStatus, generateSmartMemories, analyzeMemories]);
 
     
-    const hasActiveQuests = quests.some(q => q.status === 'active');
     const pcStatuses = statuses.filter(s => s.owner === 'pc' || (pcName && s.owner === pcName));
     const displayParty = party.filter(p => p.name !== pcName);
     const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
@@ -1155,7 +881,6 @@ export const GameScreen: React.FC<{
                 onQuests={() => setIsQuestLogModalOpen(true)}
                 onAdmin={() => setIsAdminModalOpen(true)}
                 onManualCleanup={handleManualCleanup}
-                hasActiveQuests={hasActiveQuests}
                 currentTurnTokens={currentTurnTokens}
                 totalTokens={totalTokens}
                 historyStats={historyStats}
@@ -1188,7 +913,6 @@ export const GameScreen: React.FC<{
                 turnCount={turnCount}
                 currentTurnTokens={currentTurnTokens}
                 totalTokens={totalTokens}
-                hasActiveQuests={hasActiveQuests}
             />
 
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 overflow-hidden p-4 md:p-0">
@@ -1282,7 +1006,6 @@ export const GameScreen: React.FC<{
                     worldData, 
                     knownEntities, 
                     statuses, 
-                    quests, 
                     gameHistory, 
                     memories, 
                     party, 

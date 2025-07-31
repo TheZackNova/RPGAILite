@@ -1,12 +1,20 @@
 import React from 'react';
-import type { Quest } from './types.ts';
-import { getIconForQuest } from './utils.ts';
+import type { Quest } from './types';
+import * as GameIcons from './GameIcons';
+import { CrossIcon } from './Icons';
+
+const getIconForQuest = (quest: Quest): React.ReactNode => {
+    if (!quest) return <GameIcons.ScrollIcon />;
+    if (quest.status === 'completed') return <GameIcons.CheckmarkIcon />;
+    if (quest.status === 'failed') return <CrossIcon />;
+    return <GameIcons.ScrollIcon />;
+};
 
 export const QuestDetailModal: React.FC<{ quest: Quest | null; onClose: () => void; }> = ({ quest, onClose }) => {
     if (!quest) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[85] p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div 
                 className="bg-white/90 dark:bg-[#2a2f4c]/90 backdrop-blur-sm border-2 border-yellow-400/80 rounded-lg shadow-2xl w-full max-w-lg text-slate-900 dark:text-white" 
                 onClick={e => e.stopPropagation()}

@@ -2,7 +2,6 @@ import { GoogleGenAI } from "@google/genai";
 import type { GameHistoryEntry, SaveData } from '../types';
 import { buildEnhancedRagPrompt } from '../promptBuilder';
 import { EntityExportManager } from '../utils/EntityExportManager';
-import { QuestManagementEngine } from '../utils/QuestManagementEngine';
 
 export interface GameActionHandlersParams {
     ai: GoogleGenAI | null;
@@ -229,49 +228,6 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
                     }
                 }, 1000); // Delay to ensure state is updated
                 
-                // 🎯 Auto-quest generation check
-                const questGenId = `questgen_${newTurn}_${Date.now()}_${Math.random().toString(36)}`;
-                
-                setTimeout(async () => {
-                    try {
-                        // Check if we should trigger auto-generation
-                        const defaultConfig = {
-                            maxQuestsPerGeneration: 3,
-                            enableAnalysis: true,
-                            enableGeneration: true,
-                            enableValidation: true,
-                            enableIntegration: true,
-                            validationConfig: {
-                                strictMode: false,
-                                checkWorldConsistency: true,
-                                checkEntityReferences: true,
-                                checkDifficultyBalance: true,
-                                checkLanguageQuality: true,
-                                autoFix: true
-                            },
-                            integrationConfig: {
-                                maxSimultaneousQuests: 3,
-                                createIntegrationMemories: true,
-                                updateEntityRelationships: true,
-                                checkForDuplicates: true,
-                                skipLowConfidenceQuests: false,
-                                minimumConfidence: 0.3
-                            },
-                            autoGenerationTriggers: {
-                                memoryThreshold: 15,
-                                turnInterval: 25,
-                                completedQuestTrigger: true
-                            }
-                        };
-                        const triggerCheck = QuestManagementEngine.shouldTriggerAutoGeneration(currentGameState, defaultConfig);
-                        
-                        if (triggerCheck.shouldTrigger && ai) {
-                            const result = await QuestManagementEngine.generateQuestsFromMemories(currentGameState, ai, selectedModel);
-                        }
-                    } catch (error) {
-                        console.error(`🚨 [Turn ${newTurn}] Quest auto-generation error (ID: ${questGenId}):`, error);
-                    }
-                }, 1500); // Slightly delayed after entity export
                 
                 return newTurn;
             }); 

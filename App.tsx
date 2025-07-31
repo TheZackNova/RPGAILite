@@ -1,7 +1,7 @@
 
 
 
-import React, { useState, useEffect, useMemo, createContext } from 'react';
+import React, { useState, useMemo, createContext } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { MainMenu } from './components/MainMenu.tsx';
 import { CreateWorld } from './components/CreateWorld.tsx';
@@ -11,8 +11,6 @@ import { ChangelogModal } from './components/ChangelogModal.tsx';
 import { InitializationProgress } from './components/InitializationProgress.tsx';
 import type { SaveData, Entity, AIContextType, FormData, CustomRule, KnownEntities } from './components/types.ts';
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
-import { QuestGenerator } from './components/utils/QuestGenerator.ts';
-import { QuestIntegrator } from './components/utils/QuestIntegrator.ts';
 import { ReferenceIdGenerator } from './components/utils/ReferenceIdGenerator.ts';
 
 // --- Constants ---
@@ -427,71 +425,6 @@ export default function App() {
       }
   };
 
-  // Function to create an initial quest for new worlds
-  const createInitialQuest = async (gameState: SaveData): Promise<void> => {
-      console.log('🎯 CreateInitialQuest: Starting initial quest creation...');
-      
-      if (!ai || !isAiReady) {
-          console.log('🎯 CreateInitialQuest: AI not ready, skipping quest creation');
-          return;
-      }
-
-      try {
-          // Create a simple quest seed for new world
-          const initialQuestSeed = {
-              id: `initial_quest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              type: 'exploration' as const,
-              priority: 'medium' as const,
-              triggerMemories: [],
-              involvedEntities: [],
-              suggestedDifficulty: 'easy' as const,
-              questHooks: ['Khám phá thế giới mới', 'Tìm hiểu về môi trường xung quanh'],
-              expectedRewards: ['Kinh nghiệm', 'Hiểu biết về thế giới'],
-              relevanceScore: 80,
-              generatedAt: gameState.turnCount
-          };
-
-          console.log('🎯 CreateInitialQuest: Generated quest seed:', initialQuestSeed.id);
-
-          // Generate quest using QuestGenerator
-          const questGenerationResult = await QuestGenerator.generateQuestsFromSeeds(
-              [initialQuestSeed],
-              gameState,
-              ai,
-              selectedAiModel,
-              1
-          );
-
-          if (questGenerationResult.quests.length > 0) {
-              console.log('🎯 CreateInitialQuest: Quest generated successfully');
-              
-              // Integrate quest using QuestIntegrator
-              const integrationResult = QuestIntegrator.forceIntegrateQuest(
-                  questGenerationResult.quests[0],
-                  gameState
-              );
-
-              if (integrationResult.success) {
-                  console.log('🎯 CreateInitialQuest: Quest integrated successfully:', integrationResult.integratedQuests[0].title);
-              } else {
-                  console.error('🎯 CreateInitialQuest: Failed to integrate quest:', integrationResult.errors);
-              }
-          } else {
-              console.log('🎯 CreateInitialQuest: No quest generated, using fallback');
-              
-              // Create a simple fallback quest if generation fails
-              const fallbackQuest = QuestGenerator.generateFallbackQuest(initialQuestSeed, gameState);
-              const integrationResult = QuestIntegrator.forceIntegrateQuest(fallbackQuest, gameState);
-              
-              if (integrationResult.success) {
-                  console.log('🎯 CreateInitialQuest: Fallback quest integrated successfully:', integrationResult.integratedQuests[0].title);
-              }
-          }
-
-      } catch (error) {
-          console.error('🎯 CreateInitialQuest: Error creating initial quest:', error);
-      }
-  };
 
   // Function to generate LORE_CONCEPT entities from custom rules
   const generateLoreConcepts = async (activeRules: CustomRule[]): Promise<KnownEntities> => {
@@ -728,7 +661,6 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       setInitSubStep('Tạo nhiệm vụ đầu tiên');
       
       // Create initial quest for the new world
-      await createInitialQuest(gameStateData);
       
       setInitProgress(95);
       setInitCurrentStep('Đang chuyển sang màn hình game...');
