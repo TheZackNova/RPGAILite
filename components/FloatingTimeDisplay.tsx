@@ -130,8 +130,11 @@ export const FloatingTimeDisplay: React.FC<FloatingTimeDisplayProps> = ({ gameTi
   return (
     <div
       ref={timeDisplayRef}
-      className={`fixed z-50 select-none cursor-move transition-all duration-200 ${
-        isDragging ? 'scale-105 shadow-2xl' : 'hover:scale-102 shadow-lg'
+      className={`fixed z-50 select-none cursor-move ${
+        // Mobile: reduced animations for battery life
+        isDragging 
+          ? 'scale-105 shadow-2xl transition-all duration-100 md:duration-200' 
+          : 'shadow-lg transition-all duration-150 md:duration-200 md:hover:scale-102'
       } ${className}`}
       style={{
         left: `${position.x}px`,
@@ -139,6 +142,9 @@ export const FloatingTimeDisplay: React.FC<FloatingTimeDisplayProps> = ({ gameTi
         touchAction: 'none', // Prevent scrolling when dragging
         WebkitUserSelect: 'none',
         userSelect: 'none',
+        // Mobile optimization: use transform3d for hardware acceleration
+        transform: isDragging ? 'scale(1.05) translateZ(0)' : 'translateZ(0)',
+        willChange: isDragging ? 'transform' : 'auto',
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

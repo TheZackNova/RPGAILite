@@ -853,8 +853,21 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             font-weight: bold;
-            animation: am-kim-shine 3s linear infinite;
             background-size: 200% 200%;
+        }
+
+        /* Desktop animation - only on larger screens and when motion is preferred */
+        @media (min-width: 769px) and (prefers-reduced-motion: no-preference) {
+            .am-kim {
+                animation: am-kim-shine 3s linear infinite;
+            }
+        }
+
+        /* Mobile fallback - static gradient for better battery life */
+        @media (max-width: 768px), (prefers-reduced-motion: reduce) {
+            .am-kim {
+                background-position: 50% 50%;
+            }
         }
 
         .dark .am-kim {
