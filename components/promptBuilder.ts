@@ -333,7 +333,7 @@ export class EnhancedRAGSystem {
         const baseLimit = TOKEN_CONFIG.MAX_TOKENS_PER_TURN - TOKEN_CONFIG.TOKEN_BUFFER;
         
         // Analyze context complexity
-        const hasActiveQuests = gameState.quests.some(q => q.status === 'active');
+        const hasActiveQuests = gameState.quests?.some(q => q.status === 'active') || false;
         const hasComplexHistory = gameState.gameHistory.length > 20;
         const hasManyCriticalEntities = relevantEntities.filter(r => r.score > 70).length > 5;
         
@@ -564,7 +564,7 @@ export class EnhancedRAGSystem {
         
         // Active quests
         const questContext = this.buildQuestContext(
-            gameState.quests.filter(q => q.status === 'active'),
+            (gameState.quests || []).filter(q => q.status === 'active'),
             Math.floor(tokenBudget * 0.3)
         );
         context += questContext;

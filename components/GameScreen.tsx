@@ -163,7 +163,7 @@ export const GameScreen: React.FC<{
     
     // Initialize handlers with current state
     const commandTagProcessor = useMemo(() => createCommandTagProcessor({
-        setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
+        setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities, setQuests,
         setParty, setLocationDiscoveryOrder,
         knownEntities, statuses, party, turnCount, worldData
     }), [knownEntities, statuses, party, turnCount, worldData]);
@@ -205,15 +205,15 @@ export const GameScreen: React.FC<{
 
     // Initialize game state handlers
     const gameStateHandlers = useMemo(() => createGameStateHandlers({
-        worldData, knownEntities, statuses, gameHistory, memories, party,
+        worldData, knownEntities, statuses, quests, gameHistory, memories, party,
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
         compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
         storyLog, choices, locationDiscoveryOrder,
-        setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setMemories,
+        setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
         setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
-    }), [worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder]);
+    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {
@@ -281,7 +281,7 @@ export const GameScreen: React.FC<{
         }
 
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, // This seems to be used as an indicator, not a turn number
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -489,10 +489,10 @@ export const GameScreen: React.FC<{
     const handleAction = useCallback(async (action: string) => {
         if (isLoading || !ai) return;
         const currentGameState: SaveData = {
-            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
         };
         await gameActionHandlers.handleAction(action, currentGameState);
-    }, [gameActionHandlers, isLoading, ai, worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
+    }, [gameActionHandlers, isLoading, ai, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
 
     const debouncedHandleAction = useDebouncedCallback((action: string) => {
         handleAction(action);
@@ -508,10 +508,10 @@ export const GameScreen: React.FC<{
     
     const handleSuggestAction = useCallback(async () => {
         const currentGameState: SaveData = {
-            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory
         };
         await gameActionHandlers.handleSuggestAction(storyLog, currentGameState);
-    }, [gameActionHandlers, storyLog, worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
+    }, [gameActionHandlers, storyLog, worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory]);
 
     const handleSaveGame = useCallback(() => {
         gameStateHandlers.handleSaveGame();
@@ -561,7 +561,7 @@ export const GameScreen: React.FC<{
         });
         
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -699,7 +699,7 @@ export const GameScreen: React.FC<{
     // Phase 4: Memory Analytics and Insights
     const analyzeMemories = useCallback(() => {
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
@@ -722,7 +722,7 @@ export const GameScreen: React.FC<{
     // Manual smart memory generation for testing
     const generateSmartMemories = useCallback(() => {
         const currentState: SaveData = {
-            worldData, knownEntities, statuses, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
+            worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory,
             lastCompressionTurn: historyStats.compressionCount, 
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
