@@ -37,7 +37,6 @@ import { MobileInputFooter } from './game/MobileInputFooter.tsx';
 import { FloatingTimeDisplay } from './FloatingTimeDisplay.tsx';
 
 // Optimization and Management
-import { HistoryManager } from './HistoryManager';
 import { GameStateOptimizer, CleanupStats } from './GameStateOptimizer';
 import { UnifiedMemoryManager } from './utils/UnifiedMemoryManager';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
@@ -388,36 +387,8 @@ export const GameScreen: React.FC<{
             }
         }
 
-        // Legacy fallback history compression (only if unified cleanup didn't handle it)
-        if (gameSettings.historyAutoCompress && (!unifiedCleanupResult || !unifiedCleanupResult.cleanupTriggered)) {
-            const timestamp = new Date().toLocaleTimeString();
-            console.log(`🔄 [${timestamp}] Legacy Auto History Check:`, {
-                turn: turnCount,
-                autoCompressEnabled: true,
-                currentHistorySize: gameHistory.length
-            });
-            
-            const historyManagerTargetState = optimizerResult?.shouldRunCleanup ? optimizerResult.optimizedState : currentState;
-            const historyResult = HistoryManager.manageHistory(historyManagerTargetState.gameHistory, turnCount);
-            if (historyResult.shouldCompress && historyResult.compressedSegment) {
-                console.log(`📦 [${timestamp}] Legacy Auto Compression Triggered:`, {
-                    turn: turnCount,
-                    newActiveHistorySize: historyResult.activeHistory.length,
-                    compressedSegmentRange: historyResult.compressedSegment.turnRange,
-                    compressedSegmentTokens: historyResult.compressedSegment.tokenCount,
-                    totalCompressedSegments: compressedHistory.length + 1
-                });
-                
-                setGameHistory(historyResult.activeHistory);
-                setCompressedHistory(prev => [...prev, historyResult.compressedSegment!]);
-                setHistoryStats(prev => ({
-                    totalEntriesProcessed: prev.totalEntriesProcessed + historyResult.stats.savedEntries,
-                    totalTokensSaved: prev.totalTokensSaved + (historyResult.compressedSegment!.tokenCount || 0),
-                    compressionCount: prev.compressionCount + 1,
-                    lastCompressionTurn: turnCount
-                }));
-            }
-        } else if (!gameSettings.historyAutoCompress) {
+        // UnifiedMemoryManager handles all memory operations including history compression
+        if (!gameSettings.historyAutoCompress) {
             const timestamp = new Date().toLocaleTimeString();
             console.log(`⏸️ [${timestamp}] Auto History Compression Disabled:`, {
                 turn: turnCount,

@@ -3,6 +3,20 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.37.0',
+    date: '2025-02-02',
+    changes: [
+      { type: 'fix', text: 'Sửa lỗi SmartMemoryGenerator tạo duplicate memories - Triển khai comprehensive deduplication system với text similarity analysis, keyword extraction (Vietnamese stop-words), semantic similarity checking (>80% threshold), và category-based duplicate detection.' },
+      { type: 'fix', text: 'Khắc phục duplicate processing trong memory management architecture - Loại bỏ legacy HistoryManager direct calls từ GameScreen, đảm bảo tất cả memory operations đi qua UnifiedMemoryManager để tránh xung đột configuration.' },
+      { type: 'improvement', text: 'Enhanced memory deduplication với multi-layer detection - Text normalization, entity/tag overlap analysis, và real-time duplicate checking trong tất cả memory generation paths (story analysis, relationship tracking, achievement generation).' },
+      { type: 'improvement', text: 'Unified Memory Architecture consolidation - Game giờ sử dụng exclusively UnifiedMemoryManager thay vì mixed approach, đảm bảo coordinated cleanup sequence và consistent configuration across tất cả subsystems.' },
+      { type: 'improvement', text: 'Optimized UnifiedMemoryManager thresholds - Tăng maxActiveMemories (40→80), maxActiveHistoryEntries (20→50), memoryCleanupThreshold (40→100), historyCompressionThreshold (16→40) để giảm aggressive cleanup và preserve context tốt hơn.' },
+      { type: 'improvement', text: 'Smart Memory Generator deduplication enhancements - Centralized duplicate checking với isDuplicateMemory(), deduplicateMemories(), calculateTextSimilarity() methods, và Vietnamese-optimized text analysis với contextual stop-words filtering.' },
+      { type: 'technical', text: 'Memory architecture simplification - Removed legacy fallback history compression, unified import structure, và eliminated configuration conflicts giữa HistoryManager và UnifiedMemoryManager systems.' },
+      { type: 'technical', text: 'Enhanced duplicate detection algorithms - Jaccard similarity cho text comparison, significant overlap detection cho entities/tags (50% threshold), và category-based validation với importance scoring integration.' },
+    ],
+  },
+  {
     version: '1.36.1',
     date: '2025-01-30',
     changes: [

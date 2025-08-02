@@ -47,11 +47,11 @@ export interface CleanupResult {
 
 export class UnifiedMemoryManager {
     private static readonly DEFAULT_CONFIG: CleanupConfig = {
-        maxActiveMemories: 40,
-        memoryCleanupThreshold: 40,
+        maxActiveMemories: 80,
+        memoryCleanupThreshold: 100,
         lowImportanceThreshold: 40,
-        maxActiveHistoryEntries: 20,
-        historyCompressionThreshold: 16,
+        maxActiveHistoryEntries: 50,
+        historyCompressionThreshold: 40,
         maxTokenBudget: 10000,
         memoryTokenRatio: 0.3,
         enableSmartMemoryGeneration: true,
@@ -61,7 +61,7 @@ export class UnifiedMemoryManager {
             enableDiscoveryMemories: true,
             enableCombatMemories: true,
             enableAchievementMemories: true,
-            minImportanceThreshold: 60,  // Increased from 40 to reduce memory creation
+            minImportanceThreshold: 70,  // Increased from 40 to reduce memory creation
             maxMemoriesPerTurn: 1,       // Reduced from 3 to limit growth
             lookbackTurns: 2             // Reduced from 5 to analyze fewer turns
         }

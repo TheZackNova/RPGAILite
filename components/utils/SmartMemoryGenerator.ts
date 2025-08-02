@@ -71,9 +71,10 @@ export class SmartMemoryGenerator {
                             config
                         );
                         
-                        // Filter by importance threshold
+                        // Filter by importance threshold and deduplicate
                         const qualifiedMemories = newMemories.filter(mem => 
-                            (mem.importance || 0) >= config.minImportanceThreshold
+                            (mem.importance || 0) >= config.minImportanceThreshold &&
+                            !this.isDuplicateMemory(mem, [...gameState.memories, ...memories])
                         );
                         
                         memories.push(...qualifiedMemories);
@@ -90,8 +91,11 @@ export class SmartMemoryGenerator {
         // Generate relationship memories
         if (config.enableRelationshipMemories) {
             const relationshipMemories = this.generateRelationshipMemories(gameState, config);
-            memories.push(...relationshipMemories);
-            relationshipMemories.forEach(mem => {
+            const uniqueRelationshipMemories = relationshipMemories.filter(mem =>
+                !this.isDuplicateMemory(mem, [...gameState.memories, ...memories])
+            );
+            memories.push(...uniqueRelationshipMemories);
+            uniqueRelationshipMemories.forEach(mem => {
                 if (mem.category) categoriesCovered.add(mem.category);
             });
         }
@@ -99,14 +103,18 @@ export class SmartMemoryGenerator {
         // Generate achievement memories
         if (config.enableAchievementMemories) {
             const achievementMemories = this.generateAchievementMemories(gameState, config);
-            memories.push(...achievementMemories);
-            achievementMemories.forEach(mem => {
+            const uniqueAchievementMemories = achievementMemories.filter(mem =>
+                !this.isDuplicateMemory(mem, [...gameState.memories, ...memories])
+            );
+            memories.push(...uniqueAchievementMemories);
+            uniqueAchievementMemories.forEach(mem => {
                 if (mem.category) categoriesCovered.add(mem.category);
             });
         }
 
-        // Sort by importance and limit total count
-        const finalMemories = memories
+        // Final deduplication and sort by importance
+        const deduplicatedMemories = this.deduplicateMemories(memories);
+        const finalMemories = deduplicatedMemories
             .sort((a, b) => (b.importance || 0) - (a.importance || 0))
             .slice(0, config.maxMemoriesPerTurn);
 
@@ -142,6 +150,111 @@ export class SmartMemoryGenerator {
                 categoriesCovered: Array.from(categoriesCovered)
             }
         };
+    }
+
+    /**
+     * Check if a memory is a duplicate of existing memories
+     */
+    private static isDuplicateMemory(newMemory: Memory, existingMemories: Memory[]): boolean {
+        const newText = this.normalizeMemoryText(newMemory.text);
+        const newWords = this.extractKeywords(newText);
+        
+        return existingMemories.some(existing => {
+            const existingText = this.normalizeMemoryText(existing.text);
+            
+            // Exact text match
+            if (newText === existingText) return true;
+            
+            // High similarity check (>80% word overlap)
+            const existingWords = this.extractKeywords(existingText);
+            const similarity = this.calculateTextSimilarity(newWords, existingWords);
+            if (similarity > 0.8) return true;
+            
+            // Same category and overlapping entities/tags
+            if (newMemory.category === existing.category) {
+                const entityOverlap = this.hasSignificantOverlap(
+                    newMemory.relatedEntities || [],
+                    existing.relatedEntities || []
+                );
+                const tagOverlap = this.hasSignificantOverlap(
+                    newMemory.tags || [],
+                    existing.tags || []
+                );
+                
+                if (entityOverlap && tagOverlap && similarity > 0.6) {
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+    }
+
+    /**
+     * Remove duplicate memories from a list
+     */
+    private static deduplicateMemories(memories: Memory[]): Memory[] {
+        const unique: Memory[] = [];
+        
+        for (const memory of memories) {
+            if (!this.isDuplicateMemory(memory, unique)) {
+                unique.push(memory);
+            }
+        }
+        
+        return unique;
+    }
+
+    /**
+     * Normalize memory text for comparison
+     */
+    private static normalizeMemoryText(text: string): string {
+        return text.toLowerCase()
+            .replace(/[.,!?;:]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * Extract keywords from memory text
+     */
+    private static extractKeywords(text: string): string[] {
+        const stopWords = ['và', 'với', 'của', 'trong', 'để', 'cho', 'từ', 'có', 'là', 'được', 'một', 'này', 'đó'];
+        return text.split(' ')
+            .filter(word => word.length > 2 && !stopWords.includes(word))
+            .map(word => word.toLowerCase());
+    }
+
+    /**
+     * Calculate text similarity based on word overlap
+     */
+    private static calculateTextSimilarity(words1: string[], words2: string[]): number {
+        if (words1.length === 0 && words2.length === 0) return 1;
+        if (words1.length === 0 || words2.length === 0) return 0;
+        
+        const set1 = new Set(words1);
+        const set2 = new Set(words2);
+        
+        const intersection = new Set([...set1].filter(x => set2.has(x)));
+        const union = new Set([...set1, ...set2]);
+        
+        return intersection.size / union.size;
+    }
+
+    /**
+     * Check if two arrays have significant overlap
+     */
+    private static hasSignificantOverlap(arr1: string[], arr2: string[]): boolean {
+        if (arr1.length === 0 && arr2.length === 0) return true;
+        if (arr1.length === 0 || arr2.length === 0) return false;
+        
+        const set1 = new Set(arr1.map(item => item.toLowerCase()));
+        const set2 = new Set(arr2.map(item => item.toLowerCase()));
+        
+        const intersection = new Set([...set1].filter(x => set2.has(x)));
+        const minLength = Math.min(set1.size, set2.size);
+        
+        return intersection.size / minLength >= 0.5;
     }
 
     /**
@@ -250,17 +363,8 @@ export class SmartMemoryGenerator {
                     tags: ['relationship', 'party', member.name.toLowerCase()]
                 };
 
-                // Only add if we don't already have a similar memory
-                const existingSimilar = gameState.memories.some(mem => 
-                    mem.text.includes(member.name) && 
-                    mem.text.includes('quan hệ') &&
-                    mem.text.includes(member.relationship || '')
-                );
-
-                if (!existingSimilar) {
-                    const enhancementResult = MemoryEnhancer.enhanceMemory(relationshipMemory, gameState);
-                    memories.push(enhancementResult.enhanced);
-                }
+                const enhancementResult = MemoryEnhancer.enhanceMemory(relationshipMemory, gameState);
+                memories.push(enhancementResult.enhanced);
             }
         });
 
@@ -282,27 +386,20 @@ export class SmartMemoryGenerator {
         completedQuests.forEach(quest => {
             const memoryText = `Hoàn thành nhiệm vụ: ${quest.title}`;
             
-            // Check if we already have a memory for this quest completion
-            const existingQuestMemory = gameState.memories.some(mem => 
-                mem.text.includes(quest.title) && mem.text.includes('hoàn thành')
-            );
+            const achievementMemory: Memory = {
+                text: memoryText,
+                pinned: false,
+                source: 'auto_generated',
+                category: 'story',
+                createdAt: gameState.turnCount,
+                lastAccessed: gameState.turnCount,
+                importance: quest.isMainQuest ? 80 : 60,
+                relatedEntities: quest.giver ? [quest.giver] : [],
+                tags: ['achievement', 'quest', quest.isMainQuest ? 'main_quest' : 'side_quest']
+            };
 
-            if (!existingQuestMemory) {
-                const achievementMemory: Memory = {
-                    text: memoryText,
-                    pinned: false,
-                    source: 'auto_generated',
-                    category: 'story',
-                    createdAt: gameState.turnCount,
-                    lastAccessed: gameState.turnCount,
-                    importance: quest.isMainQuest ? 80 : 60,
-                    relatedEntities: quest.giver ? [quest.giver] : [],
-                    tags: ['achievement', 'quest', quest.isMainQuest ? 'main_quest' : 'side_quest']
-                };
-
-                const enhancementResult = MemoryEnhancer.enhanceMemory(achievementMemory, gameState);
-                memories.push(enhancementResult.enhanced);
-            }
+            const enhancementResult = MemoryEnhancer.enhanceMemory(achievementMemory, gameState);
+            memories.push(enhancementResult.enhanced);
         });
 
         // Check for significant entity discoveries
