@@ -63,11 +63,16 @@ const VirtualStoryItem = memo<{
     const itemRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (itemRef.current) {
-            const height = itemRef.current.getBoundingClientRect().height;
-            if (height !== item.actualHeight) {
-                onHeightMeasured(item.id, height);
-            }
+        if (itemRef.current && !item.actualHeight) {
+            // Use requestAnimationFrame to avoid forced reflow during rendering
+            requestAnimationFrame(() => {
+                if (itemRef.current) {
+                    const height = itemRef.current.getBoundingClientRect().height;
+                    if (height !== item.actualHeight) {
+                        onHeightMeasured(item.id, height);
+                    }
+                }
+            });
         }
     }, [item.content, item.id, item.actualHeight, onHeightMeasured]);
 
@@ -147,9 +152,12 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
             : 0;
     }, [itemPositions]);
 
-    // Calculate visible range
+    // Calculate visible range (skip expensive calculations during loading to prevent reflows)
     const visibleRange = useMemo(() => {
-        if (itemPositions.length === 0) return { startIndex: 0, endIndex: -1 };
+        if (itemPositions.length === 0 || isLoading || itemPositions.length < 10) return { 
+            startIndex: 0, 
+            endIndex: itemPositions.length - 1
+        };
 
         const { scrollTop, containerHeight } = virtualState;
         const viewportTop = scrollTop;
@@ -186,7 +194,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
             startIndex: Math.max(0, startIndex - ITEM_OVERSCAN),
             endIndex: Math.min(itemPositions.length - 1, endIndex + ITEM_OVERSCAN)
         };
-    }, [virtualState, itemPositions]);
+    }, [virtualState, itemPositions, isLoading]);
 
     // Visible items
     const visibleItems = useMemo(() => {
@@ -232,21 +240,33 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     // Use optimized scroll hook
     const { scrollElementRef, onScroll, scrollToBottom } = useOptimizedScroll(handleScroll, 16);
 
-    // Update container height on resize
+    // Update container height on resize (debounced to prevent performance issues)
     useEffect(() => {
+        let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+        
         const updateContainerHeight = () => {
-            if (containerRef.current) {
-                const rect = containerRef.current.getBoundingClientRect();
-                setVirtualState(prev => ({
-                    ...prev,
-                    containerHeight: rect.height
-                }));
-            }
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (containerRef.current) {
+                    requestAnimationFrame(() => {
+                        if (containerRef.current) {
+                            const rect = containerRef.current.getBoundingClientRect();
+                            setVirtualState(prev => ({
+                                ...prev,
+                                containerHeight: rect.height
+                            }));
+                        }
+                    });
+                }
+            }, 150);
         };
 
         updateContainerHeight();
         window.addEventListener('resize', updateContainerHeight);
-        return () => window.removeEventListener('resize', updateContainerHeight);
+        return () => {
+            window.removeEventListener('resize', updateContainerHeight);
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+        };
     }, []);
 
     // Auto-scroll when new content is added

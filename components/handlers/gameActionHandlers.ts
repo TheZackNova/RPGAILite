@@ -127,8 +127,24 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
             const responseText = response.text?.trim() || '';
             
             if (!responseText) {
-                console.error("📖 GenerateInitialStory: API returned empty response text");
-                setStoryLog(prev => [...prev, "Lỗi: AI không trả về nội dung. Hãy thử lại."]);
+                console.error("📖 GenerateInitialStory: API returned empty response text", {
+                    responseMetadata: response.usageMetadata,
+                    model: selectedModel,
+                    responseObject: response
+                });
+                
+                // Check for specific error conditions
+                let errorMessage = "Lỗi: AI không thể tạo câu chuyện khởi đầu.";
+                
+                if (response.usageMetadata?.totalTokenCount === 0) {
+                    errorMessage += " Có thể do giới hạn token hoặc nội dung bị lọc.";
+                } else if (!response.usageMetadata) {
+                    errorMessage += " Có thể do lỗi kết nối mạng.";
+                }
+                
+                errorMessage += " Vui lòng thử tạo lại thế giới hoặc kiểm tra API key.";
+                
+                setStoryLog(prev => [...prev, errorMessage]);
                 setChoices([]);
                 return;
             }
@@ -203,8 +219,25 @@ Hãy tạo một câu chuyện mở đầu cuốn hút!`;
             const responseText = response.text?.trim() || '';
             
             if (!responseText) {
-                console.error("API returned empty response text in handleAction");
-                setStoryLog(prev => [...prev, "Lỗi: AI không trả về nội dung. Hãy thử lại."]);
+                console.error("API returned empty response text in handleAction", {
+                    responseMetadata: response.usageMetadata,
+                    model: selectedModel,
+                    action: originalAction,
+                    responseObject: response
+                });
+                
+                // Check for specific error conditions
+                let errorMessage = "Lỗi: AI không trả về nội dung.";
+                
+                if (response.usageMetadata?.totalTokenCount === 0) {
+                    errorMessage += " Có thể do giới hạn token hoặc nội dung bị lọc.";
+                } else if (!response.usageMetadata) {
+                    errorMessage += " Có thể do lỗi kết nối mạng.";
+                }
+                
+                errorMessage += " Vui lòng thử lại với hành động khác hoặc kiểm tra API key.";
+                
+                setStoryLog(prev => [...prev, errorMessage]);
                 return;
             }
             

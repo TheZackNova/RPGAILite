@@ -631,7 +631,45 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         setQuests(prev => [...prev.filter(q => q.title !== newQuest.title), newQuest]);
                         break;
                     case 'QUEST_UPDATED':
-                        setQuests(prev => prev.map(q => q.title === attributes.title ? { ...q, status: attributes.status } : q));
+                        setQuests(prev => {
+                            const updatedQuests = prev.map(q => {
+                                if (q.title === attributes.title) {
+                                    const updatedQuest = { ...q, status: attributes.status };
+                                    
+                                    // If quest is completed and has a reward, process the reward
+                                    if (attributes.status === 'completed' && q.reward) {
+                                        // Parse experience from reward string (looking for patterns like "100 exp", "50 kinh nghiệm", etc.)
+                                        const expMatch = q.reward.match(/(\d+)\s*(?:exp|kinh nghiệm|experience)/i);
+                                        if (expMatch) {
+                                            const expAmount = parseInt(expMatch[1]);
+                                            console.log(`🎉 Quest completed: ${q.title} - Awarding ${expAmount} experience`);
+                                            
+                                            // Apply experience to PC
+                                            setKnownEntities(prevEntities => {
+                                                const newEntities = { ...prevEntities };
+                                                const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                                if (pc) {
+                                                    const currentExp = pc.currentExp || 0;
+                                                    const newExp = currentExp + expAmount;
+                                                    const updatedPc = { ...pc, currentExp: newExp };
+                                                    
+                                                    // Check for realm progression
+                                                    const finalPc = checkRealmProgression(updatedPc, worldData);
+                                                    newEntities[pc.name] = finalPc;
+                                                    
+                                                    console.log(`✨ Experience awarded: ${pc.name} gained ${expAmount} exp (${currentExp} → ${newExp})`);
+                                                }
+                                                return newEntities;
+                                            });
+                                        }
+                                    }
+                                    
+                                    return updatedQuest;
+                                }
+                                return q;
+                            });
+                            return updatedQuests;
+                        });
                         break;
                     case 'QUEST_OBJECTIVE_COMPLETED':
                         setQuests(prev => prev.map(q => {
@@ -640,11 +678,41 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     obj.description === attributes.objectiveDescription ? { ...obj, completed: true } : obj
                                 );
                                 const allCompleted = newObjectives.every(obj => obj.completed);
-                                return {
+                                const updatedQuest = {
                                     ...q,
                                     objectives: newObjectives,
                                     status: allCompleted ? 'completed' : q.status
                                 };
+                                
+                                // If quest is completed and has a reward, process the reward
+                                if (allCompleted && q.reward) {
+                                    // Parse experience from reward string (looking for patterns like "100 exp", "50 kinh nghiệm", etc.)
+                                    const expMatch = q.reward.match(/(\d+)\s*(?:exp|kinh nghiệm|experience)/i);
+                                    if (expMatch) {
+                                        const expAmount = parseInt(expMatch[1]);
+                                        console.log(`🎉 Quest completed: ${q.title} - Awarding ${expAmount} experience`);
+                                        
+                                        // Apply experience to PC
+                                        setKnownEntities(prevEntities => {
+                                            const newEntities = { ...prevEntities };
+                                            const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                            if (pc) {
+                                                const currentExp = pc.currentExp || 0;
+                                                const newExp = currentExp + expAmount;
+                                                const updatedPc = { ...pc, currentExp: newExp };
+                                                
+                                                // Check for realm progression
+                                                const finalPc = checkRealmProgression(updatedPc, worldData);
+                                                newEntities[pc.name] = finalPc;
+                                                
+                                                console.log(`✨ Experience awarded: ${pc.name} gained ${expAmount} exp (${currentExp} → ${newExp})`);
+                                            }
+                                            return newEntities;
+                                        });
+                                    }
+                                }
+                                
+                                return updatedQuest;
                             }
                             return q;
                         }));

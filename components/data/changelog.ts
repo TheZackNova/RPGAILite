@@ -3,6 +3,20 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.37.1',
+    date: '2025-08-04',
+    changes: [
+      { type: 'fix', text: 'Khắc phục lỗi quest experience rewards không được tự động cộng vào PC - Triển khai automatic experience parsing và application khi quest hoàn thành qua QUEST_UPDATED và QUEST_OBJECTIVE_COMPLETED tags.' },
+      { type: 'fix', text: 'Sửa luyện API empty response error handling - Enhanced error logging với detailed response metadata, specific error diagnosis (content filtering, network issues), và actionable user guidance messages.' },
+      { type: 'fix', text: 'Khắc phục forced reflow performance issues gây API blocking - Optimized StoryPanel component với requestAnimationFrame wrapping cho getBoundingClientRect calls, debounced resize handlers, và disabled virtual scrolling during loading states.' },
+      { type: 'improvement', text: 'Enhanced quest completion system - Tự động parse experience từ reward strings (hỗ trợ "exp", "kinh nghiệm", "experience" patterns), apply vào PC currentExp, và trigger realm progression checks.' },
+      { type: 'improvement', text: 'Improved API error diagnostics - Chi tiết logging bao gồm response metadata, model info, user actions, với specific error condition detection (token limits, content filtering, network issues).' },
+      { type: 'improvement', text: 'StoryPanel performance optimizations - RequestAnimationFrame cho DOM measurements, 150ms debounced resize handlers, simplified virtual scrolling cho lists <10 items, và loading state performance guards.' },
+      { type: 'technical', text: 'Quest reward processing integration - Modified commandTagProcessor.ts để handle experience rewards trong quest completion flows, với automatic realm progression checking và console logging cho debugging.' },
+      { type: 'technical', text: 'DOM performance optimization architecture - Eliminated synchronous getBoundingClientRect calls, implemented proper cleanup patterns cho timeouts, và reduced layout thrashing trong virtual scrolling.' },
+    ],
+  },
+  {
     version: '1.37.0',
     date: '2025-02-02',
     changes: [
