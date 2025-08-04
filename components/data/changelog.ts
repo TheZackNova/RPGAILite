@@ -16,6 +16,8 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
       { type: 'technical', text: 'Comprehensive gameState null safety - Added optional chaining cho tất cả RAG systems (EnhancedRAG, ReferenceBasedRAG, SmartMemoryGenerator) để handle undefined properties gracefully.' },
       { type: 'technical', text: 'Item handler type safety improvements - Fixed parameter type mismatches giữa InventoryModal (Entity objects) và entity handlers (string names) với proper wrapper functions.' },
       { type: 'technical', text: 'Enhanced tag processing system - ITEM_AQUIRED tag giờ support quoted boolean values và proper attribute parsing cho AdminPanel-generated items.' },
+      { type: 'improvement', text: 'Item quantity system modernization - Chuyển đổi từ "uses" sang "quantities" property throughout system: AdminPanel UI, Entity interface, tag processing, inventory display, và AI system instruction.' },
+      { type: 'fix', text: 'Items now properly removed when quantities reach 0 - Enhanced ITEM_CONSUMED logic để delete items khi quantities <= 0, support both legacy "uses" và new "quantities" properties.' },
     ],
   },
   {
