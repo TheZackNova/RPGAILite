@@ -26,7 +26,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     // Item form state
     const [itemName, setItemName] = useState<string>('');
     const [itemDescription, setItemDescription] = useState<string>('');
-    const [itemType, setItemType] = useState<'usable' | 'equippable' | 'consumable' | 'other'>('other');
+    const [itemType, setItemType] = useState<'usable' | 'equippable' | 'other'>('other');
     const [itemUses, setItemUses] = useState<string>('');
     const [itemDurability, setItemDurability] = useState<string>('');
 
@@ -63,7 +63,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             type: 'item',
             description: itemDescription.trim() || 'Vật phẩm được tạo bởi Admin',
             owner: 'pc',
-            usable: itemType === 'usable' || itemType === 'consumable',
+            usable: itemType === 'usable',
             equippable: itemType === 'equippable'
         };
 
@@ -278,7 +278,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                         <option value="other">Khác</option>
                                         <option value="usable">Có thể sử dụng</option>
                                         <option value="equippable">Có thể trang bị</option>
-                                        <option value="consumable">Tiêu hao</option>
                                     </select>
                                 </div>
                             </div>

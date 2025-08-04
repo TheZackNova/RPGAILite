@@ -3,6 +3,22 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.37.2',
+    date: '2025-08-04',
+    changes: [
+      { type: 'fix', text: 'Khắc phục lỗi Use button không hiển thị cho usable items - Sửa type mismatch giữa InventoryModal và item handlers, đảm bảo usable items hiển thị nút "SỬ DỤNG" chính xác.' },
+      { type: 'fix', text: 'Sửa lỗi nghiêm trọng Enhanced RAG Error khi sử dụng items - Thêm defensive programming với null checks cho gameState properties (party, knownEntities, memories) để tránh crashes.' },
+      { type: 'fix', text: 'Khắc phục lỗi discarded items vẫn hiển thị trong inventory UI - Triển khai direct handleDiscardItem function và ITEM_DISCARDED tag processor để xóa items ngay lập tức.' },
+      { type: 'improvement', text: 'Nâng cấp AdminPanel item creation system - Sửa ITEM_AQUIRED tag generation để sử dụng quoted values cho boolean properties, đảm bảo usable/equippable properties được parse chính xác.' },
+      { type: 'improvement', text: 'Simplified item type system - Loại bỏ redundant "consumable" property, chỉ giữ lại "usable" và "equippable" để tránh confusion và duplicate functionality.' },
+      { type: 'improvement', text: 'Enhanced item discard system - Direct inventory removal với story log confirmation, không còn phụ thuộc vào AI response để xử lý việc vứt bỏ items.' },
+      { type: 'improvement', text: 'Updated AdminPanel UI - Loại bỏ option "Tiêu hao" (Consumable) khỏi dropdown, simplified thành 3 types: Khác, Có thể sử dụng, Có thể trang bị.' },
+      { type: 'technical', text: 'Comprehensive gameState null safety - Added optional chaining cho tất cả RAG systems (EnhancedRAG, ReferenceBasedRAG, SmartMemoryGenerator) để handle undefined properties gracefully.' },
+      { type: 'technical', text: 'Item handler type safety improvements - Fixed parameter type mismatches giữa InventoryModal (Entity objects) và entity handlers (string names) với proper wrapper functions.' },
+      { type: 'technical', text: 'Enhanced tag processing system - ITEM_AQUIRED tag giờ support quoted boolean values và proper attribute parsing cho AdminPanel-generated items.' },
+    ],
+  },
+  {
     version: '1.37.1',
     date: '2025-08-04',
     changes: [
