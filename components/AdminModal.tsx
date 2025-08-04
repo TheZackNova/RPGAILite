@@ -27,7 +27,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const [itemName, setItemName] = useState<string>('');
     const [itemDescription, setItemDescription] = useState<string>('');
     const [itemType, setItemType] = useState<'usable' | 'equippable' | 'other'>('other');
-    const [itemUses, setItemUses] = useState<string>('');
+    const [itemQuantities, setItemQuantities] = useState<string>('');
     const [itemDurability, setItemDurability] = useState<string>('');
 
     // Skill form state
@@ -68,8 +68,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         };
 
         // Add optional properties
-        if (itemUses && !isNaN(parseInt(itemUses))) {
-            itemData.uses = parseInt(itemUses);
+        if (itemQuantities && !isNaN(parseInt(itemQuantities))) {
+            itemData.quantities = parseInt(itemQuantities);
         }
         
         if (itemDurability && !isNaN(parseInt(itemDurability))) {
@@ -82,7 +82,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         setItemName('');
         setItemDescription('');
         setItemType('other');
-        setItemUses('');
+        setItemQuantities('');
         setItemDurability('');
         
         alert(`Đã thêm vật phẩm "${itemData.name}" vào túi đồ!`);
@@ -298,12 +298,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Số lần sử dụng
+                                        Số lượng
                                     </label>
                                     <input
                                         type="number"
-                                        value={itemUses}
-                                        onChange={(e) => setItemUses(e.target.value)}
+                                        value={itemQuantities}
+                                        onChange={(e) => setItemQuantities(e.target.value)}
                                         placeholder="Để trống nếu không giới hạn"
                                         className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         min="1"

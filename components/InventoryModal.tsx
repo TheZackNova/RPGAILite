@@ -116,9 +116,9 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                     </div>
                                     
                                     {/* Item Count */}
-                                    {item.uses && (
+                                    {(item.quantities || item.uses) && (
                                         <div className="absolute bottom-1 right-1 bg-slate-900/80 text-xs px-1 rounded text-white">
-                                            {item.uses}
+                                            {item.quantities || item.uses}
                                         </div>
                                     )}
                                     

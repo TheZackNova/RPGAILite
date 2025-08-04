@@ -380,12 +380,12 @@ export const EntityInfoModal: React.FC<{
                                     </button>
                                 )
                             )}
-                            {isUsableItem && (entity.uses === undefined || entity.uses > 0) && (
+                            {isUsableItem && ((entity.quantities === undefined || entity.quantities > 0) || (entity.uses === undefined || entity.uses > 0)) && (
                                 <button 
                                     onClick={() => onUseItem(entity.name)} 
                                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold transition-colors duration-200 flex items-center justify-center gap-2"
                                 >
-                                    🍃 Sử dụng {entity.uses && `(${entity.uses} lần)`}
+                                    🍃 Sử dụng {(entity.quantities && `(${entity.quantities} lần)`) || (entity.uses && `(${entity.uses} lần)`)}
                                 </button>
                             )}
                             {isLearnableItem && (

@@ -155,7 +155,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                     value = value.toLowerCase() === 'true';
                 } else if (key === 'objectives' && typeof value === 'string') {
                     value = value.split(';').map(desc => ({ description: desc.trim(), completed: false }));
-                } else if ((key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours') && typeof value === 'string' && !isNaN(Number(value))) {
+                } else if ((key === 'quantities' || key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours') && typeof value === 'string' && !isNaN(Number(value))) {
                     attributes[key] = Number(value);
                     continue;
                 }
@@ -461,14 +461,27 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             const itemToConsume = newEntities[attributes.name];
     
                             if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
-                                if (typeof itemToConsume.uses === 'number' && itemToConsume.uses > 1) {
-                                    newEntities[attributes.name] = {
-                                        ...itemToConsume,
-                                        uses: itemToConsume.uses - 1,
-                                    };
+                                // Check quantities first (new system), then uses (legacy)
+                                const currentQuantity = itemToConsume.quantities || itemToConsume.uses;
+                                
+                                if (typeof currentQuantity === 'number' && currentQuantity > 1) {
+                                    // Decrease quantity/uses by 1
+                                    if (itemToConsume.quantities) {
+                                        newEntities[attributes.name] = {
+                                            ...itemToConsume,
+                                            quantities: itemToConsume.quantities - 1,
+                                        };
+                                    } else if (itemToConsume.uses) {
+                                        newEntities[attributes.name] = {
+                                            ...itemToConsume,
+                                            uses: itemToConsume.uses - 1,
+                                        };
+                                    }
+                                    console.log(`📦 Item consumed: ${attributes.name} now has ${currentQuantity - 1} remaining`);
                                 } else {
-                                    const { owner, equipped, ...restOfItem } = itemToConsume;
-                                    newEntities[attributes.name] = restOfItem;
+                                    // Remove item completely when quantity reaches 0
+                                    delete newEntities[attributes.name];
+                                    console.log(`🗑️ Item completely consumed: ${attributes.name} has been removed from inventory`);
                                 }
                             }
                             return newEntities;

@@ -624,7 +624,7 @@ const MemoizedModalsComponent = ({
                         handleAction(`ADMIN: [ENTITY_UPDATE: name="${pcEntity.name}", currentExp=${newExp}] Thêm ${amount} kinh nghiệm cho ${pcEntity.name}`);
                     }
                 }}
-                onAddItem={(itemData) => handleAction(`ADMIN: [ITEM_AQUIRED: name="${itemData.name}", description="${itemData.description}", type="item", owner="pc", usable="${itemData.usable}", equippable="${itemData.equippable}"${itemData.uses ? `, uses="${itemData.uses}"` : ''}${itemData.durability ? `, durability="${itemData.durability}"` : ''}] Tạo vật phẩm ${itemData.name}`)}
+                onAddItem={(itemData) => handleAction(`ADMIN: [ITEM_AQUIRED: name="${itemData.name}", description="${itemData.description}", type="item", owner="pc", usable="${itemData.usable}", equippable="${itemData.equippable}"${itemData.quantities ? `, quantities="${itemData.quantities}"` : ''}${itemData.durability ? `, durability="${itemData.durability}"` : ''}] Tạo vật phẩm ${itemData.name}`)}
                 onAddSkill={(skillData) => handleAction(`ADMIN: [LORE_SKILL: name="${skillData.name}", description="${skillData.description}", realm="${skillData.realm || ''}", element="${skillData.element || ''}", skillType="${(skillData as any).skillType || 'combat'}"] [SKILL_LEARNED: name="${skillData.name}"] Tạo và học kỹ năng ${skillData.name}`)}
             />
         </>

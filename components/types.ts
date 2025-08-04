@@ -17,7 +17,8 @@ export interface Entity {
   motivation?: string;
   location?: string;
   relationship?: string; // For relationship tracking
-  uses?: number; // For consumable items
+  uses?: number; // For consumable items (legacy)
+  quantities?: number; // For usable items (new)
   realm?: string; // For character power levels
   mastery?: string; // For skill mastery levels
   currentExp?: number; // For current experience points
