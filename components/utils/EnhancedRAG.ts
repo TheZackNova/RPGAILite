@@ -190,7 +190,7 @@ export class EnhancedRAG {
             }
             
             // Check if entity is currently in party
-            if (gameState.party.some(member => member.name === entityName)) {
+            if (gameState.party?.some(member => member.name === entityName)) {
                 relevantEntities += 0.5;
                 continue;
             }
@@ -322,8 +322,8 @@ export class EnhancedRAG {
         
         // Sort by relevance (party members first, then by recent interaction)
         return entities.sort((a, b) => {
-            const aInParty = gameState.party.some(p => p.name === a.name);
-            const bInParty = gameState.party.some(p => p.name === b.name);
+            const aInParty = gameState.party?.some(p => p.name === a.name);
+            const bInParty = gameState.party?.some(p => p.name === b.name);
             
             if (aInParty && !bInParty) return -1;
             if (!aInParty && bInParty) return 1;
@@ -341,7 +341,7 @@ export class EnhancedRAG {
         const relationships: string[] = [];
         
         // Extract relationship info from party members
-        gameState.party.forEach(member => {
+        gameState.party?.forEach(member => {
             if (member.relationship) {
                 relationships.push(`${member.name}: ${member.relationship}`);
             }

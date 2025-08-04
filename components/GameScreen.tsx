@@ -474,6 +474,20 @@ export const GameScreen: React.FC<{
     const handleLearnItem = useCallback((itemName: string) => entityHandlers.handleLearnItem(itemName), [entityHandlers]);
     const handleEquipItem = useCallback((itemName: string) => entityHandlers.handleEquipItem(itemName), [entityHandlers]);
     const handleUnequipItem = useCallback((itemName: string) => entityHandlers.handleUnequipItem(itemName), [entityHandlers]);
+    const handleDiscardItem = useCallback((item: Entity) => {
+        // Directly process the discard by removing the item from knownEntities
+        setKnownEntities(prev => {
+            const newEntities = { ...prev };
+            if (newEntities[item.name] && newEntities[item.name].owner === 'pc') {
+                delete newEntities[item.name];
+                console.log(`🗑️ Item discarded directly: ${item.name} has been removed from inventory`);
+            }
+            return newEntities;
+        });
+        
+        // Also add to story log to show the action happened
+        setStoryLog(prev => [...prev, `> Vứt bỏ ${item.name}`, `Bạn đã vứt bỏ **${item.name}** khỏi túi đồ.`]);
+    }, [setKnownEntities, setStoryLog]);
     const handleStatusClick = useCallback((status: Status) => entityHandlers.handleStatusClick(status), [entityHandlers]);
     const handleToggleMemoryPin = useCallback((index: number) => gameStateHandlers.handleToggleMemoryPin(index), [gameStateHandlers]);
     
@@ -943,6 +957,7 @@ export const GameScreen: React.FC<{
                 handleLearnItem={handleLearnItem}
                 handleEquipItem={handleEquipItem}
                 handleUnequipItem={handleUnequipItem}
+                handleDiscardItem={handleDiscardItem}
                 setActiveStatus={setActiveStatus}
                 handleStatusClick={handleStatusClick}
                 setActiveQuest={setActiveQuest}

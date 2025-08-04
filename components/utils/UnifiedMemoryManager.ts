@@ -78,7 +78,7 @@ export class UnifiedMemoryManager {
         
         console.log(`🧹 [${timestamp}] Starting Unified Memory Cleanup:`, {
             turnNumber: gameState.turnCount,
-            currentMemories: gameState.memories.length,
+            currentMemories: gameState.memories?.length || 0,
             currentHistoryEntries: gameState.gameHistory.length,
             memoryThreshold: config.memoryCleanupThreshold,
             historyThreshold: config.historyCompressionThreshold,
@@ -432,7 +432,7 @@ export class UnifiedMemoryManager {
         });
 
         // Extract from party member names
-        gameState.party.forEach(member => {
+        gameState.party?.forEach(member => {
             if (member.name) terms.push(member.name);
         });
 

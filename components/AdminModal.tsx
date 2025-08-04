@@ -64,8 +64,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             description: itemDescription.trim() || 'Vật phẩm được tạo bởi Admin',
             owner: 'pc',
             usable: itemType === 'usable' || itemType === 'consumable',
-            equippable: itemType === 'equippable',
-            consumable: itemType === 'consumable'
+            equippable: itemType === 'equippable'
         };
 
         // Add optional properties

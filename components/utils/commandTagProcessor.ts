@@ -546,6 +546,19 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             return newEntities;
                         });
                         break;
+                    case 'ITEM_DISCARDED':
+                    case 'ITEM_LOST':
+                        setKnownEntities(prev => {
+                            const newEntities = { ...prev };
+                            const item = newEntities[attributes.name];
+                            if (item && item.owner === 'pc') {
+                                // Completely remove the item from the player's knowledge
+                                delete newEntities[attributes.name];
+                                console.log(`🗑️ Item discarded: ${attributes.name} has been removed from inventory`);
+                            }
+                            return newEntities;
+                        });
+                        break;
                     case 'REALM_UPDATE':
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };

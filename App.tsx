@@ -139,6 +139,7 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
         *   \`[ITEM_TRANSFORMED: oldName="Tên item cũ", newName="Tên item mới", description="Mô tả mới", ...]\`
         *   \`[ITEM_EQUIPPED: name="Tên Item"]\`: Trang bị một vật phẩm cho nhân vật chính. Vật phẩm phải có \`equippable="true"\`.
         *   \`[ITEM_UNEQUIPPED: name="Tên Item"]\`: Tháo một vật phẩm đã trang bị.
+        *   \`[ITEM_DISCARDED: name="Tên Item"]\`: Vứt bỏ một vật phẩm khỏi túi đồ của nhân vật chính. Vật phẩm sẽ bị xóa hoàn toàn khỏi inventory.
 
 *   **Các Thẻ Quan Trọng Khác:**
         *   \`[COMPANION: name="...", description="...", personality="...", relationship="Quan hệ với PC", skills="Kỹ năng 1, Kỹ năng 2", realm="Cảnh giới", motivation="Động cơ đồng hành"]\`: **NÂNG CẤP** - Đồng hành với thông tin chi tiết. Tất cả đồng hành PHẢI có personality và relationship rõ ràng để AI có thể thể hiện cá tính riêng.

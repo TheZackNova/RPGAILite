@@ -160,6 +160,20 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                 </div>
                             </div>
                             
+                            {/* Debug info - temporary */}
+                            <div className="text-xs text-yellow-400 mb-2 bg-slate-800 p-2 rounded">
+                                <strong>DEBUG INFO:</strong><br/>
+                                usable: {String(selectedItem.usable)} (type: {typeof selectedItem.usable})<br/>
+                                onUseItem: {onUseItem ? 'exists' : 'missing'}<br/>
+                                condition: {(selectedItem.usable && onUseItem) ? 'TRUE - should show button' : 'FALSE - no button'}<br/>
+                                <details>
+                                    <summary>All item properties:</summary>
+                                    <pre style={{fontSize: '10px', maxHeight: '100px', overflow: 'auto'}}>
+                                        {JSON.stringify(selectedItem, null, 2)}
+                                    </pre>
+                                </details>
+                            </div>
+
                             {/* Action buttons for selected item */}
                             <div className="flex justify-center gap-3">
                                 {selectedItem.usable && onUseItem && (

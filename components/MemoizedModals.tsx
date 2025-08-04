@@ -50,6 +50,7 @@ interface MemoizedModalsProps {
     handleLearnItem: (itemName:string) => void;
     handleEquipItem: (itemName: string) => void;
     handleUnequipItem: (itemName: string) => void;
+    handleDiscardItem: (item: Entity) => void;
     setActiveStatus: (status: Status | null) => void;
     handleStatusClick: (status: Status) => void;
     setActiveQuest: (quest: Quest | null) => void;
@@ -432,6 +433,7 @@ const MemoizedModalsComponent = ({
     handleLearnItem,
     handleEquipItem,
     handleUnequipItem,
+    handleDiscardItem,
     setActiveStatus,
     handleStatusClick,
     setActiveQuest,
@@ -604,10 +606,10 @@ const MemoizedModalsComponent = ({
                     // Exclude items that explicitly belong to NPCs
                     return false;
                 })}
-                onUseItem={handleUseItem}
-                onEquipItem={handleEquipItem}
-                onUnequipItem={handleUnequipItem}
-                onDiscardItem={(item) => handleAction(`Vứt bỏ ${item.name}`)}
+                onUseItem={(item) => handleUseItem(item.name)}
+                onEquipItem={(item) => handleEquipItem(item.name)}
+                onUnequipItem={(item) => handleUnequipItem(item.name)}
+                onDiscardItem={handleDiscardItem}
             />
 
             {/* Admin Modal */}
@@ -622,7 +624,7 @@ const MemoizedModalsComponent = ({
                         handleAction(`ADMIN: [ENTITY_UPDATE: name="${pcEntity.name}", currentExp=${newExp}] Thêm ${amount} kinh nghiệm cho ${pcEntity.name}`);
                     }
                 }}
-                onAddItem={(itemData) => handleAction(`ADMIN: [ITEM_AQUIRED: name="${itemData.name}", description="${itemData.description}", type="item", owner="pc", usable=${itemData.usable}, equippable=${itemData.equippable}, consumable=${itemData.consumable}] Tạo vật phẩm ${itemData.name}`)}
+                onAddItem={(itemData) => handleAction(`ADMIN: [ITEM_AQUIRED: name="${itemData.name}", description="${itemData.description}", type="item", owner="pc", usable="${itemData.usable}", equippable="${itemData.equippable}"${itemData.uses ? `, uses="${itemData.uses}"` : ''}${itemData.durability ? `, durability="${itemData.durability}"` : ''}] Tạo vật phẩm ${itemData.name}`)}
                 onAddSkill={(skillData) => handleAction(`ADMIN: [LORE_SKILL: name="${skillData.name}", description="${skillData.description}", realm="${skillData.realm || ''}", element="${skillData.element || ''}", skillType="${(skillData as any).skillType || 'combat'}"] [SKILL_LEARNED: name="${skillData.name}"] Tạo và học kỹ năng ${skillData.name}`)}
             />
         </>

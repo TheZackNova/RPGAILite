@@ -347,7 +347,7 @@ export class SmartMemoryGenerator {
         const memories: Memory[] = [];
 
         // Check for recent relationship changes in party members
-        gameState.party.forEach(member => {
+        gameState.party?.forEach(member => {
             if (member.relationship && member.name) {
                 const memoryText = `Mối quan hệ với ${member.name}: ${member.relationship}`;
                 
@@ -381,7 +381,7 @@ export class SmartMemoryGenerator {
         const memories: Memory[] = [];
 
         // Check for quest completions
-        const completedQuests = gameState.quests.filter(q => q.status === 'completed');
+        const completedQuests = gameState.quests?.filter(q => q.status === 'completed') || [];
         
         completedQuests.forEach(quest => {
             const memoryText = `Hoàn thành nhiệm vụ: ${quest.title}`;

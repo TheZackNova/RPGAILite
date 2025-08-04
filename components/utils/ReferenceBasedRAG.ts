@@ -96,8 +96,13 @@ export class ReferenceBasedRAG {
      * Update the reference registry with current game state
      */
     private static updateRegistry(gameState: SaveData): void {
+        if (!gameState) {
+            console.warn('🚨 ReferenceBasedRAG: gameState is null/undefined');
+            return;
+        }
+        
         // Update entities
-        for (const [name, entity] of Object.entries(gameState.knownEntities)) {
+        for (const [name, entity] of Object.entries(gameState.knownEntities || {})) {
             if (!entity.referenceId) {
                 // Generate reference ID if missing (legacy entities)
                 entity.referenceId = this.generateLegacyReferenceId(entity);
@@ -107,13 +112,13 @@ export class ReferenceBasedRAG {
         }
 
         // Update memories with temporary reference IDs
-        gameState.memories.forEach((memory, index) => {
+        gameState.memories?.forEach((memory, index) => {
             const memRef = `MEM_${Date.now()}_${index}`;
             this.registry.memories.set(memRef, memory);
         });
 
         // Update relationships
-        gameState.party.forEach(member => {
+        gameState.party?.forEach(member => {
             if (member.relationship) {
                 const relKey = `REL_${member.name}_PC`;
                 this.registry.relationships.set(relKey, member.relationship);

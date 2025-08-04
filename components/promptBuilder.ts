@@ -58,6 +58,12 @@ export class EnhancedRAGSystem {
     ): string {
         const startTime = performance.now();
         
+        // Defensive check for gameState
+        if (!gameState) {
+            console.error('🚨 buildEnhancedPrompt: gameState is null/undefined, using fallback');
+            return `Hành động: ${action}\nTrạng thái: Lỗi hệ thống, không thể xử lý gameState.`;
+        }
+        
         try {
             // Step 1: Choose RAG strategy based on configuration
             let intelligentContext;
@@ -909,7 +915,7 @@ export class EnhancedRAGSystem {
         
         // Pinned memories
         const memoryTokens = maxTokens - usedTokens;
-        const pinnedMemories = gameState.memories.filter(m => m.pinned);
+        const pinnedMemories = gameState.memories?.filter(m => m.pinned) || [];
         
         if (pinnedMemories.length > 0 && memoryTokens > 100) {
             context += "**Ký ức quan trọng:**\n";
@@ -1149,7 +1155,12 @@ export class EnhancedRAGSystem {
 
     private buildFallbackPrompt(action: string, gameState: SaveData): string {
         // Minimal prompt for error cases
-        const pc = gameState.party.find(p => p.type === 'pc');
+        if (!gameState) {
+            console.warn('🚨 buildFallbackPrompt: gameState is null/undefined');
+            return `Hành động: ${action}\nTrạng thái: Lỗi hệ thống, không thể xử lý.`;
+        }
+        
+        const pc = gameState.party?.find(p => p.type === 'pc');
         const pcName = pc?.name || 'Nhân vật chính';
         
         return `
