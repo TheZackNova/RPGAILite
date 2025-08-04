@@ -162,7 +162,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             
                             {/* Action buttons for selected item */}
                             <div className="flex justify-center gap-3">
-                                {selectedItem.usable && onUseItem && (
+                                {selectedItem.usable && onUseItem && ((selectedItem.quantities === undefined || selectedItem.quantities > 0) || (selectedItem.uses === undefined || selectedItem.uses > 0)) && (
                                     <button
                                         className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold transition-colors"
                                         onClick={() => {
@@ -170,7 +170,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                             setSelectedItem(null);
                                         }}
                                     >
-                                        SỬ DỤNG
+                                        SỬ DỤNG {(selectedItem.quantities && `(${selectedItem.quantities} lần)`) || (selectedItem.uses && `(${selectedItem.uses} lần)`)}
                                     </button>
                                 )}
                                 
