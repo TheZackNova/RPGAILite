@@ -598,7 +598,25 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       }
       
       const { customRules, ...worldData } = data;
+      
+      // Process starting skills and add them to PC
+      const startingSkills = data.startSkills.filter(skill => skill.name.trim() && skill.description.trim());
+      if (startingSkills.length > 0) {
+          pcEntity.learnedSkills = startingSkills.map(skill => skill.name);
+      }
+      
       let initialEntities = { [pcEntity.name]: pcEntity };
+      
+      // Add starting skills as skill entities
+      startingSkills.forEach(skill => {
+          const skillEntity: Entity = {
+              name: skill.name,
+              type: 'skill',
+              description: skill.description,
+              referenceId: ReferenceIdGenerator.generateReferenceId(skill.name, 'skill'),
+          };
+          initialEntities[skill.name] = skillEntity;
+      });
 
       // BƯỚC 1: TẠO LORE_CONCEPT TRƯỚC
       setInitProgress(50);

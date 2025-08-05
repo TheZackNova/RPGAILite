@@ -74,7 +74,7 @@ export interface FormData {
     personalityFromList: string;
     gender: string;
     bio: string;
-    startSkill: string;
+    startSkills: { name: string; description: string }[];
     addGoal: boolean;
     customRules: CustomRule[];
 }
