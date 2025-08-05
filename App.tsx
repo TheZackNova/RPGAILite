@@ -600,11 +600,31 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       const { customRules, ...worldData } = data;
       
       // Process starting skills and add them to PC
-      const startingSkills = data.startSkills.filter(skill => skill.name.trim() && skill.description.trim());
-      if (startingSkills.length > 0) {
-          pcEntity.learnedSkills = startingSkills.map(skill => skill.name);
+      console.log('🎮 StartNewGame: Processing starting skills:', data.startSkills);
+      console.log('🎮 StartNewGame: Data object keys:', Object.keys(data));
+      
+      // Handle backwards compatibility with old startSkill format
+      let skillsArray = data.startSkills || [];
+      if ((data as any).startSkill && skillsArray.length === 0) {
+          skillsArray = [{ name: (data as any).startSkill, description: '' }];
+          console.log('🎮 StartNewGame: Using legacy startSkill format:', (data as any).startSkill);
       }
       
+      const startingSkills = skillsArray.filter(skill => skill.name.trim() && skill.description.trim());
+      console.log('🎮 StartNewGame: Filtered starting skills:', startingSkills);
+      
+      // Initialize PC's learnedSkills properly
+      if (!pcEntity.learnedSkills) {
+          pcEntity.learnedSkills = [];
+      }
+      
+      // Add starting skills to PC's learnedSkills
+      if (startingSkills.length > 0) {
+          pcEntity.learnedSkills = [...pcEntity.learnedSkills, ...startingSkills.map(skill => skill.name)];
+          console.log('🎮 StartNewGame: PC learnedSkills set to:', pcEntity.learnedSkills);
+      }
+      
+      // Update the PC entity in initialEntities to ensure it has the starting skills
       let initialEntities = { [pcEntity.name]: pcEntity };
       
       // Add starting skills as skill entities
@@ -616,6 +636,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
               referenceId: ReferenceIdGenerator.generateReferenceId(skill.name, 'skill'),
           };
           initialEntities[skill.name] = skillEntity;
+          console.log(`🎮 StartNewGame: Added skill entity: ${skill.name} -> ${skillEntity.referenceId}`);
       });
 
       // BƯỚC 1: TẠO LORE_CONCEPT TRƯỚC
@@ -653,6 +674,10 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       setInitSubStep('Chuẩn bị dữ liệu game');
       
       console.log('🎮 StartNewGame: Setting game state...');
+      console.log('🎮 StartNewGame: Final PC entity:', pcEntity);
+      console.log('🎮 StartNewGame: Initial entities:', Object.keys(initialEntities));
+      console.log('🎮 StartNewGame: PC in initialEntities:', initialEntities[pcEntity.name]);
+      
       const gameStateData = {
         worldData: worldData,
         knownEntities: initialEntities,
