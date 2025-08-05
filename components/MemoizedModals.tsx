@@ -475,7 +475,7 @@ const MemoizedModalsComponent = ({
 
             {/* Entity & Status Modals */}
             <EntityInfoModal 
-                entity={activeEntity} 
+                entity={activeEntity ? (knownEntities[activeEntity.name] || activeEntity) : null} 
                 onClose={() => setActiveEntity(null)} 
                 onUseItem={handleUseItem} 
                 onLearnItem={handleLearnItem} 
