@@ -76,7 +76,7 @@ BẠN LÀ QUẢN TRÒ AI. Tạo câu chuyện mở đầu cho game RPG với yê
 Tên: ${pcEntity.name}
 Giới tính: ${pcEntity.gender}
 Tiểu sử: ${pcEntity.description}
-Tính cách: ${pcEntity.personality}
+Tính cách: ${pcEntity.personality}${pcEntity.motivation ? `\n**ĐỘNG CƠ/MỤC TIÊU QUAN TRỌNG**: ${pcEntity.motivation}` : ''}
 
 --- THÔNG TIN THẾ GIỚI ---
 Thế giới: ${worldData.worldName}
@@ -89,12 +89,12 @@ Nội dung 18+: ${nsfwInstruction}
 --- YÊU CẦU VIẾT STORY ---
 1. **CHIỀU DÀI**: Chính xác 300-400 từ, chi tiết và sống động
 2. **SỬ DỤNG CONCEPT**: Phải tích hợp các LORE_CONCEPT đã thiết lập vào câu chuyện một cách tự nhiên
-3. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama
-4. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
-5. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
-6. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị
+3. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama${pcEntity.motivation ? `\n4. **PHẢN ÁNH ĐỘNG CƠ NHÂN VẬT**: Câu chuyện và lựa chọn phải liên quan đến động cơ/mục tiêu của nhân vật chính: "${pcEntity.motivation}"` : ''}
+${pcEntity.motivation ? '5' : '4'}. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
+${pcEntity.motivation ? '6' : '5'}. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
+${pcEntity.motivation ? '7' : '6'}. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị${pcEntity.motivation ? `, một số lựa chọn phải hướng tới việc thực hiện mục tiêu: "${pcEntity.motivation}"` : ''}
 
-Hãy tạo một câu chuyện mở đầu cuốn hút!`;
+Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` và thể hiện rõ động cơ "${pcEntity.motivation}" của nhân vật!` : '!'}`;
 
         const finalHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
         setGameHistory(finalHistory);

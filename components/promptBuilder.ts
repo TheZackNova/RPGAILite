@@ -481,6 +481,8 @@ export class EnhancedRAGSystem {
             let pcInfo = `[Nhân vật chính] ${pc.name}`;
             
             const pcDetails: string[] = [];
+            // EMPHASIZE MOTIVATION FIRST
+            if (pc.motivation) pcDetails.push(`**MỤC TIÊU**: ${pc.motivation}`);
             if (pc.location) pcDetails.push(`Vị trí: ${pc.location}`);
             if (pc.realm) pcDetails.push(`Thực lực: ${pc.realm}`);
             if (pcStatuses.length > 0) {
@@ -765,6 +767,12 @@ export class EnhancedRAGSystem {
             // Power level for tactical decisions
             if (entity.realm) details.push(`Cảnh giới: ${entity.realm}`);
             
+        } else if (entity.type === 'pc') {
+            // Player Character - EMPHASIZE MOTIVATION
+            text += ` [NHÂN VẬT CHÍNH]`;
+            if (entity.motivation) details.push(`**MỤC TIÊU QUAN TRỌNG**: ${entity.motivation}`);
+            if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
+            if (entity.personalityMbti) details.push(`MBTI: ${entity.personalityMbti}`);
         } else if (entity.type === 'npc') {
             // Standard NPC context (reduced for non-party members)
             if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
