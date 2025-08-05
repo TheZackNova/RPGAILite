@@ -592,20 +592,7 @@ const MemoizedModalsComponent = ({
             <InventoryModal
                 isOpen={isInventoryModalOpen}
                 onClose={modalCloseHandlers.inventory}
-                playerInventory={Object.values(knownEntities).filter((entity): entity is Entity => {
-                    if (entity.type !== 'item') return false;
-                    
-                    // Include items that explicitly belong to PC
-                    if (entity.owner === 'pc') return true;
-                    
-                    // Include items with no owner or empty owner (likely player items from story)
-                    if (!entity.owner || entity.owner === '' || entity.owner === null || entity.owner === undefined) {
-                        return true;
-                    }
-                    
-                    // Exclude items that explicitly belong to NPCs
-                    return false;
-                })}
+                playerInventory={entityComputations.playerInventory}
                 onUseItem={(item) => handleUseItem(item.name)}
                 onEquipItem={(item) => handleEquipItem(item.name)}
                 onUnequipItem={(item) => handleUnequipItem(item.name)}

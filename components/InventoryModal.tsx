@@ -60,40 +60,40 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[90] p-4" onClick={onClose}>
             <div 
-                className="bg-slate-900/95 backdrop-blur-sm border-2 border-slate-600/80 rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] text-white flex flex-col" 
+                className="bg-slate-900/95 backdrop-blur-sm border-2 border-slate-600/80 rounded-lg shadow-2xl w-full max-w-sm sm:max-w-2xl lg:max-w-4xl h-[85vh] sm:h-[80vh] text-white flex flex-col" 
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="p-4 border-b-2 border-slate-600/80 flex justify-between items-center flex-shrink-0">
-                    <div className="flex items-center gap-4">
-                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                            <span className="w-6 h-6">🎒</span>
+                <div className="p-3 sm:p-4 border-b-2 border-slate-600/80 flex justify-between items-center flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                            <span className="w-5 h-5 sm:w-6 sm:h-6">🎒</span>
                             TÚI ĐỒ
                         </h3>
-                        <div className="text-sm text-gray-400">
+                        <div className="text-xs sm:text-sm text-gray-400">
                             {allItems.length} vật phẩm
                         </div>
                     </div>
                     
                     <button 
                         onClick={onClose} 
-                        className="text-gray-400 hover:text-white text-3xl leading-none"
+                        className="text-gray-400 hover:text-white text-2xl sm:text-3xl leading-none p-1"
                     >
                         &times;
                     </button>
                 </div>
 
                 {/* Inventory Grid */}
-                <div className="p-4 flex-1 overflow-y-auto">
-                    <div className="grid grid-cols-8 gap-2 w-full">
-                        {Array.from({ length: 64 }, (_, index) => {
+                <div className="p-2 sm:p-4 flex-1 overflow-y-auto">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 w-full">
+                        {Array.from({ length: 48 }, (_, index) => {
                             const item = allItems[index];
                             
                             if (!item) {
                                 return (
                                     <div
                                         key={index}
-                                        className="aspect-square border-2 border-slate-700/60 bg-slate-800/30 rounded-md min-h-[80px]"
+                                        className="aspect-square border-2 border-slate-700/60 bg-slate-800/30 rounded-md min-h-[60px] sm:min-h-[70px] lg:min-h-[80px]"
                                     />
                                 );
                             }
@@ -104,14 +104,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             return (
                                 <div
                                     key={item.name}
-                                    className={`aspect-square border-2 ${qualityColor} rounded-md p-2 relative cursor-pointer hover:scale-105 transition-transform group min-h-[80px] ${
+                                    className={`aspect-square border-2 ${qualityColor} rounded-md p-1 sm:p-2 relative cursor-pointer hover:scale-105 transition-transform group min-h-[60px] sm:min-h-[70px] lg:min-h-[80px] ${
                                         selectedItem?.name === item.name ? 'ring-2 ring-blue-400 bg-blue-500/20' : ''
                                     }`}
                                     title={item.description}
                                     onClick={() => setSelectedItem(selectedItem?.name === item.name ? null : item)}
                                 >
                                     {/* Item Icon */}
-                                    <div className="text-2xl mb-1 text-center">
+                                    <div className="text-lg sm:text-xl lg:text-2xl mb-1 text-center">
                                         {getItemIcon(item)}
                                     </div>
                                     
@@ -161,10 +161,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             </div>
                             
                             {/* Action buttons for selected item */}
-                            <div className="flex justify-center gap-3">
+                            <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                                 {selectedItem.usable && onUseItem && ((selectedItem.quantities === undefined || selectedItem.quantities > 0) || (selectedItem.uses === undefined || selectedItem.uses > 0)) && (
                                     <button
-                                        className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold transition-colors"
+                                        className="px-3 py-2 sm:px-4 bg-green-600 hover:bg-green-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                         onClick={() => {
                                             onUseItem(selectedItem);
                                             setSelectedItem(null);
@@ -179,7 +179,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                         {selectedItem.equipped ? (
                                             onUnequipItem && (
                                                 <button
-                                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md font-semibold transition-colors"
+                                                    className="px-3 py-2 sm:px-4 bg-orange-600 hover:bg-orange-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                                     onClick={() => {
                                                         onUnequipItem(selectedItem);
                                                         setSelectedItem(null);
@@ -191,7 +191,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                         ) : (
                                             onEquipItem && (
                                                 <button
-                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold transition-colors"
+                                                    className="px-3 py-2 sm:px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                                     onClick={() => {
                                                         onEquipItem(selectedItem);
                                                         setSelectedItem(null);
@@ -206,7 +206,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                 
                                 {onDiscardItem && (
                                     <button
-                                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md font-semibold transition-colors"
+                                        className="px-3 py-2 sm:px-4 bg-red-600 hover:bg-red-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                         onClick={() => {
                                             if (window.confirm(`Bạn có chắc muốn vứt bỏ "${selectedItem.name}"?`)) {
                                                 onDiscardItem(selectedItem);
@@ -219,7 +219,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                 )}
                                 
                                 <button
-                                    className="px-4 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-md font-semibold transition-colors"
+                                    className="px-3 py-2 sm:px-4 bg-slate-600 hover:bg-slate-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                     onClick={() => setSelectedItem(null)}
                                 >
                                     HỦY
@@ -227,14 +227,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="flex justify-center gap-4">
+                        <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">
                             <button
-                                className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md font-semibold transition-colors"
+                                className="px-4 py-2 sm:px-6 bg-slate-700 hover:bg-slate-600 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                 onClick={onClose}
                             >
                                 ĐÓNG
                             </button>
-                            <div className="text-sm text-gray-400 flex items-center">
+                            <div className="text-xs sm:text-sm text-gray-400 text-center">
                                 Chọn một vật phẩm để thực hiện hành động
                             </div>
                         </div>

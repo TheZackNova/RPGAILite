@@ -3,6 +3,17 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.37.3',
+    date: '2025-08-05',
+    changes: [
+      { type: 'feature', text: 'Thêm nút Túi đồ (Inventory) cho mobile UI - Triển khai floating action button với ChestIcon màu amber, positioned above choices button, kết nối với cùng InventoryModal như desktop.' },
+      { type: 'improvement', text: 'Tối ưu hóa InventoryModal cho mobile devices - Responsive grid layout (4 cols mobile, 6 tablet, 8 desktop), adaptive cell sizes, optimized button spacing và typography cho touch-friendly experience.' },
+      { type: 'fix', text: 'Khắc phục lỗi inventory UI không update khi nhặt items từ story - Enhanced inventory filtering với proper useMemo dependency tracking trên knownEntities changes, đảm bảo real-time inventory updates khi ITEM_AQUIRED tags được processed.' },
+      { type: 'technical', text: 'Restructured inventory computation system - Moved playerInventory filtering từ inline MemoizedModals props sang entityComputations useMemo với proper knownEntities dependency, improved React rendering performance và state consistency.' },
+      { type: 'improvement', text: 'Mobile inventory grid optimizations - Reduced từ 64 slots xuống 48 slots, responsive min-height values (60px-80px), flexible button layouts với wrap support, và improved padding/spacing cho mobile screens.' },
+    ],
+  },
+  {
     version: '1.37.2',
     date: '2025-08-04',
     changes: [

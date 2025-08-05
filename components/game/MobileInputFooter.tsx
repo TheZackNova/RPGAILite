@@ -6,6 +6,7 @@ import { SparklesIcon } from '../Icons.tsx';
 
 interface MobileInputFooterProps {
     onChoicesClick: () => void;
+    onInventoryClick: () => void;
     customAction: string;
     setCustomAction: (action: string) => void;
     handleAction: (action: string) => void;
@@ -17,15 +18,26 @@ interface MobileInputFooterProps {
 }
 
 export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
-    onChoicesClick, customAction, setCustomAction, handleAction, debouncedHandleAction, handleSuggestAction, isLoading, isAiReady, isCustomActionLocked
+    onChoicesClick, onInventoryClick, customAction, setCustomAction, handleAction, debouncedHandleAction, handleSuggestAction, isLoading, isAiReady, isCustomActionLocked
 }) => {
     return (
         <>
+            {/* Choices Button */}
             <button 
                 onClick={onChoicesClick}
                 className="md:hidden fixed bottom-20 right-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-full shadow-lg z-40"
+                aria-label="Lựa chọn hành động"
             >
                <GameIcons.SwordIcon className="w-6 h-6"/>
+            </button>
+            
+            {/* Inventory Button */}
+            <button 
+                onClick={onInventoryClick}
+                className="md:hidden fixed bottom-36 right-4 bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-full shadow-lg z-40"
+                aria-label="Túi đồ"
+            >
+               <GameIcons.ChestIcon className="w-6 h-6"/>
             </button>
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#1f2238]/95 backdrop-blur-sm p-3 border-t border-slate-300 dark:border-slate-700 shadow-lg z-30">
                  <div className="flex items-center gap-2">

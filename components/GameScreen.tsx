@@ -815,7 +815,25 @@ export const GameScreen: React.FC<{
         pcEntity,
         pcStatuses,
         displayParty,
-    }), [pcEntity, pcStatuses, displayParty]);
+        playerInventory: (() => {
+            const inventory = Object.values(knownEntities).filter((entity): entity is Entity => {
+                if (entity.type !== 'item') return false;
+                
+                // Include items that explicitly belong to PC
+                if (entity.owner === 'pc') return true;
+                
+                // Include items with no owner or empty owner (likely player items from story)
+                if (!entity.owner || entity.owner === '' || entity.owner === null || entity.owner === undefined) {
+                    return true;
+                }
+                
+                // Exclude items that explicitly belong to NPCs
+                return false;
+            });
+            console.log(`🎒 Player inventory updated: ${inventory.length} items`, inventory.map(i => i.name));
+            return inventory;
+        })()
+    }), [pcEntity, pcStatuses, displayParty, knownEntities]);
     
     const themeColors = getThemeColors(gameSettings.themeColor);
     
@@ -924,6 +942,7 @@ export const GameScreen: React.FC<{
             
             <MobileInputFooter
                 onChoicesClick={() => setIsChoicesModalOpen(true)}
+                onInventoryClick={() => setIsInventoryModalOpen(true)}
                 customAction={customAction}
                 setCustomAction={setCustomAction}
                 handleAction={handleAction}
