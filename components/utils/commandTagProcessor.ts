@@ -353,15 +353,31 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             const existingPC = Object.values(prev).find(e => e.type === 'pc') as Entity | undefined;
                             
                             if (existingPC) {
+                                // Filter out undefined values from newAttributes to avoid overwriting existing data
+                                const filteredAttributes: any = {};
+                                Object.keys(newAttributes).forEach(key => {
+                                    if (newAttributes[key] !== undefined && newAttributes[key] !== null && newAttributes[key] !== '') {
+                                        // Special protection: Never overwrite user-defined motivation with AI-generated motivation
+                                        if (key === 'motivation' && existingPC.motivation) {
+                                            console.log(`🔒 PROTECTED: Refusing to overwrite user motivation "${existingPC.motivation}" with AI motivation "${newAttributes[key]}"`);
+                                            return; // Skip this attribute
+                                        }
+                                        filteredAttributes[key] = newAttributes[key];
+                                    }
+                                });
+                                
                                 // Merge new attributes with existing PC, preserving important fields
                                 const updatedPC: Entity = {
                                     ...existingPC, // Keep existing data
-                                    ...newAttributes, // Apply new attributes
+                                    ...filteredAttributes, // Apply only defined new attributes
                                     type: 'pc', // Ensure type stays PC
                                     name: newAttributes.name || existingPC.name, // Use new name if provided
                                     referenceId: existingPC.referenceId || ReferenceIdGenerator.generateReferenceId(newAttributes.name || existingPC.name, 'pc')
                                 };
                                 console.log(`🔗 Updated existing PC ${updatedPC.name}, preserved motivation: ${updatedPC.motivation}`);
+                                console.log(`🔗 Applied attributes:`, Object.keys(filteredAttributes));
+                                console.log(`🔗 Existing motivation was:`, existingPC.motivation);
+                                console.log(`🔗 Final motivation is:`, updatedPC.motivation);
                                 
                                 // Remove old PC entry if name changed
                                 const newEntities = { ...prev };
