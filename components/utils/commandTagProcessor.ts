@@ -188,9 +188,8 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             days: Number(attributes.days) || 0,
                             hours: Number(attributes.hours) || 0
                         };
-                        if (Object.values(elapsed).some(v => v > 0)) {
-                            setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
-                        }
+                        // Always update time, even if hours=0 (for instant actions)
+                        setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
                         break;
                     case 'CHRONICLE_TURN':
                         if (attributes.text) {
