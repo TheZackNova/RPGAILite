@@ -24,11 +24,17 @@ export interface CommandTagProcessorParams {
 
 // Helper function to calculate new time
 const calculateNewTime = (
-    currentTime: { year: number; month: number; day: number; hour: number; },
-    elapsed: { years: number; months: number; days: number; hours: number; }
-): { year: number; month: number; day: number; hour: number; } => {
-    let { year, month, day, hour } = currentTime;
+    currentTime: { year: number; month: number; day: number; hour: number; minute: number; },
+    elapsed: { years: number; months: number; days: number; hours: number; minutes: number; }
+): { year: number; month: number; day: number; hour: number; minute: number; } => {
+    let { year, month, day, hour, minute } = currentTime;
 
+    // Add minutes first
+    minute += elapsed.minutes;
+    hour += Math.floor(minute / 60);
+    minute = minute % 60;
+
+    // Add hours
     hour += elapsed.hours;
     day += Math.floor(hour / 24);
     hour = hour % 24;
@@ -49,7 +55,7 @@ const calculateNewTime = (
     
     year += elapsed.years;
 
-    return { year, month, day, hour };
+    return { year, month, day, hour, minute };
 };
 
 const applyStatusWithLimit = (prevStatuses: Status[], newStatusAttributes: any, owner: string): Status[] => {
@@ -155,7 +161,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                     value = value.toLowerCase() === 'true';
                 } else if (key === 'objectives' && typeof value === 'string') {
                     value = value.split(';').map(desc => ({ description: desc.trim(), completed: false }));
-                } else if ((key === 'quantities' || key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours') && typeof value === 'string' && !isNaN(Number(value))) {
+                } else if ((key === 'quantities' || key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours' || key === 'minutes') && typeof value === 'string' && !isNaN(Number(value))) {
                     attributes[key] = Number(value);
                     continue;
                 }
@@ -186,9 +192,10 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             years: Number(attributes.years) || 0,
                             months: Number(attributes.months) || 0,
                             days: Number(attributes.days) || 0,
-                            hours: Number(attributes.hours) || 0
+                            hours: Number(attributes.hours) || 0,
+                            minutes: Number(attributes.minutes) || 0
                         };
-                        // Always update time, even if hours=0 (for instant actions)
+                        // Always update time, even if all values are 0 (for instant actions)
                         setGameTime(prevTime => calculateNewTime(prevTime, elapsed));
                         break;
                     case 'CHRONICLE_TURN':
@@ -341,13 +348,38 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             if (typeof newAttributes.learnedSkills === 'string') {
                                 newAttributes.learnedSkills = newAttributes.learnedSkills.split(',').map((s: string) => s.trim()).filter(Boolean);
                             }
-                            const newPC: Entity = { 
-                                type: 'pc', 
-                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'pc'),
-                                ...newAttributes 
-                            };
-                            console.log(`🔗 Generated reference ID for PC ${attributes.name}: ${newPC.referenceId}`);
-                            return { ...prev, [attributes.name]: newPC };
+                            
+                            // Find existing PC entity to preserve existing data
+                            const existingPC = Object.values(prev).find(e => e.type === 'pc') as Entity | undefined;
+                            
+                            if (existingPC) {
+                                // Merge new attributes with existing PC, preserving important fields
+                                const updatedPC: Entity = {
+                                    ...existingPC, // Keep existing data
+                                    ...newAttributes, // Apply new attributes
+                                    type: 'pc', // Ensure type stays PC
+                                    name: newAttributes.name || existingPC.name, // Use new name if provided
+                                    referenceId: existingPC.referenceId || ReferenceIdGenerator.generateReferenceId(newAttributes.name || existingPC.name, 'pc')
+                                };
+                                console.log(`🔗 Updated existing PC ${updatedPC.name}, preserved motivation: ${updatedPC.motivation}`);
+                                
+                                // Remove old PC entry if name changed
+                                const newEntities = { ...prev };
+                                if (existingPC.name !== updatedPC.name) {
+                                    delete newEntities[existingPC.name];
+                                }
+                                newEntities[updatedPC.name] = updatedPC;
+                                return newEntities;
+                            } else {
+                                // Create new PC if none exists
+                                const newPC: Entity = { 
+                                    type: 'pc', 
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'pc'),
+                                    ...newAttributes 
+                                };
+                                console.log(`🔗 Created new PC ${newPC.name}: ${newPC.referenceId}`);
+                                return { ...prev, [attributes.name]: newPC };
+                            }
                         });
                         break;
                     case 'LORE_NPC':

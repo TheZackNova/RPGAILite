@@ -75,7 +75,7 @@ export interface FormData {
     gender: string;
     bio: string;
     startSkills: { name: string; description: string }[];
-    addGoal: boolean;
+    addGoal: string;
     customRules: CustomRule[];
 }
 

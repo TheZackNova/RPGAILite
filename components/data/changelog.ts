@@ -3,6 +3,22 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.38.0',
+    date: '2025-08-05',
+    changes: [
+      { type: 'feature', text: 'Thêm hỗ trợ phút (minutes) cho hệ thống thời gian game - Game time giờ hiển thị chính xác phút (8:45 thay vì 8:00), TIME_ELAPSED command hỗ trợ minutes parameter cho hành động ngắn như mua sắm (15 phút) hoặc di chuyển gần (30-45 phút).' },
+      { type: 'feature', text: 'Cải tiến hệ thống Kỹ Năng Khởi Đầu - Tách thành 2 trường riêng biệt (tên kỹ năng và mô tả), thêm nút (+) để thêm nhiều kỹ năng khởi đầu, nút (-) để xóa kỹ năng, layout responsive với grid system.' },
+      { type: 'feature', text: 'Thêm lại trường Mục Tiêu (AddGoal) - Textbox mới trong CreateWorld dưới phần Bio, cho phép người chơi định nghĩa mục tiêu và động lực của nhân vật, được lưu vào motivation field của PC entity.' },
+      { type: 'feature', text: 'Thêm LORE_PC command tag - Cho phép AI tạo hoặc cập nhật thông tin Player Character trong gameplay, hỗ trợ đầy đủ các thuộc tính như description, personality, motivation, realm, currentExp, và learnedSkills.' },
+      { type: 'fix', text: 'Khắc phục lỗi game time ngừng cập nhật - Sửa lỗi TIME_ELAPSED với hours=0 không trigger time update, giờ tất cả TIME_ELAPSED đều được xử lý bình thường kể cả instant actions.' },
+      { type: 'fix', text: 'Khắc phục lỗi AddGoal bị AI ghi đè - LORE_PC command giờ merge với existing PC data thay vì overwrite hoàn toàn, bảo tồn motivation field và các thuộc tính quan trọng khác được set trong character creation.' },
+      { type: 'fix', text: 'Khắc phục lỗi starting skills không parse vào PC - Thêm debug logging và xử lý backward compatibility, starting skills giờ được thêm vào PC learnedSkills và tạo skill entities trong knownEntities đúng cách.' },
+      { type: 'improvement', text: 'Cập nhật system instruction với examples về minutes - AI giờ được hướng dẫn sử dụng minutes cho các hành động ngắn (5-30 phút), giúp thời gian game realistic hơn.' },
+      { type: 'improvement', text: 'Enhanced time calculation logic - Thêm minute overflow handling (60 minutes = 1 hour), cải thiện calculateNewTime function để xử lý chính xác thời gian phức tạp.' },
+      { type: 'technical', text: 'Backward compatibility cho saved games - Game time structure mới tự động thêm minute: 0 cho các save file cũ, không làm mất dữ liệu người chơi.' },
+    ],
+  },
+  {
     version: '1.37.3',
     date: '2025-08-05',
     changes: [

@@ -5,6 +5,7 @@ interface GameTime {
   month: number;
   day: number;
   hour: number;
+  minute: number;
 }
 
 interface FloatingTimeDisplayProps {
@@ -41,7 +42,7 @@ export const FloatingTimeDisplay: React.FC<FloatingTimeDisplayProps> = ({ gameTi
     
     return {
       date: `${monthNames[gameTime.month - 1]} ${gameTime.day}, Năm ${gameTime.year}`,
-      time: `${gameTime.hour}:00 ${timeOfDay}`
+      time: `${gameTime.hour}:${gameTime.minute.toString().padStart(2, '0')} ${timeOfDay}`
     };
   }, [gameTime]);
 

@@ -45,7 +45,7 @@ export const CreateWorld: React.FC<{
         gender: 'ai_decides',
         bio: '',
         startSkills: [{ name: '', description: '' }],
-        addGoal: false,
+        addGoal: '',
         customRules: [],
     });
     
@@ -866,6 +866,21 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                             rows={3} 
                             className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300 resize-none"
                         />
+                    </div>
+                    <div className="space-y-2">
+                        <label htmlFor="addGoal" className="block text-sm font-medium text-white/90">
+                            Mục Tiêu <span className="text-white/50">(Tùy chọn)</span>
+                        </label>
+                        <textarea 
+                            id="addGoal" 
+                            name="addGoal" 
+                            value={formData.addGoal} 
+                            onChange={handleInputChange} 
+                            placeholder="VD: Trở thành cao thủ võ lâm, tìm lại ký ức bị mất..." 
+                            rows={2} 
+                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300 resize-none"
+                        />
+                        <p className="text-xs text-white/50">Mục tiêu và động lực của nhân vật trong hành trình.</p>
                     </div>
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-white/90">

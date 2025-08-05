@@ -86,7 +86,7 @@ export const useGameState = (
     const [customRules, setCustomRules] = useState<CustomRule[]>(initialGameState.customRules);
     const [systemInstruction, setSystemInstruction] = useState<string>(initialGameState.systemInstruction);
     const [chronicle, setChronicle] = useState<Chronicle>(initialGameState.chronicle);
-    const [gameTime, setGameTime] = useState(initialGameState.gameTime || { year: 1, month: 1, day: 1, hour: 8 });
+    const [gameTime, setGameTime] = useState(initialGameState.gameTime || { year: 1, month: 1, day: 1, hour: 8, minute: 0 });
     
     // Game progression
     const [turnCount, setTurnCount] = useState<number>(initialGameState.turnCount);

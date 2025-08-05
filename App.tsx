@@ -44,22 +44,24 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
    **YÊU CẦU CHO TẤT CẢ PHẢN HỒI:**
    - **LUÔN LUÔN sử dụng thẻ [TIME_ELAPSED]** - KHÔNG CÓ NGOẠI LỆ
    - **Tính toán thời gian hợp lý** dựa trên độ phức tạp hành động:
-     * Trò chuyện đơn giản/quan sát: hours=0 
-     * Đi bộ/di chuyển: hours=1-2
+     * Trò chuyện đơn giản/quan sát: minutes=0 hoặc hours=0
+     * Hành động nhanh: minutes=5-30
+     * Đi bộ/di chuyển ngắn: minutes=30-60 hoặc hours=1-2
      * Chiến đấu/luyện tập: hours=2-4
      * Công việc phức tạp: hours=4+
      * Hoạt động dài hạn: days=1+
    
    **VÍ DỤ:**
-   - Người chơi nói "Nhìn xung quanh" → \`[TIME_ELAPSED: hours=0]\`
-   - Người chơi nói "Đi đến chợ" → \`[TIME_ELAPSED: hours=1]\` 
+   - Người chơi nói "Nhìn xung quanh" → \`[TIME_ELAPSED: minutes=0]\`
+   - Người chơi nói "Mua đồ ăn nhanh" → \`[TIME_ELAPSED: minutes=15]\`
+   - Người chơi nói "Đi đến chợ" → \`[TIME_ELAPSED: minutes=45]\` hoặc \`[TIME_ELAPSED: hours=1]\`
    - Người chơi nói "Luyện võ công" → \`[TIME_ELAPSED: hours=3]\`
    - Người chơi nói "Đi đến thành phố tiếp theo" → \`[TIME_ELAPSED: days=1]\`
    
    **❌ TUYỆT ĐỐI KHÔNG phản hồi mà không có thẻ [TIME_ELAPSED]**
    **✅ LUÔN cân nhắc hành động đó sẽ mất bao nhiều thời gian thực tế**
    
-   Ngay cả hành động tức thì cũng dùng \`hours=0\` để thể hiện ý thức về thời gian.
+   Ngay cả hành động tức thì cũng dùng \`minutes=0\` để thể hiện ý thức về thời gian.
 
 2. **CHRONICLE_TURN (BẮT BUỘC TỪ LƯỢT 2):**
    \`[CHRONICLE_TURN: text="⭐Tóm tắt ngắn gọn sự kiện chính của lượt này⭐"]\`
@@ -550,12 +552,15 @@ Trả về JSON với format đã chỉ định.`;
           age: data.characterAge,
           appearance: data.characterAppearance,
           personality: data.customPersonality || data.personalityFromList,
+          motivation: data.addGoal || undefined,
           learnedSkills: [],
           realm: data.realmTiers && data.realmTiers.length > 0 ? data.realmTiers[0].name : 'Luyện Khí',
           currentExp: 0,
           referenceId: ReferenceIdGenerator.generateReferenceId(data.characterName || 'Vô Danh', 'pc'),
       };
       console.log('🎮 StartNewGame: PC Entity created:', pcEntity.name);
+      console.log('🎮 StartNewGame: AddGoal from form:', data.addGoal);
+      console.log('🎮 StartNewGame: PC motivation set to:', pcEntity.motivation);
 
       // Generate appearance for PC if AI is available and user hasn't provided one
       if (ai && isAiReady && !data.characterAppearance) {
@@ -626,6 +631,8 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       
       // Update the PC entity in initialEntities to ensure it has the starting skills
       let initialEntities = { [pcEntity.name]: pcEntity };
+      console.log('🎮 StartNewGame: PC Entity after skills processing:', pcEntity);
+      console.log('🎮 StartNewGame: PC motivation after skills processing:', pcEntity.motivation);
       
       // Add starting skills as skill entities
       startingSkills.forEach(skill => {
@@ -655,9 +662,13 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
                   setInitSubStep(`Xử lý ${activeRules.length} quy tắc tùy chỉnh`);
                   
                   console.log('🎮 StartNewGame: Generating LORE_CONCEPT...');
+                  console.log('🎮 StartNewGame: PC motivation before LORE_CONCEPT:', initialEntities[pcEntity.name]?.motivation);
                   const conceptEntities = await generateLoreConcepts(activeRules);
                   console.log('🎮 StartNewGame: LORE_CONCEPT generated, count:', Object.keys(conceptEntities).length);
+                  console.log('🎮 StartNewGame: Concept entity names:', Object.keys(conceptEntities));
+                  console.log('🎮 StartNewGame: Does concepts contain PC name?', conceptEntities.hasOwnProperty(pcEntity.name));
                   initialEntities = { ...initialEntities, ...conceptEntities };
+                  console.log('🎮 StartNewGame: PC motivation after LORE_CONCEPT merge:', initialEntities[pcEntity.name]?.motivation);
                   
               } catch (error) {
                   console.error('🎮 StartNewGame: Failed to generate LORE_CONCEPT:', error);
@@ -690,7 +701,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
         systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
         turnCount: 0,
         totalTokens: 0,
-        gameTime: { year: data.worldTime.year, month: data.worldTime.month, day: data.worldTime.day, hour: 8 },
+        gameTime: { year: data.worldTime.year, month: data.worldTime.month, day: data.worldTime.day, hour: 8, minute: 0 },
         chronicle: {
             memoir: [],
             chapter: [],
@@ -765,7 +776,13 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
                         systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
                         turnCount: loadedJson.turnCount || 0,
                         totalTokens: loadedJson.totalTokens || 0,
-                        gameTime: loadedJson.gameTime || { year: 1, month: 1, day: 1, hour: 8 },
+                        gameTime: { 
+                            year: loadedJson.gameTime?.year || 1, 
+                            month: loadedJson.gameTime?.month || 1, 
+                            day: loadedJson.gameTime?.day || 1, 
+                            hour: loadedJson.gameTime?.hour || 8, 
+                            minute: loadedJson.gameTime?.minute || 0 
+                        },
                         chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
                         storyLog: loadedJson.storyLog,
                         choices: loadedJson.choices,
