@@ -13,6 +13,7 @@ import { PartyMemberTab } from './PartyMemberTab.tsx';
 import { QuestLog } from './QuestLog.tsx';
 import { InventoryModal } from './InventoryModal.tsx';
 import { AdminModal } from './AdminModal.tsx';
+import { EditItemModal } from './EditItemModal.tsx';
 
 import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
@@ -36,11 +37,13 @@ interface MemoizedModalsProps {
     isChoicesModalOpen: boolean;
     isInventoryModalOpen: boolean;
     isAdminModalOpen: boolean;
+    isEditItemModalOpen: boolean;
 
     // Active data for detail modals
     activeEntity: Entity | null;
     activeStatus: Status | null;
     activeQuest: Quest | null;
+    activeEditItem: Entity | null;
 
     // Handlers
     onBackToMenu: () => void;
@@ -58,6 +61,9 @@ interface MemoizedModalsProps {
     handleEntityClick: (entityName: string) => void;
     handleSaveRules: (rules: CustomRule[]) => void;
     handleAction: (action: string) => void;
+    setActiveEditItem: (item: Entity | null) => void;
+    handleSaveEditedItem: (originalItem: Entity, editedItem: Entity) => void;
+    setIsEditItemModalOpen: (open: boolean) => void;
     
     // onClose handlers for modals
     modalCloseHandlers: {
@@ -73,6 +79,7 @@ interface MemoizedModalsProps {
         choices: () => void;
         inventory: () => void;
         admin: () => void;
+        editItem: () => void;
     };
 
     // Game state data
@@ -423,9 +430,11 @@ const MemoizedModalsComponent = ({
     isChoicesModalOpen,
     isInventoryModalOpen,
     isAdminModalOpen,
+    isEditItemModalOpen,
     activeEntity,
     activeStatus,
     activeQuest,
+    activeEditItem,
     onBackToMenu,
     handleRestartGame,
     setActiveEntity,
@@ -441,6 +450,9 @@ const MemoizedModalsComponent = ({
     handleEntityClick,
     handleSaveRules,
     handleAction,
+    setActiveEditItem,
+    handleSaveEditedItem,
+    setIsEditItemModalOpen,
     modalCloseHandlers,
     memories,
     knownEntities,
@@ -597,6 +609,10 @@ const MemoizedModalsComponent = ({
                 onEquipItem={(item) => handleEquipItem(item.name)}
                 onUnequipItem={(item) => handleUnequipItem(item.name)}
                 onDiscardItem={handleDiscardItem}
+                onEditItem={(item) => {
+                    setActiveEditItem(item);
+                    setIsEditItemModalOpen(true);
+                }}
             />
 
             {/* Admin Modal */}
@@ -613,6 +629,14 @@ const MemoizedModalsComponent = ({
                 }}
                 onAddItem={(itemData) => handleAction(`ADMIN: [ITEM_AQUIRED: name="${itemData.name}", description="${itemData.description}", type="item", owner="pc", usable="${itemData.usable}", equippable="${itemData.equippable}"${itemData.quantities ? `, quantities="${itemData.quantities}"` : ''}${itemData.durability ? `, durability="${itemData.durability}"` : ''}] Tạo vật phẩm ${itemData.name}`)}
                 onAddSkill={(skillData) => handleAction(`ADMIN: [LORE_SKILL: name="${skillData.name}", description="${skillData.description}", realm="${skillData.realm || ''}", element="${skillData.element || ''}", skillType="${(skillData as any).skillType || 'combat'}"] [SKILL_LEARNED: name="${skillData.name}"] Tạo và học kỹ năng ${skillData.name}`)}
+            />
+
+            {/* Edit Item Modal */}
+            <EditItemModal
+                isOpen={isEditItemModalOpen}
+                onClose={modalCloseHandlers.editItem}
+                item={activeEditItem}
+                onSaveItem={handleSaveEditedItem}
             />
         </>
     );

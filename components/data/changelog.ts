@@ -3,6 +3,20 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.38.1',
+    date: '2025-08-05',
+    changes: [
+      { type: 'feature', text: 'Thêm nút "CHỈNH SỬA" cho vật phẩm trong Túi Đồ - Cho phép người chơi chỉnh sửa trực tiếp thông tin vật phẩm (tên, mô tả, số lượng, độ bền, thuộc tính có thể sử dụng/trang bị) thông qua EditItemModal chuyên dụng.' },
+      { type: 'feature', text: 'Triển khai EditItemModal với giao diện chỉnh sửa toàn diện - Hỗ trợ chỉnh sửa tất cả thuộc tính vật phẩm bao gồm name, description, quantities/uses, durability, và các boolean properties (usable, equippable, learnable, consumable, equipped).' },
+      { type: 'fix', text: 'Khắc phục lỗi z-index layering - EntityInfoModal bị che phủ bởi InventoryModal khi mở từ edit button. Tăng z-index của EntityInfoModal từ z-[80] lên z-[100] để hiển thị đúng thứ tự.' },
+      { type: 'fix', text: 'Sửa lỗi nghiêm trọng item editing tạo duplicate thay vì cập nhật - Cải thiện handleSaveEditedItem để track original item name, remove old item khi rename, và update existing item đúng cách thay vì tạo mới.' },
+      { type: 'improvement', text: 'Enhanced inventory management với edit capabilities - Edit button màu tím xuất hiện cạnh các nút USE/EQUIP/DISCARD khi select item, tích hợp hoàn toàn với modal system và state management.' },
+      { type: 'improvement', text: 'Smart item update system - Xử lý cả trường hợp rename item (xóa item cũ, tạo item mới) và modify properties (update in-place) với proper notification system và modal cleanup.' },
+      { type: 'technical', text: 'Comprehensive state management integration - Thêm isEditItemModalOpen, activeEditItem states, modal close handlers, và proper prop passing qua component hierarchy.' },
+      { type: 'technical', text: 'Enhanced EditItemModal architecture - Two-parameter save handler (originalItem, editedItem), proper form validation, responsive design với glass-morphism styling, và full TypeScript integration.' },
+    ],
+  },
+  {
     version: '1.38.0',
     date: '2025-08-05',
     changes: [

@@ -9,6 +9,7 @@ export interface InventoryModalProps {
     onEquipItem?: (item: Entity) => void;
     onUnequipItem?: (item: Entity) => void;
     onDiscardItem?: (item: Entity) => void;
+    onEditItem?: (item: Entity) => void;
 }
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({
@@ -18,7 +19,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     onUseItem,
     onEquipItem,
     onUnequipItem,
-    onDiscardItem
+    onDiscardItem,
+    onEditItem
 }) => {
     const [selectedItem, setSelectedItem] = useState<Entity | null>(null);
 
@@ -204,6 +206,18 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                     </>
                                 )}
                                 
+                                {onEditItem && (
+                                    <button
+                                        className="px-3 py-2 sm:px-4 bg-purple-600 hover:bg-purple-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
+                                        onClick={() => {
+                                            onEditItem(selectedItem);
+                                            setSelectedItem(null);
+                                        }}
+                                    >
+                                        CHỈNH SỬA
+                                    </button>
+                                )}
+
                                 {onDiscardItem && (
                                     <button
                                         className="px-3 py-2 sm:px-4 bg-red-600 hover:bg-red-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"

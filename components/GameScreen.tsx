@@ -130,7 +130,7 @@ export const GameScreen: React.FC<{
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
         isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
         isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen, isEntityImportModalOpen,
-        isInventoryModalOpen, isAdminModalOpen, activeEntity, activeStatus, activeQuest, showSaveSuccess, showRulesSavedSuccess,
+        isInventoryModalOpen, isAdminModalOpen, isEditItemModalOpen, activeEntity, activeStatus, activeQuest, activeEditItem, showSaveSuccess, showRulesSavedSuccess,
         notification
     } = modalState;
 
@@ -138,7 +138,7 @@ export const GameScreen: React.FC<{
         setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
         setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
         setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen, setIsEntityImportModalOpen,
-        setIsInventoryModalOpen, setIsAdminModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setShowSaveSuccess, setShowRulesSavedSuccess,
+        setIsInventoryModalOpen, setIsAdminModalOpen, setIsEditItemModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setActiveEditItem, setShowSaveSuccess, setShowRulesSavedSuccess,
         setNotification, modalCloseHandlers
     } = modalStateActions;
 
@@ -488,6 +488,32 @@ export const GameScreen: React.FC<{
         // Also add to story log to show the action happened
         setStoryLog(prev => [...prev, `> Vứt bỏ ${item.name}`, `Bạn đã vứt bỏ **${item.name}** khỏi túi đồ.`]);
     }, [setKnownEntities, setStoryLog]);
+
+    const handleSaveEditedItem = useCallback((originalItem: Entity, editedItem: Entity) => {
+        setKnownEntities(prev => {
+            const newEntities = { ...prev };
+            
+            // If the name changed, remove the old item
+            if (originalItem.name !== editedItem.name) {
+                delete newEntities[originalItem.name];
+                console.log(`✏️ Item renamed: ${originalItem.name} → ${editedItem.name}, old item removed`);
+            }
+            
+            // Add/update the edited item
+            newEntities[editedItem.name] = editedItem;
+            console.log(`✏️ Item edited: ${editedItem.name} has been updated`);
+            
+            return newEntities;
+        });
+        
+        // Show success notification
+        setNotification("Vật phẩm đã được chỉnh sửa thành công!");
+        setTimeout(() => setNotification(null), 3000);
+        
+        // Close the edit modal
+        setIsEditItemModalOpen(false);
+        setActiveEditItem(null);
+    }, [setKnownEntities, setNotification, setIsEditItemModalOpen, setActiveEditItem]);
     const handleStatusClick = useCallback((status: Status) => entityHandlers.handleStatusClick(status), [entityHandlers]);
     const handleToggleMemoryPin = useCallback((index: number) => gameStateHandlers.handleToggleMemoryPin(index), [gameStateHandlers]);
     
@@ -966,9 +992,11 @@ export const GameScreen: React.FC<{
                 isChoicesModalOpen={isChoicesModalOpen}
                 isInventoryModalOpen={isInventoryModalOpen}
                 isAdminModalOpen={isAdminModalOpen}
+                isEditItemModalOpen={isEditItemModalOpen}
                 activeEntity={activeEntity}
                 activeStatus={activeStatus}
                 activeQuest={activeQuest}
+                activeEditItem={activeEditItem}
                 onBackToMenu={onBackToMenu}
                 handleRestartGame={handleRestartGame}
                 setActiveEntity={setActiveEntity}
@@ -984,6 +1012,9 @@ export const GameScreen: React.FC<{
                 handleEntityClick={handleEntityClick}
                 handleSaveRules={handleSaveRules}
                 handleAction={handleAction}
+                setActiveEditItem={setActiveEditItem}
+                handleSaveEditedItem={handleSaveEditedItem}
+                setIsEditItemModalOpen={setIsEditItemModalOpen}
                 modalCloseHandlers={modalCloseHandlers}
                 memories={memories}
                 knownEntities={knownEntities}

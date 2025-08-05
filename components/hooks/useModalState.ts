@@ -18,11 +18,13 @@ export interface ModalState {
     isEntityImportModalOpen: boolean;
     isInventoryModalOpen: boolean;
     isAdminModalOpen: boolean;
+    isEditItemModalOpen: boolean;
     
     // Active modal entities
     activeEntity: Entity | null;
     activeStatus: Status | null;
     activeQuest: Quest | null;
+    activeEditItem: Entity | null;
     
     // Notification states
     showSaveSuccess: boolean;
@@ -47,11 +49,13 @@ export interface ModalStateActions {
     setIsEntityImportModalOpen: (open: boolean) => void;
     setIsInventoryModalOpen: (open: boolean) => void;
     setIsAdminModalOpen: (open: boolean) => void;
+    setIsEditItemModalOpen: (open: boolean) => void;
     
     // Active modal entity setters
     setActiveEntity: (entity: Entity | null) => void;
     setActiveStatus: (status: Status | null) => void;
     setActiveQuest: (quest: Quest | null) => void;
+    setActiveEditItem: (item: Entity | null) => void;
     
     // Notification setters
     setShowSaveSuccess: (show: boolean) => void;
@@ -72,6 +76,7 @@ export interface ModalStateActions {
         choices: () => void;
         inventory: () => void;
         admin: () => void;
+        editItem: () => void;
     };
 }
 
@@ -92,11 +97,13 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
     const [isEntityImportModalOpen, setIsEntityImportModalOpen] = useState(false);
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const [isEditItemModalOpen, setIsEditItemModalOpen] = useState(false);
     
     // Active modal entities
     const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
     const [activeStatus, setActiveStatus] = useState<Status | null>(null);
     const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+    const [activeEditItem, setActiveEditItem] = useState<Entity | null>(null);
     
     // Notification states
     const [showSaveSuccess, setShowSaveSuccess] = useState(false);
@@ -117,6 +124,10 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         choices: () => setIsChoicesModalOpen(false),
         inventory: () => setIsInventoryModalOpen(false),
         admin: () => setIsAdminModalOpen(false),
+        editItem: () => {
+            setIsEditItemModalOpen(false);
+            setActiveEditItem(null);
+        },
     }), []);
 
     const modalState: ModalState = {
@@ -135,9 +146,11 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         isEntityImportModalOpen,
         isInventoryModalOpen,
         isAdminModalOpen,
+        isEditItemModalOpen,
         activeEntity,
         activeStatus,
         activeQuest,
+        activeEditItem,
         showSaveSuccess,
         showRulesSavedSuccess,
         notification
@@ -159,9 +172,11 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         setIsEntityImportModalOpen,
         setIsInventoryModalOpen,
         setIsAdminModalOpen,
+        setIsEditItemModalOpen,
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,
+        setActiveEditItem,
         setShowSaveSuccess,
         setShowRulesSavedSuccess,
         setNotification,
