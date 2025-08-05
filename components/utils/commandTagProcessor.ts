@@ -336,6 +336,21 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             return newEntities;
                         });
                         break;
+                    case 'LORE_PC':
+                        setKnownEntities(prev => {
+                            const newAttributes = { ...attributes };
+                            if (typeof newAttributes.learnedSkills === 'string') {
+                                newAttributes.learnedSkills = newAttributes.learnedSkills.split(',').map((s: string) => s.trim()).filter(Boolean);
+                            }
+                            const newPC: Entity = { 
+                                type: 'pc', 
+                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'pc'),
+                                ...newAttributes 
+                            };
+                            console.log(`🔗 Generated reference ID for PC ${attributes.name}: ${newPC.referenceId}`);
+                            return { ...prev, [attributes.name]: newPC };
+                        });
+                        break;
                     case 'LORE_NPC':
                         setKnownEntities(prev => {
                             const newAttributes = { ...attributes };

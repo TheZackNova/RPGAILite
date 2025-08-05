@@ -111,19 +111,22 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 
 **C. TẠO VÀ CẬP NHẬT THỰC THỂ:**
 
-1. **NPCs mới:**
+1. **Nhân vật chính (PC):**
+\`[LORE_PC: name="Tên PC", description="Mô tả chi tiết", gender="Nam/Nữ", age="25", appearance="Dung mạo", personality="Tính cách", motivation="Động cơ", location="Vị trí hiện tại", realm="Cảnh giới", currentExp=100, learnedSkills="Kỹ năng 1,Kỹ năng 2"]\`
+
+2. **NPCs mới:**
 \`[LORE_NPC: name="Tên NPC", description="Mô tả chi tiết", gender="Nam/Nữ", age="25", appearance="Dung mạo", motivation="Động cơ", location="Vị trí", personalityMbti="ENTJ", skills="Kỹ năng 1,Kỹ năng 2"]\`
 
-2. **Vật phẩm mới:**
+3. **Vật phẩm mới:**
 \`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, quantities=5, durability=100]\`
 
-3. **Kỹ năng mới:**
+4. **Kỹ năng mới:**
 \`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", mastery="Mức độ thành thạo nếu có"]\`
 
-4.Thế lực mới
+5. **Thế lực mới:**
 \`[LORE_FACTION: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
 
-5. Quy tắc được áp dụng đọc từ tri thức và custom rule
+6. **Quy tắc được áp dụng đọc từ tri thức và custom rule:**
 \`[LORE_CONCEPT: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
 
 **🚫 QUY TẮC FORMAT TÊN QUAN TRỌNG:**
