@@ -117,6 +117,7 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     });
     const [itemHeights, setItemHeights] = useState<Map<string, number>>(new Map());
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const preservedScrollPositionRef = useRef<number | null>(null);
 
     // Create virtual items from story log
     const virtualItems = useMemo<VirtualItem[]>(() => {
@@ -216,6 +217,13 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         const { scrollTop, scrollHeight, clientHeight } = scrollData;
         const isNearBottom = scrollTop + clientHeight >= scrollHeight - AUTO_SCROLL_THRESHOLD;
 
+        // Store current scroll position if user is not near bottom
+        if (!isNearBottom) {
+            preservedScrollPositionRef.current = scrollTop;
+        } else {
+            preservedScrollPositionRef.current = null;
+        }
+
         setVirtualState(prev => ({
             ...prev,
             scrollTop,
@@ -269,14 +277,25 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         };
     }, []);
 
-    // Auto-scroll when new content is added
-    //useEffect(() => {
-     //   if (virtualState.shouldAutoScroll && storyLog.length > 0) {
-     //       setTimeout(() => {
-      //          scrollToBottom();
-     //       }, 100);
-//   }
- //   }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
+    // Handle scroll position when new content is added
+    useEffect(() => {
+        // Only restore scroll position if user was not near bottom when new content arrives
+        if (preservedScrollPositionRef.current !== null && !virtualState.shouldAutoScroll) {
+            const restorePosition = preservedScrollPositionRef.current;
+            setTimeout(() => {
+                if (scrollElementRef.current && preservedScrollPositionRef.current === restorePosition) {
+                    scrollElementRef.current.scrollTop = restorePosition;
+                    // Reset preserved position after restoring
+                    preservedScrollPositionRef.current = null;
+                }
+            }, 50); // Small delay to ensure DOM has updated
+        } else if (virtualState.shouldAutoScroll && storyLog.length > 0) {
+            // Auto-scroll to bottom if user was near bottom
+            setTimeout(() => {
+                scrollToBottom();
+            }, 100);
+        }
+    }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
 
     // Calculate offset for visible items
     const offsetY = visibleRange.startIndex > 0 ? itemPositions[visibleRange.startIndex].start : 0;
