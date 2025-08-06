@@ -444,10 +444,26 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                 const filteredAttributes: any = {};
                                 Object.keys(newAttributes).forEach(key => {
                                     if (newAttributes[key] !== undefined && newAttributes[key] !== null && newAttributes[key] !== '') {
-                                        // Special protection: Never overwrite user-defined motivation with AI-generated motivation
+                                        // Special handling: Prefer user-defined motivation, but allow AI to enhance if significantly different
                                         if (key === 'motivation' && existingPC.motivation) {
-                                            console.log(`🔒 PROTECTED: Refusing to overwrite user motivation "${existingPC.motivation}" with AI motivation "${newAttributes[key]}"`);
-                                            return; // Skip this attribute
+                                            const userMotivation = existingPC.motivation.toLowerCase().trim();
+                                            const aiMotivation = newAttributes[key].toLowerCase().trim();
+                                            
+                                            // If AI motivation is substantially different (not just punctuation), keep user's but log the AI version
+                                            const userWords = userMotivation.replace(/[^\w\s]/g, '').split(/\s+/).sort();
+                                            const aiWords = aiMotivation.replace(/[^\w\s]/g, '').split(/\s+/).sort();
+                                            const similarity = userWords.filter(word => aiWords.includes(word)).length / Math.max(userWords.length, aiWords.length);
+                                            
+                                            if (similarity > 0.7) {
+                                                // Very similar, keep user's version
+                                                console.log(`🔄 MOTIVATION: Keeping user version (${Math.round(similarity * 100)}% similar to AI version)`);
+                                                return; // Skip AI version
+                                            } else {
+                                                // Significantly different, might be AI enhancement
+                                                console.log(`🔄 MOTIVATION: AI version differs significantly (${Math.round(similarity * 100)}% similar), using AI version: "${newAttributes[key]}"`);
+                                                filteredAttributes[key] = newAttributes[key];
+                                                return;
+                                            }
                                         }
                                         // Special handling: Merge AI-generated skills with existing starting skills
                                         if (key === 'learnedSkills' && existingPC.learnedSkills && existingPC.learnedSkills.length > 0) {
