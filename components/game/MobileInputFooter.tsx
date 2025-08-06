@@ -68,8 +68,13 @@ export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
     
     // Handle input change with local state
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
         if (!isComposing) {
-            setLocalCustomAction(e.target.value);
+            setLocalCustomAction(value);
+        }
+        // Always update local state for immediate UI feedback on mobile
+        if (isComposing) {
+            setLocalCustomAction(value);
         }
     }, [isComposing]);
     
@@ -115,6 +120,11 @@ export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa." : "Nhập hành động..."}
                         className="flex-1 bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500"
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        inputMode="text"
                     />
                     {handleSuggestAction && (
                         <button 

@@ -75,8 +75,13 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
     
     // Handle input change with local state
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
         if (!isComposing) {
-            setLocalCustomAction(e.target.value);
+            setLocalCustomAction(value);
+        }
+        // Always update local state for immediate UI feedback
+        if (isComposing) {
+            setLocalCustomAction(value);
         }
     }, [isComposing]);
     
@@ -175,6 +180,11 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ" : "Ví dụ: nhặt hòn đá lên..."}
                         className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        autoComplete="off"
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        inputMode="text"
                     />
                     <button 
                         onClick={handleSuggestAction}
