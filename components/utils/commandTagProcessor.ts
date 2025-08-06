@@ -174,12 +174,15 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
         const unprocessedTags: string[] = [];
         while ((match = tagRegex.exec(storyText)) !== null) {
             cleanStory = cleanStory.replace(match[0], ''); // Remove tag from displayed story
+            console.log(`🔧 DEBUG: Found tag: ${match[0]}`);
             
             if (applySideEffects) {
                 const tagType = match[1];
                 const rawContent = match[2];
+                console.log(`🔧 DEBUG: Tag type: ${tagType}, Raw content: ${rawContent}`);
                 
                 const attributes = parseAttributes(rawContent);
+                console.log(`🔧 DEBUG: Parsed attributes:`, attributes);
                 
                 if (Object.keys(attributes).length === 0) {
                      unprocessedTags.push(match[0]);
@@ -312,9 +315,11 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         });
                         break;
                     case 'SKILL_LEARNED':
+                        console.log(`🔧 DEBUG: Processing SKILL_LEARNED tag:`, attributes);
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };
                             const { name, description, learner, target, ...rest } = attributes;
+                            console.log(`🔧 DEBUG: Skill data - name: ${name}, description: ${description}, learner: ${learner}, target: ${target}`);
                             if (name && description) {
                                 const newSkill: Entity = {
                                     type: 'skill',
