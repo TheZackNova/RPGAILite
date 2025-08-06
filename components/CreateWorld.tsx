@@ -44,7 +44,7 @@ export const CreateWorld: React.FC<{
         personalityFromList: '',
         gender: 'ai_decides',
         bio: '',
-        startSkills: [{ name: '', description: '' }],
+        startSkills: [{ name: '', description: '', mastery: '' }],
         addGoal: '',
         customRules: [],
     });
@@ -258,7 +258,7 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
             setFormData(prev => ({ 
                 ...prev, 
                 bio: suggestions.bio || '',
-                startSkills: suggestions.skill ? [{ name: suggestions.skill, description: '' }] : [{ name: '', description: '' }]
+                startSkills: suggestions.skill ? [{ name: suggestions.skill, description: '', mastery: '' }] : [{ name: '', description: '', mastery: '' }]
             }));
         } catch (error: any) {
             console.error('Error generating character suggestions:', error);
@@ -315,6 +315,11 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                 { id: '1', name: 'Luyện Khí', requiredExp: 0 },
                                 { id: '2', name: 'Trúc Cơ', requiredExp: 100 }
                             ], // Backward compatibility
+                            startSkills: loadedData.startSkills ? loadedData.startSkills.map((skill: any) => ({
+                                name: skill.name || '',
+                                description: skill.description || '',
+                                mastery: skill.mastery || '' // Backward compatibility - add mastery field if missing
+                            })) : [{ name: '', description: '', mastery: '' }], // Backward compatibility
                         };
                         setFormData(newFormData);
                         alert('Đã tải thiết lập thành công!');
@@ -907,7 +912,7 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    const newSkills = [...formData.startSkills, { name: '', description: '' }];
+                                                    const newSkills = [...formData.startSkills, { name: '', description: '', mastery: '' }];
                                                     setFormData(prev => ({ ...prev, startSkills: newSkills }));
                                                 }}
                                                 className="w-6 h-6 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-md flex items-center justify-center text-green-400 hover:text-green-300 transition-colors"
@@ -917,38 +922,61 @@ Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng kh�
                                         )}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-xs font-medium text-white/70 mb-1">
-                                            Tên kỹ năng
-                                        </label>
-                                        <input 
-                                            type="text" 
-                                            value={skill.name} 
-                                            onChange={(e) => {
-                                                const newSkills = [...formData.startSkills];
-                                                newSkills[index].name = e.target.value;
-                                                setFormData(prev => ({ ...prev, startSkills: newSkills }));
-                                            }}
-                                            placeholder="VD: Thuật ẩn thân" 
-                                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
-                                        />
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-white/70 mb-1">
+                                                Tên kỹ năng
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                value={skill.name} 
+                                                onChange={(e) => {
+                                                    const newSkills = [...formData.startSkills];
+                                                    newSkills[index].name = e.target.value;
+                                                    setFormData(prev => ({ ...prev, startSkills: newSkills }));
+                                                }}
+                                                placeholder="VD: Thuật ẩn thân" 
+                                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-white/70 mb-1">
+                                                Mô tả
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                value={skill.description} 
+                                                onChange={(e) => {
+                                                    const newSkills = [...formData.startSkills];
+                                                    newSkills[index].description = e.target.value;
+                                                    setFormData(prev => ({ ...prev, startSkills: newSkills }));
+                                                }}
+                                                placeholder="VD: Có thể ẩn mình trong bóng tối" 
+                                                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-white/70 mb-1">
-                                            Mô tả
+                                            Mức độ thành thạo
                                         </label>
-                                        <input 
-                                            type="text" 
-                                            value={skill.description} 
+                                        <select
+                                            value={skill.mastery} 
                                             onChange={(e) => {
                                                 const newSkills = [...formData.startSkills];
-                                                newSkills[index].description = e.target.value;
+                                                newSkills[index].mastery = e.target.value;
                                                 setFormData(prev => ({ ...prev, startSkills: newSkills }));
                                             }}
-                                            placeholder="VD: Có thể ẩn mình trong bóng tối" 
-                                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white placeholder-white/50 focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
-                                        />
+                                            className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20 transition-all duration-300"
+                                        >
+                                            <option value="" className="bg-slate-800 text-white">Chọn mức độ...</option>
+                                            <option value="Sơ Cấp" className="bg-slate-800 text-white">Sơ Cấp</option>
+                                            <option value="Trung Cấp" className="bg-slate-800 text-white">Trung Cấp</option>
+                                            <option value="Cao Cấp" className="bg-slate-800 text-white">Cao Cấp</option>
+                                            <option value="Đại Thành" className="bg-slate-800 text-white">Đại Thành</option>
+                                            <option value="Viên Mãn" className="bg-slate-800 text-white">Viên Mãn</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>

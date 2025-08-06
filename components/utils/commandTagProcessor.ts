@@ -496,12 +496,12 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                     
                                                     const newSkillBase = normalizeSpaces(newSkillLower)
                                                         .replace(/\s*\([^)]*\)\s*/g, '') // Remove all parentheses content first
-                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/g, '') // Remove level modifiers
+                                                        .replace(/\s*(viên mãn|đại thành|tối cao|cao cấp|nâng cao|trung cấp|sơ cấp|cơ bản|cấp độ \d+)\s*/g, '') // Remove level modifiers
                                                         .replace(/\s*(:\s*[^,]*)/g, '') // Remove anything after colon
                                                         .trim();
                                                     const existingSkillBase = normalizeSpaces(existingSkillLower)
                                                         .replace(/\s*\([^)]*\)\s*/g, '') // Remove all parentheses content first
-                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/g, '') // Remove level modifiers
+                                                        .replace(/\s*(viên mãn|đại thành|tối cao|cao cấp|nâng cao|trung cấp|sơ cấp|cơ bản|cấp độ \d+)\s*/g, '') // Remove level modifiers
                                                         .replace(/\s*(:\s*[^,]*)/g, '') // Remove anything after colon
                                                         .trim();
                                                     
@@ -511,10 +511,18 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                         
                                                         // Determine skill levels and upgrade logic
                                                         const getSkillLevel = (skill: string) => {
-                                                            if (skill.includes('tối cao')) return 4;
-                                                            if (skill.includes('cao cấp') || skill.includes('nâng cao')) return 3;
-                                                            if (skill.includes('trung cấp')) return 2;
-                                                            if (skill.includes('sơ cấp') || skill.includes('cơ bản')) return 1;
+                                                            const skillLower = skill.toLowerCase();
+                                                            
+                                                            // Check for mastery levels in parentheses (new format)
+                                                            if (skillLower.includes('(viên mãn)') || skillLower.includes('viên mãn')) return 5;
+                                                            if (skillLower.includes('(đại thành)') || skillLower.includes('đại thành')) return 4;
+                                                            if (skillLower.includes('(cao cấp)') || skillLower.includes('cao cấp') || skillLower.includes('nâng cao')) return 3;
+                                                            if (skillLower.includes('(trung cấp)') || skillLower.includes('trung cấp')) return 2;
+                                                            if (skillLower.includes('(sơ cấp)') || skillLower.includes('sơ cấp') || skillLower.includes('cơ bản')) return 1;
+                                                            
+                                                            // Legacy checks for compatibility
+                                                            if (skillLower.includes('tối cao')) return 4;
+                                                            
                                                             return 0; // No level specified - treat as basic
                                                         };
                                                         

@@ -68,6 +68,19 @@ export const createGameActionHandlers = (params: GameActionHandlersParams) => {
 
         if (!pcEntity) return;
 
+        // Build skill information with mastery levels
+        let skillsWithMastery = '';
+        if (pcEntity.learnedSkills && pcEntity.learnedSkills.length > 0) {
+            const skillDetails = pcEntity.learnedSkills.map((skillName: string) => {
+                const skillEntity = knownEntities[skillName];
+                if (skillEntity && skillEntity.mastery) {
+                    return `${skillName} (${skillEntity.mastery})`;
+                }
+                return skillName;
+            });
+            skillsWithMastery = skillDetails.join(', ');
+        }
+
         const userPrompt = `${customRulesContext}${conceptContext}
 
 BẠN LÀ QUẢN TRÒ AI. Tạo câu chuyện mở đầu cho game RPG với yêu cầu sau:
@@ -76,7 +89,7 @@ BẠN LÀ QUẢN TRÒ AI. Tạo câu chuyện mở đầu cho game RPG với yê
 Tên: ${pcEntity.name}
 Giới tính: ${pcEntity.gender}
 Tiểu sử: ${pcEntity.description}
-Tính cách: ${pcEntity.personality}${pcEntity.motivation ? `\n**ĐỘNG CƠ/MỤC TIÊU QUAN TRỌNG**: ${pcEntity.motivation}` : ''}
+Tính cách: ${pcEntity.personality}${pcEntity.motivation ? `\n**ĐỘNG CƠ/MỤC TIÊU QUAN TRỌNG**: ${pcEntity.motivation}` : ''}${skillsWithMastery ? `\n**KỸ NĂNG KHỞI ĐẦU**: ${skillsWithMastery}` : ''}
 
 --- THÔNG TIN THẾ GIỚI ---
 Thế giới: ${worldData.worldName}
@@ -89,12 +102,12 @@ Nội dung 18+: ${nsfwInstruction}
 --- YÊU CẦU VIẾT STORY ---
 1. **CHIỀU DÀI**: Chính xác 300-400 từ, chi tiết và sống động
 2. **SỬ DỤNG CONCEPT**: Phải tích hợp các LORE_CONCEPT đã thiết lập vào câu chuyện một cách tự nhiên
-3. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama${pcEntity.motivation ? `\n4. **PHẢN ÁNH ĐỘNG CƠ NHÂN VẬT**: Câu chuyện và lựa chọn phải liên quan đến động cơ/mục tiêu của nhân vật chính: "${pcEntity.motivation}"` : ''}
-${pcEntity.motivation ? '5' : '4'}. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
-${pcEntity.motivation ? '6' : '5'}. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
-${pcEntity.motivation ? '7' : '6'}. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị${pcEntity.motivation ? `, một số lựa chọn phải hướng tới việc thực hiện mục tiêu: "${pcEntity.motivation}"` : ''}
+3. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama${skillsWithMastery ? `\n4. **NHẮC ĐẾN KỸ NĂNG**: Phải đề cập hoặc thể hiện kỹ năng khởi đầu của nhân vật trong câu chuyện hoặc lựa chọn, chú ý đến mức độ thành thạo` : ''}${pcEntity.motivation ? `\n${skillsWithMastery ? '5' : '4'}. **PHẢN ÁNH ĐỘNG CƠ NHÂN VẬT**: Câu chuyện và lựa chọn phải liên quan đến động cơ/mục tiêu của nhân vật chính: "${pcEntity.motivation}"` : ''}
+${pcEntity.motivation && skillsWithMastery ? '6' : pcEntity.motivation || skillsWithMastery ? '5' : '4'}. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
+${pcEntity.motivation && skillsWithMastery ? '7' : pcEntity.motivation || skillsWithMastery ? '6' : '5'}. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
+${pcEntity.motivation && skillsWithMastery ? '8' : pcEntity.motivation || skillsWithMastery ? '7' : '6'}. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị${pcEntity.motivation ? `, một số lựa chọn phải hướng tới việc thực hiện mục tiêu: "${pcEntity.motivation}"` : ''}${skillsWithMastery ? `, và một số lựa chọn cho phép sử dụng kỹ năng khởi đầu với mức độ thành thạo phù hợp` : ''}
 
-Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` và thể hiện rõ động cơ "${pcEntity.motivation}" của nhân vật!` : '!'}`;
+Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` và thể hiện rõ động cơ "${pcEntity.motivation}" của nhân vật` : ''}${skillsWithMastery ? `${pcEntity.motivation ? ', ' : ' và '}nhắc đến hoặc cho phép sử dụng kỹ năng khởi đầu với mức độ thành thạo` : ''}!`;
 
         const finalHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
         setGameHistory(finalHistory);

@@ -439,7 +439,8 @@ export class EnhancedRAGSystem {
                 entity,
                 gameState.statuses,
                 reason,
-                tokensPerEntity
+                tokensPerEntity,
+                gameState
             );
             
             const entityTokens = this.estimateTokens(entityText);
@@ -485,6 +486,16 @@ export class EnhancedRAGSystem {
             if (pc.motivation) pcDetails.push(`**MỤC TIÊU**: ${pc.motivation}`);
             if (pc.location) pcDetails.push(`Vị trí: ${pc.location}`);
             if (pc.realm) pcDetails.push(`Thực lực: ${pc.realm}`);
+            if (pc.learnedSkills && pc.learnedSkills.length > 0) {
+                const skillsWithMastery = pc.learnedSkills.map(skillName => {
+                    const skillEntity = Object.values(gameState.knownEntities).find((e: any) => e.name === skillName && e.type === 'skill');
+                    if (skillEntity && skillEntity.mastery) {
+                        return `${skillName} (${skillEntity.mastery})`;
+                    }
+                    return skillName;
+                });
+                pcDetails.push(`Kỹ năng: ${skillsWithMastery.join(', ')}`);
+            }
             if (pcStatuses.length > 0) {
                 pcDetails.push(`Trạng thái: ${pcStatuses.map(s => s.name).join(', ')}`);
             }
@@ -736,7 +747,8 @@ export class EnhancedRAGSystem {
         entity: Entity,
         statuses: Status[],
         reasons: string[],
-        maxTokens: number
+        maxTokens: number,
+        gameState: SaveData
     ): string {
         let text = `• ${entity.name} (${entity.type})`;
         
@@ -771,6 +783,16 @@ export class EnhancedRAGSystem {
             // Player Character - EMPHASIZE MOTIVATION
             text += ` [NHÂN VẬT CHÍNH]`;
             if (entity.motivation) details.push(`**MỤC TIÊU QUAN TRỌNG**: ${entity.motivation}`);
+            if (entity.learnedSkills && entity.learnedSkills.length > 0) {
+                const skillsWithMastery = entity.learnedSkills.map(skillName => {
+                    const skillEntity = Object.values(gameState.knownEntities).find((e: any) => e.name === skillName && e.type === 'skill');
+                    if (skillEntity && skillEntity.mastery) {
+                        return `${skillName} (${skillEntity.mastery})`;
+                    }
+                    return skillName;
+                });
+                details.push(`Kỹ năng: ${skillsWithMastery.join(', ')}`);
+            }
             if (entity.personality) details.push(`Tính cách: ${entity.personality}`);
             if (entity.personalityMbti) details.push(`MBTI: ${entity.personalityMbti}`);
         } else if (entity.type === 'npc') {
