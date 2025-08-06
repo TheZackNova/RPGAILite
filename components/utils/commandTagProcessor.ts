@@ -491,46 +491,85 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                     const existingSkillLower = existingSkill.toLowerCase();
                                                     
                                                     // Extract base skill name (remove modifiers like "tối cao", "cơ bản", etc.)
-                                                    const newSkillBase = newSkillLower
-                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/, '')
-                                                        .replace(/\s*\([^)]*\)\s*/, '') // Remove parentheses content
+                                                    // Normalize spaces first, then remove modifiers
+                                                    const normalizeSpaces = (str: string) => str.replace(/\s+/g, ' ').trim();
+                                                    
+                                                    const newSkillBase = normalizeSpaces(newSkillLower)
+                                                        .replace(/\s*\([^)]*\)\s*/g, '') // Remove all parentheses content first
+                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/g, '') // Remove level modifiers
+                                                        .replace(/\s*(:\s*[^,]*)/g, '') // Remove anything after colon
                                                         .trim();
-                                                    const existingSkillBase = existingSkillLower
-                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/, '')
-                                                        .replace(/\s*\([^)]*\)\s*/, '') // Remove parentheses content
+                                                    const existingSkillBase = normalizeSpaces(existingSkillLower)
+                                                        .replace(/\s*\([^)]*\)\s*/g, '') // Remove all parentheses content first
+                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/g, '') // Remove level modifiers
+                                                        .replace(/\s*(:\s*[^,]*)/g, '') // Remove anything after colon
                                                         .trim();
                                                     
                                                     // Check if base skills are the same
                                                     if (newSkillBase === existingSkillBase) {
                                                         isUpgradeOrSimilar = true;
                                                         
-                                                        // Check if new skill is an upgrade (contains "tối cao", "cao cấp", etc.)
-                                                        const isUpgrade = newSkillLower.includes('tối cao') || 
-                                                                         newSkillLower.includes('cao cấp') || 
-                                                                         newSkillLower.includes('nâng cao');
-                                                        const existingIsBasic = existingSkillLower.includes('cơ bản') || 
-                                                                              existingSkillLower.includes('sơ cấp');
+                                                        // Determine skill levels and upgrade logic
+                                                        const getSkillLevel = (skill: string) => {
+                                                            if (skill.includes('tối cao')) return 4;
+                                                            if (skill.includes('cao cấp') || skill.includes('nâng cao')) return 3;
+                                                            if (skill.includes('trung cấp')) return 2;
+                                                            if (skill.includes('sơ cấp') || skill.includes('cơ bản')) return 1;
+                                                            return 0; // No level specified - treat as basic
+                                                        };
                                                         
-                                                        if (isUpgrade && existingIsBasic) {
-                                                            // Replace basic skill with upgraded version
+                                                        const newSkillLevel = getSkillLevel(newSkillLower);
+                                                        const existingSkillLevel = getSkillLevel(existingSkillLower);
+                                                        
+                                                        console.log(`🔍 Skill comparison: "${existingSkill}" (level ${existingSkillLevel}) vs "${newSkill}" (level ${newSkillLevel})`);
+                                                        console.log(`🔍 Base skills: "${existingSkillBase}" vs "${newSkillBase}"`);
+                                                        
+                                                        if (newSkillLevel > existingSkillLevel) {
+                                                            // Replace lower level with higher level
                                                             const index = mergedSkills.indexOf(existingSkill);
                                                             if (index !== -1) {
                                                                 mergedSkills[index] = newSkill;
                                                                 upgradedSkills.push(`${existingSkill} → ${newSkill}`);
+                                                                console.log(`✅ Upgraded: ${existingSkill} → ${newSkill}`);
                                                             }
-                                                        } else if (!mergedSkills.includes(newSkill)) {
-                                                            // Keep both if they're different levels
-                                                            mergedSkills.push(newSkill);
-                                                            addedSkills.push(newSkill);
+                                                        } else if (newSkillLevel < existingSkillLevel) {
+                                                            // Keep existing higher level, ignore lower level new skill
+                                                            console.log(`❌ Rejected lower level: ${newSkill} (existing: ${existingSkill})`);
+                                                        } else if (newSkillLevel === existingSkillLevel) {
+                                                            // Same level - check for exact duplicates (case-insensitive)
+                                                            const skillExistsIgnoreCase = mergedSkills.some(skill => 
+                                                                skill.toLowerCase().trim() === newSkill.toLowerCase().trim()
+                                                            );
+                                                            
+                                                            if (!skillExistsIgnoreCase) {
+                                                                // Different specializations or slight name variations
+                                                                mergedSkills.push(newSkill);
+                                                                addedSkills.push(newSkill);
+                                                                console.log(`➕ Added same level specialization: ${newSkill}`);
+                                                            } else {
+                                                                console.log(`⏭️ Duplicate skill (case-insensitive): ${newSkill}`);
+                                                            }
+                                                        } else {
+                                                            console.log(`⏭️ Skill already exists: ${newSkill}`);
                                                         }
                                                         break;
                                                     }
                                                 }
                                                 
                                                 // If it's not similar to any existing skill, add it
-                                                if (!isUpgradeOrSimilar && !mergedSkills.includes(newSkill)) {
-                                                    mergedSkills.push(newSkill);
-                                                    addedSkills.push(newSkill);
+                                                if (!isUpgradeOrSimilar) {
+                                                    // Case-insensitive duplicate check
+                                                    const skillExistsIgnoreCase = mergedSkills.some(existingSkill => 
+                                                        existingSkill.toLowerCase().trim() === newSkill.toLowerCase().trim()
+                                                    );
+                                                    
+                                                    if (!skillExistsIgnoreCase) {
+                                                        mergedSkills.push(newSkill);
+                                                        addedSkills.push(newSkill);
+                                                        console.log(`➕ Added new skill: ${newSkill}`);
+                                                    } else {
+                                                        console.log(`⏭️ Skill already exists (case-insensitive): ${newSkill}`);
+                                                    }
                                                 }
                                             });
                                             

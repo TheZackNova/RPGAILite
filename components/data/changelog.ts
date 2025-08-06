@@ -3,6 +3,21 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.40.0',
+    date: '2025-08-06', 
+    changes: [
+      { type: 'fix', text: 'Khắc phục hoàn toàn lỗi Vietnamese IME composition - Sửa lỗi "thaạo" (diacritics không compose đúng), cursor jumping khi nhấn spacebar, và spacebar không tạo space. Triển khai intelligent IME handling với isComposing state, onCompositionStart/End events, và optimized debounced input system.' },
+      { type: 'fix', text: 'Sửa lỗi UnifiedMemoryManager auto-cleanup ngừng hoạt động sau initial cycles - Cải thiện cleanup threshold logic từ simple comparison thành multi-condition triggers: over maxActive limit (45), over cleanup threshold (65), hoặc quá nhiều low-importance memories (>10). Enhanced logging để track cleanup decisions.' },
+      { type: 'fix', text: 'Khắc phục lỗi skill merging tạo duplicate skills - Enhanced intelligent skill merging system với space normalization, improved base skill extraction (remove parentheses, level modifiers, colons), smart level-based upgrade logic (Level 0-4), và case-insensitive duplicate detection để tránh "Gou Gou No Mi" vs "Gou Gou no Mi".' },
+      { type: 'improvement', text: 'Thêm comprehensive "Hướng Dẫn Thiết Kế NPC Có Cá Tính" vào system instruction - 127 dòng hướng dẫn chi tiết giúp AI tạo NPCs không dễ chinh phục với: nguyên tắc cốt lõi, tránh NPCs "dễ chinh phục", quan hệ xấu với thái độ đối địch, 4 archetypes tính cách mạnh mẽ, ảnh hưởng MBTI, 7 ví dụ thực tế, và quy tắc xử lý xung đột.' },
+      { type: 'improvement', text: 'Enhanced skill merging với smart upgrade detection - Triển khai 5-level skill system (0: no modifier, 1: sơ cấp/cơ bản, 2: trung cấp, 3: cao cấp/nâng cao, 4: tối cao) với automatic upgrade replacement (Basic → Advanced), rejection của downgrades, và detailed console logging để tracking merge operations.' },
+      { type: 'improvement', text: 'Tối ưu Vietnamese input performance - Loại bỏ useEffect dependency loops trong ActionPanel và MobileInputFooter (customAction, setCustomAction khỏi dependencies), implement useRef-based timeout management, và improved sync logic chỉ khi parent thực sự thay đổi để eliminate keystroke-triggered re-renders.' },
+      { type: 'technical', text: 'Advanced IME composition system - onCompositionStart sets isComposing=true để pause debounced updates, onCompositionEnd captures final composed value và resume normal input flow, enhanced input change handling chỉ update khi không đang compose, preventive measures cho Enter key during composition.' },
+      { type: 'technical', text: 'Skill base extraction algorithm - Multi-step normalization: space normalization → parentheses removal → level modifier removal → colon content removal → trim, với global regex flags để ensure complete cleaning và accurate base skill comparison.' },
+      { type: 'technical', text: 'UnifiedMemoryManager threshold redesign - Chuyển từ simple threshold check sang multi-condition cleanup triggers, enhanced logging với reason tracking, lowImportanceCount display trong debug output, và comprehensive cleanup decision transparency.' },
+    ],
+  },
+  {
     version: '1.39.0',
     date: '2025-08-06',
     changes: [
