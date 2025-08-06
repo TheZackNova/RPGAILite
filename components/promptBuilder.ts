@@ -40,6 +40,7 @@ interface ScoredMemory {
 export class EnhancedRAGSystem {
     private semanticCache = new Map<string, Set<string>>();
     private entityGraph = new Map<string, Set<string>>();
+    private currentGameState?: SaveData; // Store current game state for choice context
     
     constructor() {
         this.initializeSystem();
@@ -65,6 +66,9 @@ export class EnhancedRAGSystem {
         }
         
         try {
+            // Store current game state for choice context
+            this.currentGameState = gameState;
+            
             // Step 1: Choose RAG strategy based on configuration
             let intelligentContext;
             let compactContext: CompactRAGContext | null = null;
@@ -742,6 +746,155 @@ export class EnhancedRAGSystem {
         return text.substring(0, charLimit) + '...';
     }
 
+    // NEW: Build smart choice generation context
+    private buildSmartChoiceContext(
+        sections: ContextSections,
+        compactContext?: CompactRAGContext | null,
+        intelligentContext?: any
+    ): string | null {
+        if (!this.currentGameState) return null;
+        
+        const gameState = this.currentGameState;
+        let context = "\n--- HƯỚNG DẪN TẠO LỰA CHỌN THÔNG MINH ---\n";
+        
+        // 1. Choice history context to prevent repetition
+        const choiceHistoryContext = this.buildChoiceHistoryContext(gameState);
+        if (choiceHistoryContext) {
+            context += choiceHistoryContext + "\n";
+        }
+        
+        // 2. Situational context for relevant choices
+        const situationalContext = this.buildSituationalChoiceContext(gameState, sections);
+        if (situationalContext) {
+            context += situationalContext + "\n";
+        }
+        
+        // 3. Party-based choice suggestions
+        const partyChoiceContext = this.buildPartyChoiceContext(gameState);
+        if (partyChoiceContext) {
+            context += partyChoiceContext + "\n";
+        }
+        
+        // 4. Goal-oriented choice context
+        const goalContext = this.buildGoalOrientedChoiceContext(gameState);
+        if (goalContext) {
+            context += goalContext + "\n";
+        }
+        
+        context += "**QUAN TRỌNG**: Lựa chọn phải phù hợp với tình huống hiện tại, không lặp lại những gì đã chọn gần đây, và tạo cơ hội phát triển câu chuyện theo hướng thú vị.";
+        
+        return context;
+    }
+    
+    // Build choice history context to avoid repetition
+    private buildChoiceHistoryContext(gameState: SaveData): string | null {
+        const choiceHistory = gameState.choiceHistory || [];
+        if (choiceHistory.length === 0) return null;
+        
+        // Get recent choices (last 3 turns)
+        const recentChoices = choiceHistory
+            .filter(entry => gameState.turnCount - entry.turn <= 3)
+            .flatMap(entry => entry.choices)
+            .slice(-10); // Last 10 choices max
+        
+        if (recentChoices.length === 0) return null;
+        
+        let context = "**Tránh lặp lại các lựa chọn gần đây:**\n";
+        recentChoices.forEach((choice, index) => {
+            context += `• ${choice}\n`;
+        });
+        
+        return context;
+    }
+    
+    // Build situational context based on current location and entities
+    private buildSituationalChoiceContext(gameState: SaveData, sections: ContextSections): string | null {
+        const pc = gameState.party?.find(p => p.type === 'pc');
+        if (!pc) return null;
+        
+        let context = "**Tạo lựa chọn phù hợp với tình huống:**\n";
+        let suggestions: string[] = [];
+        
+        // Location-based suggestions
+        if (pc.location) {
+            const locationEntity = gameState.knownEntities[pc.location];
+            if (locationEntity) {
+                suggestions.push(`Khai thác đặc điểm của địa điểm "${pc.location}"`);
+            }
+        }
+        
+        // Active quest suggestions
+        const activeQuests = gameState.quests?.filter(q => q.status === 'active') || [];
+        if (activeQuests.length > 0) {
+            suggestions.push(`Tạo lựa chọn tiến triển nhiệm vụ: "${activeQuests[0].title}"`);
+        }
+        
+        // Available skills suggestions
+        if (pc.learnedSkills && pc.learnedSkills.length > 0) {
+            const skillsWithMastery = pc.learnedSkills.map(skillName => {
+                const skillEntity = Object.values(gameState.knownEntities).find((e: any) => e.name === skillName && e.type === 'skill');
+                if (skillEntity && skillEntity.mastery) {
+                    return `${skillName} (${skillEntity.mastery})`;
+                }
+                return skillName;
+            });
+            suggestions.push(`Cho phép sử dụng kỹ năng: ${skillsWithMastery.slice(0, 2).join(', ')}`);
+        }
+        
+        // Social interaction suggestions based on nearby NPCs
+        const nearbyNPCs = Object.values(gameState.knownEntities)
+            .filter(entity => entity.type === 'npc' && entity.location === pc.location)
+            .slice(0, 2);
+        
+        if (nearbyNPCs.length > 0) {
+            suggestions.push(`Tương tác với: ${nearbyNPCs.map(npc => npc.name).join(', ')}`);
+        }
+        
+        if (suggestions.length > 0) {
+            context += suggestions.map(s => `• ${s}`).join('\n') + '\n';
+            return context;
+        }
+        
+        return null;
+    }
+    
+    // Build party-based choice context for companion interactions
+    private buildPartyChoiceContext(gameState: SaveData): string | null {
+        const companions = gameState.party?.filter(p => p.type === 'companion') || [];
+        if (companions.length === 0) return null;
+        
+        let context = "**Tạo lựa chọn tương tác với đồng hành:**\n";
+        let suggestions: string[] = [];
+        
+        companions.forEach(companion => {
+            // Suggest choices based on companion's skills and personality
+            if (companion.skills && companion.skills.length > 0) {
+                const skillsArray = Array.isArray(companion.skills) ? companion.skills : companion.skills.split(',').map(s => s.trim());
+                suggestions.push(`Nhờ ${companion.name} sử dụng chuyên môn: ${skillsArray[0]}`);
+            }
+            
+            // Relationship-based suggestions
+            if (companion.relationship) {
+                suggestions.push(`Trao đổi với ${companion.name} dựa trên mối quan hệ: ${companion.relationship}`);
+            }
+        });
+        
+        if (suggestions.length > 0) {
+            context += suggestions.slice(0, 2).map(s => `• ${s}`).join('\n') + '\n';
+            return context;
+        }
+        
+        return null;
+    }
+    
+    // Build goal-oriented choice context based on PC motivation
+    private buildGoalOrientedChoiceContext(gameState: SaveData): string | null {
+        const pc = gameState.party?.find(p => p.type === 'pc');
+        if (!pc || !pc.motivation) return null;
+        
+        return `**Tạo lựa chọn hướng tới mục tiêu nhân vật:**\n• Ít nhất 1-2 lựa chọn phải liên quan đến việc thực hiện mục tiêu: "${pc.motivation}"\n• Tạo cơ hội tiến gần hơn đến mục tiêu hoặc giải quyết trở ngại cản trở mục tiêu\n`;
+    }
+
     // ENHANCED: Special handling for party members with detailed context
     private formatEntityWithContext(
         entity: Entity,
@@ -1085,6 +1238,12 @@ export class EnhancedRAGSystem {
         
         // Player action
         prompt += `\n--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"${action}"`;
+        
+        // Add smart choice generation context
+        const choiceContext = this.buildSmartChoiceContext(sections, compactContext, intelligentContext);
+        if (choiceContext) {
+            prompt += `\n${choiceContext}`;
+        }
         
         // NSFW context if applicable
         if (nsfwContext) {

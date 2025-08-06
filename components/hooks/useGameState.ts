@@ -25,6 +25,12 @@ export interface GameState {
     storyLog: string[];
     choices: string[];
     locationDiscoveryOrder: string[];
+    choiceHistory: Array<{
+        turn: number;
+        choices: string[];
+        selectedChoice?: string;
+        context?: string;
+    }>;
     
     // UI state
     isLoading: boolean;
@@ -55,6 +61,7 @@ export interface GameStateActions {
     setStoryLog: (log: string[] | ((prev: string[]) => string[])) => void;
     setChoices: (choices: string[]) => void;
     setLocationDiscoveryOrder: (order: string[] | ((prev: string[]) => string[])) => void;
+    updateChoiceHistory: (choices: string[], selectedChoice?: string, context?: string) => void;
     
     // UI state setters
     setIsLoading: (loading: boolean) => void;
@@ -148,11 +155,33 @@ export const useGameState = (
 
         return order;
     });
+    const [choiceHistory, setChoiceHistory] = useState<Array<{
+        turn: number;
+        choices: string[];
+        selectedChoice?: string;
+        context?: string;
+    }>>(initialGameState.choiceHistory || []);
     
     // UI state
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
     const [hasGeneratedInitialStory, setHasGeneratedInitialStory] = useState<boolean>(false);
     const [customAction, setCustomAction] = useState('');
+    
+    // Choice history update function
+    const updateChoiceHistory = (choices: string[], selectedChoice?: string, context?: string) => {
+        setChoiceHistory(prev => {
+            const newEntry = {
+                turn: turnCount,
+                choices: [...choices],
+                selectedChoice,
+                context
+            };
+            
+            // Keep only last 20 entries to prevent memory bloat
+            const updated = [...prev, newEntry].slice(-20);
+            return updated;
+        });
+    };
 
     const gameState: GameState = {
         worldData,
@@ -172,6 +201,7 @@ export const useGameState = (
         storyLog,
         choices,
         locationDiscoveryOrder,
+        choiceHistory,
         isLoading,
         hasGeneratedInitialStory,
         customAction
@@ -195,6 +225,7 @@ export const useGameState = (
         setStoryLog,
         setChoices,
         setLocationDiscoveryOrder,
+        updateChoiceHistory,
         setIsLoading,
         setHasGeneratedInitialStory,
         setCustomAction

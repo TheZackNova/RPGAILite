@@ -115,7 +115,7 @@ export const GameScreen: React.FC<{
     const {
         worldData, knownEntities, statuses, quests, gameHistory, memories, party,
         customRules, systemInstruction, chronicle, gameTime, turnCount, currentTurnTokens,
-        totalTokens, storyLog, choices, locationDiscoveryOrder, isLoading,
+        totalTokens, storyLog, choices, locationDiscoveryOrder, choiceHistory, isLoading,
         hasGeneratedInitialStory, customAction
     } = gameState;
 
@@ -123,7 +123,7 @@ export const GameScreen: React.FC<{
         setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setMemories,
         setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime,
         setTurnCount, setCurrentTurnTokens, setTotalTokens, setStoryLog, setChoices,
-        setLocationDiscoveryOrder, setIsLoading, setHasGeneratedInitialStory, setCustomAction
+        setLocationDiscoveryOrder, updateChoiceHistory, setIsLoading, setHasGeneratedInitialStory, setCustomAction
     } = gameStateActions;
 
     const {
@@ -191,8 +191,9 @@ export const GameScreen: React.FC<{
         isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices,
         setIsLoading, setChoices, setCustomAction, setStoryLog, setGameHistory,
         setTurnCount, setCurrentTurnTokens, setTotalTokens,
-        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags
-    }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, ruleChanges, parseStoryAndTags]);
+        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags,
+        updateChoiceHistory
+    }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, ruleChanges, parseStoryAndTags, updateChoiceHistory]);
 
     // Initialize entity handlers  
     const entityHandlers = useMemo(() => createEntityHandlers({
@@ -207,12 +208,12 @@ export const GameScreen: React.FC<{
         worldData, knownEntities, statuses, quests, gameHistory, memories, party,
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
         compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
-        storyLog, choices, locationDiscoveryOrder,
+        storyLog, choices, locationDiscoveryOrder, choiceHistory,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
         setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
         isGeneratingRef, initialGameState, previousRulesRef
-    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder]);
+    }), [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats, storyLog, choices, locationDiscoveryOrder, choiceHistory]);
 
     // --- Handle Key Rotation Notification ---
     useEffect(() => {

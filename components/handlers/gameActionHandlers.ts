@@ -29,6 +29,9 @@ export interface GameActionHandlersParams {
     ruleChanges: any;
     setRuleChanges: (changes: any) => void;
     parseStoryAndTags: (text: string, applySideEffects: boolean) => string;
+    
+    // Choice history tracking
+    updateChoiceHistory: (choices: string[], selectedChoice?: string, context?: string) => void;
 }
 
 export const createGameActionHandlers = (params: GameActionHandlersParams) => {
@@ -37,7 +40,8 @@ export const createGameActionHandlers = (params: GameActionHandlersParams) => {
         isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices,
         setIsLoading, setChoices, setCustomAction, setStoryLog, setGameHistory,
         setTurnCount, setCurrentTurnTokens, setTotalTokens,
-        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags
+        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags,
+        updateChoiceHistory
     } = params;
 
     const generateInitialStory = async (
@@ -206,6 +210,9 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
         setChoices([]);
         setCustomAction('');
         setStoryLog(prev => [...prev, `> ${originalAction}`]);
+        
+        // Track selected choice in history
+        updateChoiceHistory([], originalAction, 'Player action executed');
 
         let ruleChangeContext = '';
         if (ruleChanges) {
@@ -391,7 +398,17 @@ Hãy gợi ý hành động:`;
             
             const cleanStory = parseStoryAndTags(jsonResponse.story, true);
             setStoryLog(prev => [...prev, cleanStory]);
-            setChoices(jsonResponse.choices || []);
+            const newChoices = jsonResponse.choices || [];
+            setChoices(newChoices);
+            
+            // Track generated choices in history
+            if (newChoices.length > 0) {
+                // Create brief context from story for choice history
+                const briefContext = cleanStory.length > 100 ? 
+                    cleanStory.substring(0, 100) + '...' : 
+                    cleanStory;
+                updateChoiceHistory(newChoices, undefined, briefContext);
+            }
         } catch (e) {
             console.error("Failed to parse AI response:", e, "Raw response:", text);
             setStoryLog(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);

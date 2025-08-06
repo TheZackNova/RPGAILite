@@ -24,6 +24,12 @@ export interface GameStateHandlersParams {
     storyLog: string[];
     choices: string[];
     locationDiscoveryOrder: string[];
+    choiceHistory: Array<{
+        turn: number;
+        choices: string[];
+        selectedChoice?: string;
+        context?: string;
+    }>;
     
     // Setters
     setShowSaveSuccess: (show: boolean) => void;
@@ -55,7 +61,7 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
         worldData, knownEntities, statuses, quests, gameHistory, memories, party,
         customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
         compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
-        storyLog, choices, locationDiscoveryOrder,
+        storyLog, choices, locationDiscoveryOrder, choiceHistory,
         setShowSaveSuccess, setStoryLog, setChoices, setStatuses, setQuests, setMemories,
         setKnownEntities, setParty, setCustomRules, setTurnCount, setTotalTokens, setGameTime, setChronicle,
         setRuleChanges, setGameHistory, setHasGeneratedInitialStory, setIsLoading,
@@ -70,7 +76,7 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
             worldData, knownEntities, statuses, quests, gameHistory, memories, party,
             customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle,
             compressedHistory, historyStats, cleanupStats, archivedMemories, memoryStats,
-            storyLog, choices, locationDiscoveryOrder
+            storyLog, choices, locationDiscoveryOrder, choiceHistory
         };
         
         const jsonString = JSON.stringify(currentGameState, null, 2);

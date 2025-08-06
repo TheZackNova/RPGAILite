@@ -201,6 +201,14 @@ export interface SaveData {
         averageImportanceScore: number;
         lastMemoryCleanupTurn: number;
     };
+    
+    // Choice History for Intelligent Generation
+    choiceHistory?: Array<{
+        turn: number;
+        choices: string[];
+        selectedChoice?: string;
+        context?: string; // Brief context when choices were presented
+    }>;
 }
 
 export interface AIContextType {
