@@ -477,15 +477,76 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                 return skillLower && !placeholderValues.includes(skillLower);
                                             });
                                             
-                                            // Merge skills, keeping existing ones and adding new unique ones
+                                            // Smart merging: detect similar skills and upgrades
                                             const mergedSkills = [...existingSkills];
-                                            validNewSkills.forEach((skill: string) => {
-                                                if (!mergedSkills.includes(skill)) {
-                                                    mergedSkills.push(skill);
+                                            const addedSkills: string[] = [];
+                                            const upgradedSkills: string[] = [];
+                                            
+                                            validNewSkills.forEach((newSkill: string) => {
+                                                const newSkillLower = newSkill.toLowerCase();
+                                                let isUpgradeOrSimilar = false;
+                                                
+                                                // Check if this is an upgrade or similar skill
+                                                for (const existingSkill of existingSkills) {
+                                                    const existingSkillLower = existingSkill.toLowerCase();
+                                                    
+                                                    // Extract base skill name (remove modifiers like "tối cao", "cơ bản", etc.)
+                                                    const newSkillBase = newSkillLower
+                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/, '')
+                                                        .replace(/\s*\([^)]*\)\s*/, '') // Remove parentheses content
+                                                        .trim();
+                                                    const existingSkillBase = existingSkillLower
+                                                        .replace(/\s*(tối cao|cao cấp|nâng cao|sơ cấp|cơ bản|cấp độ \d+)\s*/, '')
+                                                        .replace(/\s*\([^)]*\)\s*/, '') // Remove parentheses content
+                                                        .trim();
+                                                    
+                                                    // Check if base skills are the same
+                                                    if (newSkillBase === existingSkillBase) {
+                                                        isUpgradeOrSimilar = true;
+                                                        
+                                                        // Check if new skill is an upgrade (contains "tối cao", "cao cấp", etc.)
+                                                        const isUpgrade = newSkillLower.includes('tối cao') || 
+                                                                         newSkillLower.includes('cao cấp') || 
+                                                                         newSkillLower.includes('nâng cao');
+                                                        const existingIsBasic = existingSkillLower.includes('cơ bản') || 
+                                                                              existingSkillLower.includes('sơ cấp');
+                                                        
+                                                        if (isUpgrade && existingIsBasic) {
+                                                            // Replace basic skill with upgraded version
+                                                            const index = mergedSkills.indexOf(existingSkill);
+                                                            if (index !== -1) {
+                                                                mergedSkills[index] = newSkill;
+                                                                upgradedSkills.push(`${existingSkill} → ${newSkill}`);
+                                                            }
+                                                        } else if (!mergedSkills.includes(newSkill)) {
+                                                            // Keep both if they're different levels
+                                                            mergedSkills.push(newSkill);
+                                                            addedSkills.push(newSkill);
+                                                        }
+                                                        break;
+                                                    }
+                                                }
+                                                
+                                                // If it's not similar to any existing skill, add it
+                                                if (!isUpgradeOrSimilar && !mergedSkills.includes(newSkill)) {
+                                                    mergedSkills.push(newSkill);
+                                                    addedSkills.push(newSkill);
                                                 }
                                             });
+                                            
                                             filteredAttributes[key] = mergedSkills;
-                                            console.log(`🔄 MERGED: Starting skills [${existingSkills.join(', ')}] + AI skills [${validNewSkills.join(', ')}] = [${mergedSkills.join(', ')}]`);
+                                            
+                                            // Enhanced logging
+                                            let logMessage = `🔄 SKILL MERGE: Starting skills [${existingSkills.join(', ')}]`;
+                                            if (addedSkills.length > 0) {
+                                                logMessage += ` + Added [${addedSkills.join(', ')}]`;
+                                            }
+                                            if (upgradedSkills.length > 0) {
+                                                logMessage += ` + Upgraded [${upgradedSkills.join(', ')}]`;
+                                            }
+                                            logMessage += ` = [${mergedSkills.join(', ')}]`;
+                                            console.log(logMessage);
+                                            
                                             return; // Use merged skills
                                         }
                                         filteredAttributes[key] = newAttributes[key];
