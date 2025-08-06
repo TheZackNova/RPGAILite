@@ -33,7 +33,7 @@ interface StoryPanelProps {
 
 const ITEM_OVERSCAN = 5;
 const ESTIMATED_ITEM_HEIGHT = 80;
-const AUTO_SCROLL_THRESHOLD = 100;
+const AUTO_SCROLL_THRESHOLD = 5; // Much stricter threshold - only when very close to bottom
 
 // Utility function to estimate text height
 const estimateTextHeight = (text: string): number => {
@@ -113,11 +113,10 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         scrollTop: 0,
         containerHeight: window.innerHeight * 0.6, // Use 60% of viewport height initially
         isScrolling: false,
-        shouldAutoScroll: true
+        shouldAutoScroll: false // Changed to false to prevent auto-scroll by default
     });
     const [itemHeights, setItemHeights] = useState<Map<string, number>>(new Map());
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const preservedScrollPositionRef = useRef<number | null>(null);
 
     // Create virtual items from story log
     const virtualItems = useMemo<VirtualItem[]>(() => {
@@ -153,49 +152,11 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
             : 0;
     }, [itemPositions]);
 
-    // Calculate visible range (skip expensive calculations during loading to prevent reflows)
-    const visibleRange = useMemo(() => {
-        if (itemPositions.length === 0 || isLoading || itemPositions.length < 10) return { 
-            startIndex: 0, 
-            endIndex: itemPositions.length - 1
-        };
-
-        const { scrollTop, containerHeight } = virtualState;
-        const viewportTop = scrollTop;
-        const viewportBottom = scrollTop + containerHeight;
-
-        let startIndex = 0;
-        let endIndex = itemPositions.length - 1;
-
-        // Binary search for start index
-        let low = 0;
-        let high = itemPositions.length - 1;
-        while (low <= high) {
-            const mid = Math.floor((low + high) / 2);
-            const position = itemPositions[mid];
-            
-            if (position.start + position.height < viewportTop) {
-                startIndex = mid + 1;
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-        }
-
-        // Find end index
-        for (let i = startIndex; i < itemPositions.length; i++) {
-            if (itemPositions[i].start > viewportBottom) {
-                endIndex = i - 1;
-                break;
-            }
-            endIndex = i;
-        }
-
-        return {
-            startIndex: Math.max(0, startIndex - ITEM_OVERSCAN),
-            endIndex: Math.min(itemPositions.length - 1, endIndex + ITEM_OVERSCAN)
-        };
-    }, [virtualState, itemPositions, isLoading]);
+    // Simplified visible range - show all items to prevent scroll jumping issues
+    const visibleRange = useMemo(() => ({
+        startIndex: 0,
+        endIndex: Math.max(0, virtualItems.length - 1)
+    }), [virtualItems.length]);
 
     // Visible items
     const visibleItems = useMemo(() => {
@@ -212,23 +173,15 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         });
     }, []);
 
-    // Scroll handler with auto-scroll detection
+    // Simple scroll handler - only tracks scroll position for virtual scrolling
     const handleScroll = useCallback((scrollData: { scrollTop: number; scrollHeight: number; clientHeight: number }) => {
-        const { scrollTop, scrollHeight, clientHeight } = scrollData;
-        const isNearBottom = scrollTop + clientHeight >= scrollHeight - AUTO_SCROLL_THRESHOLD;
-
-        // Store current scroll position if user is not near bottom
-        if (!isNearBottom) {
-            preservedScrollPositionRef.current = scrollTop;
-        } else {
-            preservedScrollPositionRef.current = null;
-        }
+        const { scrollTop } = scrollData;
 
         setVirtualState(prev => ({
             ...prev,
             scrollTop,
             isScrolling: true,
-            shouldAutoScroll: isNearBottom
+            shouldAutoScroll: false // Always false to prevent any auto-scroll
         }));
 
         // Clear existing timeout
@@ -245,8 +198,15 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         }, 150);
     }, []);
 
-    // Use optimized scroll hook
-    const { scrollElementRef, onScroll, scrollToBottom } = useOptimizedScroll(handleScroll, 16);
+    // Use optimized scroll hook but disable scrollToBottom to prevent accidental calls
+    const { scrollElementRef, onScroll } = useOptimizedScroll(handleScroll, 16);
+    
+    // Custom scrollToBottom that only works when user explicitly clicks the button
+    const scrollToBottom = useCallback(() => {
+        if (scrollElementRef.current) {
+            scrollElementRef.current.scrollTop = scrollElementRef.current.scrollHeight;
+        }
+    }, []);
 
     // Update container height on resize (debounced to prevent performance issues)
     useEffect(() => {
@@ -277,25 +237,8 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
         };
     }, []);
 
-    // Handle scroll position when new content is added
-    useEffect(() => {
-        // Only restore scroll position if user was not near bottom when new content arrives
-        if (preservedScrollPositionRef.current !== null && !virtualState.shouldAutoScroll) {
-            const restorePosition = preservedScrollPositionRef.current;
-            setTimeout(() => {
-                if (scrollElementRef.current && preservedScrollPositionRef.current === restorePosition) {
-                    scrollElementRef.current.scrollTop = restorePosition;
-                    // Reset preserved position after restoring
-                    preservedScrollPositionRef.current = null;
-                }
-            }, 50); // Small delay to ensure DOM has updated
-        } else if (virtualState.shouldAutoScroll && storyLog.length > 0) {
-            // Auto-scroll to bottom if user was near bottom
-            setTimeout(() => {
-                scrollToBottom();
-            }, 100);
-        }
-    }, [storyLog.length, virtualState.shouldAutoScroll, scrollToBottom]);
+    // Note: Removed scroll position management to fix random scrolling issues
+    // The virtual scrolling system handles scroll positions automatically
 
     // Calculate offset for visible items
     const offsetY = visibleRange.startIndex > 0 ? itemPositions[visibleRange.startIndex].start : 0;
@@ -363,44 +306,17 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                         className="h-full overflow-y-auto pr-2 p-4 md:pb-4 pb-40"
                         onScroll={onScroll}
                     >
-                        <div
-                            style={{
-                                height: totalHeight,
-                                position: 'relative',
-                                width: '100%'
-                            }}
-                        >
-                            {/* Virtual items container */}
-                            <div
-                                style={{
-                                    transform: `translateY(${offsetY}px)`,
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0
-                                }}
-                            >
-                                <div className="space-y-4">
-                                    {visibleItems.map((item) => {
-                                        const itemPosition = itemPositions[item.index];
-                                        return (
-                                            <div
-                                                key={item.id}
-                                                style={{
-                                                    minHeight: itemPosition.height
-                                                }}
-                                            >
-                                                <VirtualStoryItem
-                                                    item={item}
-                                                    knownEntities={knownEntities}
-                                                    onEntityClick={onEntityClick}
-                                                    onHeightMeasured={handleHeightMeasured}
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                        {/* Simplified non-virtual layout */}
+                        <div className="space-y-4">
+                            {visibleItems.map((item) => (
+                                <VirtualStoryItem
+                                    key={item.id}
+                                    item={item}
+                                    knownEntities={knownEntities}
+                                    onEntityClick={onEntityClick}
+                                    onHeightMeasured={handleHeightMeasured}
+                                />
+                            ))}
                         </div>
                     </div>
                 )}
@@ -420,25 +336,16 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                 {/* Scroll indicators and controls */}
                 {storyLog.length > 5 && (
                     <div className="absolute top-4 right-4 flex flex-col gap-2">
-                        {/* Scroll to bottom button */}
-                        {!virtualState.shouldAutoScroll && (
-                            <button
-                                onClick={scrollToBottom}
-                                className="bg-gradient-to-r from-purple-500/30 to-pink-500/30 hover:from-purple-500/40 hover:to-pink-500/40 backdrop-blur-xl border border-purple-400/40 text-white p-3 rounded-2xl shadow-2xl transition-all hover:scale-110 group"
-                                title="Cuộn xuống cuối"
-                            >
-                                <svg className="w-4 h-4 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                </svg>
-                            </button>
-                        )}
-
-                        {/* Auto-scroll indicator */}
-                        {virtualState.shouldAutoScroll && (
-                            <div className="bg-emerald-500/20 backdrop-blur-xl border border-emerald-400/30 text-emerald-200 px-3 py-2 rounded-xl text-xs font-medium">
-                                Auto-scroll ✓
-                            </div>
-                        )}
+                        {/* Scroll to bottom button - always available */}
+                        <button
+                            onClick={scrollToBottom}
+                            className="bg-gradient-to-r from-purple-500/30 to-pink-500/30 hover:from-purple-500/40 hover:to-pink-500/40 backdrop-blur-xl border border-purple-400/40 text-white p-3 rounded-2xl shadow-2xl transition-all hover:scale-110 group"
+                            title="Cuộn xuống cuối"
+                        >
+                            <svg className="w-4 h-4 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                        </button>
                     </div>
                 )}
 

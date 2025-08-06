@@ -249,7 +249,6 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
                 
                 // 🔄 Auto-export entities every few turns (with unique ID to prevent duplicates)
                 const exportId = `export_${newTurn}_${Date.now()}_${Math.random().toString(36)}`;
-                console.log(`📋 [Turn ${newTurn}] Scheduling export with ID: ${exportId}`);
                 
                 setTimeout(async () => {
                     try {

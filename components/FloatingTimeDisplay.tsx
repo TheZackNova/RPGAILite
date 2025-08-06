@@ -35,14 +35,21 @@ export const FloatingTimeDisplay: React.FC<FloatingTimeDisplayProps> = ({ gameTi
       'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
     ];
     
+    // Safe fallbacks for undefined values
+    const safeHour = Number.isFinite(gameTime?.hour) ? gameTime.hour : 0;
+    const safeMinute = Number.isFinite(gameTime?.minute) ? gameTime.minute : 0;
+    const safeDay = Number.isFinite(gameTime?.day) ? gameTime.day : 1;
+    const safeMonth = Number.isFinite(gameTime?.month) ? gameTime.month : 1;
+    const safeYear = Number.isFinite(gameTime?.year) ? gameTime.year : 1;
+    
     const timeOfDay = 
-      gameTime.hour >= 6 && gameTime.hour < 12 ? 'Sáng' :
-      gameTime.hour >= 12 && gameTime.hour < 18 ? 'Chiều' :
-      gameTime.hour >= 18 && gameTime.hour < 22 ? 'Tối' : 'Đêm';
+      safeHour >= 6 && safeHour < 12 ? 'Sáng' :
+      safeHour >= 12 && safeHour < 18 ? 'Chiều' :
+      safeHour >= 18 && safeHour < 22 ? 'Tối' : 'Đêm';
     
     return {
-      date: `${monthNames[gameTime.month - 1]} ${gameTime.day}, Năm ${gameTime.year}`,
-      time: `${gameTime.hour}:${gameTime.minute.toString().padStart(2, '0')} ${timeOfDay}`
+      date: `${monthNames[safeMonth - 1] || monthNames[0]} ${safeDay}, Năm ${safeYear}`,
+      time: `${safeHour}:${safeMinute.toString().padStart(2, '0')} ${timeOfDay}`
     };
   }, [gameTime]);
 
