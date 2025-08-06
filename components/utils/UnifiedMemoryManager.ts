@@ -61,7 +61,7 @@ export class UnifiedMemoryManager {
             enableDiscoveryMemories: true,
             enableCombatMemories: true,
             enableAchievementMemories: true,
-            minImportanceThreshold: 70,  // Increased from 40 to reduce memory creation
+            minImportanceThreshold: 50,  // Increased from 40 to reduce memory creation
             maxMemoriesPerTurn: 1,       // Reduced from 3 to limit growth
             lookbackTurns: 2             // Reduced from 5 to analyze fewer turns
         }
@@ -81,7 +81,9 @@ export class UnifiedMemoryManager {
             currentMemories: gameState.memories?.length || 0,
             currentHistoryEntries: gameState.gameHistory.length,
             memoryThreshold: config.memoryCleanupThreshold,
+            maxActiveMemories: config.maxActiveMemories,
             historyThreshold: config.historyCompressionThreshold,
+            lowImportanceCount: gameState.memories?.filter(m => (m.importance || 0) < config.lowImportanceThreshold).length || 0,
             tokenBudget: config.maxTokenBudget
         });
 
@@ -164,7 +166,20 @@ export class UnifiedMemoryManager {
         totalProcessed: number;
     } {
         // Check if memory cleanup is needed
-        if (memories.length <= config.memoryCleanupThreshold) {
+        // Cleanup when we exceed maxActiveMemories OR when we have too many low-importance memories
+        const needsCleanup = memories.length > config.maxActiveMemories || 
+                            memories.length > config.memoryCleanupThreshold ||
+                            memories.filter(m => (m.importance || 0) < config.lowImportanceThreshold).length > 10;
+        
+        if (!needsCleanup) {
+            console.log(`⏭️ Memory cleanup skipped:`, {
+                memoryCount: memories.length,
+                maxActive: config.maxActiveMemories,
+                threshold: config.memoryCleanupThreshold,
+                lowImportanceCount: memories.filter(m => (m.importance || 0) < config.lowImportanceThreshold).length,
+                reason: memories.length <= config.maxActiveMemories ? 'below maxActive' : 
+                       memories.length <= config.memoryCleanupThreshold ? 'below threshold' : 'low-importance count OK'
+            });
             return {
                 archived: [],
                 enhanced: [],
