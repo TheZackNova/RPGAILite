@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SpinnerIcon, SparklesIcon } from '../Icons.tsx';
 
 interface ActionPanelProps {
@@ -27,6 +27,41 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
     handleSuggestAction,
     isCustomActionLocked,
 }) => {
+    // Local state for input to prevent lag
+    const [localCustomAction, setLocalCustomAction] = useState(customAction);
+    
+    // Sync local state with parent state
+    useEffect(() => {
+        setLocalCustomAction(customAction);
+    }, [customAction]);
+    
+    // Debounced update to parent state
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (localCustomAction !== customAction) {
+                setCustomAction(localCustomAction);
+            }
+        }, 300);
+        
+        return () => clearTimeout(timeoutId);
+    }, [localCustomAction, customAction, setCustomAction]);
+    
+    // Handle input change with local state
+    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalCustomAction(e.target.value);
+    }, []);
+    
+    // Handle enter key press
+    const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            debouncedHandleAction(localCustomAction);
+        }
+    }, [localCustomAction, debouncedHandleAction]);
+    
+    // Handle send button click
+    const handleSendAction = useCallback(() => {
+        handleAction(localCustomAction);
+    }, [localCustomAction, handleAction]);
     return (
         <div className="hidden md:flex flex-col bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden h-full">
             {/* Header */}
@@ -103,9 +138,9 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                 <div className="flex gap-2">
                     <input 
                         type="text"
-                        value={customAction}
-                        onChange={(e) => setCustomAction(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && debouncedHandleAction(customAction)}
+                        value={localCustomAction}
+                        onChange={handleInputChange}
+                        onKeyPress={handleKeyPress}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ" : "Ví dụ: nhặt hòn đá lên..."}
                         className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -119,7 +154,7 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                         <SparklesIcon className="w-5 h-5" />
                     </button>
                     <button 
-                        onClick={() => handleAction(customAction)}
+                        onClick={handleSendAction}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         className="px-6 py-3 bg-gradient-to-r from-cyan-500/30 to-blue-500/30 hover:from-cyan-500/40 hover:to-blue-500/40 border border-cyan-400/40 rounded-xl text-white font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
                         aria-label="Gửi hành động"

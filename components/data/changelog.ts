@@ -3,6 +3,25 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.39.0',
+    date: '2025-08-06',
+    changes: [
+      { type: 'fix', text: 'Khắc phục lỗi NPC skills bị parse thành PC skills - Enhanced SKILL_LEARNED command với learner parameter để phân biệt kỹ năng học bởi NPC vs PC. Thêm intelligent detection system dựa trên context để tự động phân loại kỹ năng khi thiếu learner parameter.' },
+      { type: 'fix', text: 'Loại bỏ console spam từ inventory và entity export debug logs - Xóa bỏ debug logs không cần thiết trong GameScreen playerInventory computation và gameActionHandlers entity export để clean up console output.' },
+      { type: 'fix', text: 'Khắc phục lỗi StoryPanel auto-scroll làm gián đoạn việc đọc - Hoàn toàn disable auto-scroll behavior và simplify virtual scrolling system để story panel giữ nguyên vị trí scroll khi có nội dung mới, không còn random scroll up sau khi chọn action.' },
+      { type: 'fix', text: 'Sửa lỗi PlayerCharacterSheet crash với "TypeError: t.map is not a function" - Thêm playerInventory property vào MemoizedModalsProps interface để InventoryModal nhận đúng dữ liệu inventory array thay vì undefined.' },
+      { type: 'fix', text: 'Khắc phục z-index conflicts trong modal system - Tăng StatusDetailModal từ z-[90] lên z-[110] và QuestDetailModal từ z-[85] lên z-[105] để hiển thị chính xác trên EntityInfoModal (z-[100]).' },
+      { type: 'fix', text: 'Sửa lỗi "Cannot read properties of undefined (reading \'toString\')" trong FloatingTimeDisplay - Thêm comprehensive null/undefined checks với safe fallbacks cho tất cả gameTime properties (hour, minute, day, month, year).' },
+      { type: 'fix', text: 'Khắc phục input lag nghiêm trọng khi typing trong custom action - Triển khai local state với debounced updates (300ms) cho ActionPanel và MobileInputFooter để ngăn parent re-renders làm chậm input, đồng thời optimize inventory computation với signature-based memoization.' },
+      { type: 'improvement', text: 'Enhanced SKILL_LEARNED command documentation - Cập nhật prompt instructions với examples và warnings về việc sử dụng learner parameter bắt buộc cho NPC skills, giúp AI generate tags chính xác hơn.' },
+      { type: 'improvement', text: 'Optimized StoryPanel performance - Thay thế complex virtual scrolling với simplified layout để giảm computational overhead và improve scroll behavior stability.' },
+      { type: 'improvement', text: 'Enhanced modal layering system - Thiết lập proper z-index hierarchy: Base modals (60-70), EntityInfoModal (100), QuestDetailModal (105), StatusDetailModal (110), EditItemModal (110).' },
+      { type: 'technical', text: 'Advanced inventory computation optimization - Thêm itemsSignature-based caching để chỉ recompute inventory khi items thực sự thay đổi, ngăn unnecessary filtering operations block main thread during typing.' },
+      { type: 'technical', text: 'Comprehensive input performance optimization - Local state management với useCallback handlers và debounced parent state sync để eliminate keystroke-triggered re-renders across component tree.' },
+      { type: 'technical', text: 'Intelligent NPC skill detection system - Context-based parsing để tự động detect skill ownership khi thiếu explicit learner parameter, với fallback logic và comprehensive logging.' },
+    ],
+  },
+  {
     version: '1.38.1',
     date: '2025-08-05',
     changes: [

@@ -837,28 +837,36 @@ export const GameScreen: React.FC<{
     const displayParty = party.filter(p => p.name !== pcName);
     const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
     
+    // Create a stable dependency that only changes when items change
+    const itemsSignature = useMemo(() => {
+        const items = Object.values(knownEntities).filter(e => e.type === 'item');
+        return items.map(item => `${item.name}-${item.owner || 'noowner'}`).join('|');
+    }, [knownEntities]);
+    
+    // Optimized player inventory computation - only recompute when items actually change
+    const playerInventory = useMemo(() => {
+        const items = Object.values(knownEntities).filter((entity): entity is Entity => entity.type === 'item');
+        
+        return items.filter(entity => {
+            // Include items that explicitly belong to PC
+            if (entity.owner === 'pc') return true;
+            
+            // Include items with no owner or empty owner (likely player items from story)
+            if (!entity.owner || entity.owner === '' || entity.owner === null || entity.owner === undefined) {
+                return true;
+            }
+            
+            // Exclude items that explicitly belong to NPCs
+            return false;
+        });
+    }, [itemsSignature, knownEntities]);
+
     const entityComputations = useMemo(() => ({
         pcEntity,
         pcStatuses,
         displayParty,
-        playerInventory: (() => {
-            const inventory = Object.values(knownEntities).filter((entity): entity is Entity => {
-                if (entity.type !== 'item') return false;
-                
-                // Include items that explicitly belong to PC
-                if (entity.owner === 'pc') return true;
-                
-                // Include items with no owner or empty owner (likely player items from story)
-                if (!entity.owner || entity.owner === '' || entity.owner === null || entity.owner === undefined) {
-                    return true;
-                }
-                
-                // Exclude items that explicitly belong to NPCs
-                return false;
-            });
-            return inventory;
-        })()
-    }), [pcEntity, pcStatuses, displayParty, knownEntities]);
+        playerInventory
+    }), [pcEntity, pcStatuses, displayParty, playerInventory]);
     
     const themeColors = getThemeColors(gameSettings.themeColor);
     
