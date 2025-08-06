@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## System Instruction for Claude Code
+
 STRICTLY PROHIBITED: Any form of abbreviated code like: "// ... (Content of the parseStatsBonus function remains unchanged)". This applies to original code or any other code; any such abbreviated code is not allowed within this chat. Also prohibited are "convenience" code snippets, where additional code is merely indicated as being located "at this position, below the newly added code."
 
 STRICTLY PROHIBITED: Any "convenience" in code. Always follow the rules.

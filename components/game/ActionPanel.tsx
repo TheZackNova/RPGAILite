@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { SpinnerIcon, SparklesIcon } from '../Icons.tsx';
 
 interface ActionPanelProps {
@@ -29,34 +29,63 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
 }) => {
     // Local state for input to prevent lag
     const [localCustomAction, setLocalCustomAction] = useState(customAction);
+    // IME composition state for Vietnamese input
+    const [isComposing, setIsComposing] = useState(false);
     
-    // Sync local state with parent state
+    // Sync local state with parent state only when parent changes externally
     useEffect(() => {
-        setLocalCustomAction(customAction);
-    }, [customAction]);
+        // Only sync if the parent state is different from local and we're not currently composing
+        if (!isComposing && customAction !== localCustomAction) {
+            setLocalCustomAction(customAction);
+        }
+    }, [customAction]); // Only depend on customAction, not localCustomAction to avoid loops
     
-    // Debounced update to parent state
+    // Debounced update to parent state - only when not composing
+    const debouncedUpdateRef = useRef<NodeJS.Timeout>();
     useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (localCustomAction !== customAction) {
-                setCustomAction(localCustomAction);
-            }
+        if (isComposing) return; // Don't update during IME composition
+        
+        // Clear previous timeout
+        if (debouncedUpdateRef.current) {
+            clearTimeout(debouncedUpdateRef.current);
+        }
+        
+        // Set new timeout
+        debouncedUpdateRef.current = setTimeout(() => {
+            setCustomAction(localCustomAction);
         }, 300);
         
-        return () => clearTimeout(timeoutId);
-    }, [localCustomAction, customAction, setCustomAction]);
+        return () => {
+            if (debouncedUpdateRef.current) {
+                clearTimeout(debouncedUpdateRef.current);
+            }
+        };
+    }, [localCustomAction, isComposing, setCustomAction]); // Keep setCustomAction but use ref for timeout
+    
+    // Handle IME composition start (Vietnamese input begins)
+    const handleCompositionStart = useCallback(() => {
+        setIsComposing(true);
+    }, []);
+    
+    // Handle IME composition end (Vietnamese input finishes)
+    const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+        setIsComposing(false);
+        setLocalCustomAction(e.currentTarget.value); // Ensure we capture the final composed value
+    }, []);
     
     // Handle input change with local state
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setLocalCustomAction(e.target.value);
-    }, []);
+        if (!isComposing) {
+            setLocalCustomAction(e.target.value);
+        }
+    }, [isComposing]);
     
-    // Handle enter key press
+    // Handle enter key press - avoid during composition
     const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isComposing) {
             debouncedHandleAction(localCustomAction);
         }
-    }, [localCustomAction, debouncedHandleAction]);
+    }, [localCustomAction, debouncedHandleAction, isComposing]);
     
     // Handle send button click
     const handleSendAction = useCallback(() => {
@@ -141,6 +170,8 @@ export const ActionPanel: React.FC<ActionPanelProps> = ({
                         value={localCustomAction}
                         onChange={handleInputChange}
                         onKeyPress={handleKeyPress}
+                        onCompositionStart={handleCompositionStart}
+                        onCompositionEnd={handleCompositionEnd}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa bởi một luật lệ" : "Ví dụ: nhặt hòn đá lên..."}
                         className="flex-1 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl py-3 px-4 text-white placeholder-white/50 focus:outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"

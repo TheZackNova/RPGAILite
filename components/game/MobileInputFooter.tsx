@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as GameIcons from '../GameIcons.tsx';
 import { SparklesIcon } from '../Icons.tsx';
 
@@ -22,34 +22,63 @@ export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
 }) => {
     // Local state for input to prevent lag
     const [localCustomAction, setLocalCustomAction] = useState(customAction);
+    // IME composition state for Vietnamese input
+    const [isComposing, setIsComposing] = useState(false);
     
-    // Sync local state with parent state
+    // Sync local state with parent state only when parent changes externally
     useEffect(() => {
-        setLocalCustomAction(customAction);
-    }, [customAction]);
+        // Only sync if the parent state is different from local and we're not currently composing
+        if (!isComposing && customAction !== localCustomAction) {
+            setLocalCustomAction(customAction);
+        }
+    }, [customAction]); // Only depend on customAction, not localCustomAction to avoid loops
     
-    // Debounced update to parent state
+    // Debounced update to parent state - only when not composing
+    const debouncedUpdateRef = useRef<NodeJS.Timeout>();
     useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (localCustomAction !== customAction) {
-                setCustomAction(localCustomAction);
-            }
+        if (isComposing) return; // Don't update during IME composition
+        
+        // Clear previous timeout
+        if (debouncedUpdateRef.current) {
+            clearTimeout(debouncedUpdateRef.current);
+        }
+        
+        // Set new timeout
+        debouncedUpdateRef.current = setTimeout(() => {
+            setCustomAction(localCustomAction);
         }, 300);
         
-        return () => clearTimeout(timeoutId);
-    }, [localCustomAction, customAction, setCustomAction]);
+        return () => {
+            if (debouncedUpdateRef.current) {
+                clearTimeout(debouncedUpdateRef.current);
+            }
+        };
+    }, [localCustomAction, isComposing, setCustomAction]); // Keep setCustomAction but use ref for timeout
+    
+    // Handle IME composition start (Vietnamese input begins)
+    const handleCompositionStart = useCallback(() => {
+        setIsComposing(true);
+    }, []);
+    
+    // Handle IME composition end (Vietnamese input finishes)
+    const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLInputElement>) => {
+        setIsComposing(false);
+        setLocalCustomAction(e.currentTarget.value); // Ensure we capture the final composed value
+    }, []);
     
     // Handle input change with local state
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setLocalCustomAction(e.target.value);
-    }, []);
+        if (!isComposing) {
+            setLocalCustomAction(e.target.value);
+        }
+    }, [isComposing]);
     
-    // Handle enter key press
+    // Handle enter key press - avoid during composition
     const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !isComposing) {
             debouncedHandleAction(localCustomAction);
         }
-    }, [localCustomAction, debouncedHandleAction]);
+    }, [localCustomAction, debouncedHandleAction, isComposing]);
     
     // Handle send button click
     const handleSendAction = useCallback(() => {
@@ -81,6 +110,8 @@ export const MobileInputFooter: React.FC<MobileInputFooterProps> = ({
                         value={localCustomAction}
                         onChange={handleInputChange}
                         onKeyPress={handleKeyPress}
+                        onCompositionStart={handleCompositionStart}
+                        onCompositionEnd={handleCompositionEnd}
                         disabled={isLoading || !isAiReady || isCustomActionLocked}
                         placeholder={isCustomActionLocked ? "Hành động tùy ý đã bị khóa." : "Nhập hành động..."}
                         className="flex-1 bg-slate-100 dark:bg-[#373c5a] border border-slate-300 dark:border-slate-600 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-slate-500"
