@@ -98,6 +98,7 @@ interface MemoizedModalsProps {
         pcEntity: Entity | undefined;
         pcStatuses: Status[];
         displayParty: Entity[];
+        playerInventory: Entity[];
     };
 }
 

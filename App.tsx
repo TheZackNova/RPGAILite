@@ -123,7 +123,11 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 \`[LORE_ITEM: name="Tên vật phẩm", description="Mô tả", usable=true, equippable=false, quantities=5, durability=100]\`
 
 4. **Kỹ năng mới:**
-\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", mastery="Mức độ thành thạo nếu có"]\`
+\`[SKILL_LEARNED: name="Tên kỹ năng", description="Mô tả", mastery="Mức độ thành thạo nếu có", learner="Tên NPC (BẮT BUỘC khi NPC học)"]\`
+**⚠️ QUAN TRỌNG:** 
+- Khi NPC học kỹ năng: **PHẢI** có \`learner="Tên NPC"\`
+- Khi PC học kỹ năng: Có thể bỏ qua \`learner\` hoặc ghi \`learner="PC"\`
+- **VÍ DỤ:** \`[SKILL_LEARNED: name="Haki Quan Sát", description="...", learner="Nami"]\`
 
 5. **Thế lực mới:**
 \`[LORE_FACTION: name="...", description="..."]\`: \`description\` là BẮT BUỘC.
@@ -148,7 +152,7 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 
 *   **Các Thẻ Quan Trọng Khác:**
         *   \`[COMPANION: name="...", description="...", personality="...", relationship="Quan hệ với PC", skills="Kỹ năng 1, Kỹ năng 2", realm="Cảnh giới", motivation="Động cơ đồng hành"]\`: **NÂNG CẤP** - Đồng hành với thông tin chi tiết. Tất cả đồng hành PHẢI có personality và relationship rõ ràng để AI có thể thể hiện cá tính riêng.
-        *   \`[SKILL_LEARNED: name="...", description="...", mastery="..."]\`: Kỹ năng được học.
+        *   \`[SKILL_LEARNED: name="...", description="...", mastery="...", learner="Tên NPC (BẮT BUỘC khi NPC học)"]\`: Kỹ năng được học. **PHẢI** có \`learner\` khi NPC học kỹ năng.
         *   \`[REALM_UPDATE: target="Tên Thực Thể", realm="..."]\`: Cập nhật cảnh giới cho nhân vật hoặc NPC. Đối với kỹ năng, sử dụng \`[ENTITY_UPDATE: name="Tên kỹ năng", mastery="Mức độ mới"]\`.
         *   \`[RELATIONSHIP_CHANGED: npcName="Tên NPC", relationship="Mối quan hệ"]\`
         *   \`[ENTITY_UPDATE: name="Tên Thực Thể", newDescription="Mô tả mới đầy đủ..."]\`: **QUAN TRỌNG:** Sử dụng thuộc tính \`newDescription\` để cập nhật mô tả.

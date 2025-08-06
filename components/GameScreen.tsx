@@ -856,7 +856,6 @@ export const GameScreen: React.FC<{
                 // Exclude items that explicitly belong to NPCs
                 return false;
             });
-            console.log(`🎒 Player inventory updated: ${inventory.length} items`, inventory.map(i => i.name));
             return inventory;
         })()
     }), [pcEntity, pcStatuses, displayParty, knownEntities]);

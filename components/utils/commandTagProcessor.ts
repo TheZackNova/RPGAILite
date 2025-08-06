@@ -314,7 +314,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                     case 'SKILL_LEARNED':
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };
-                            const { name, description, ...rest } = attributes;
+                            const { name, description, learner, target, ...rest } = attributes;
                             if (name && description) {
                                 const newSkill: Entity = {
                                     type: 'skill',
@@ -326,17 +326,104 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                 console.log(`🔗 Generated reference ID for learned skill ${name}: ${newSkill.referenceId}`);
                                 newEntities[name] = newSkill;
                         
-                                const pc = Object.values(newEntities).find(e => e.type === 'pc');
-                                if (pc) {
-                                    const pcName = pc.name;
-                                    const updatedPc = { ...newEntities[pcName] };
-                                    if (!updatedPc.learnedSkills) {
-                                        updatedPc.learnedSkills = [];
+                                // Determine who learned the skill - prefer 'learner' over 'target', default to PC
+                                const skillLearner = learner || target;
+                                
+                                if (skillLearner) {
+                                    // Check if the learner is an NPC
+                                    const npcEntity = newEntities[skillLearner];
+                                    if (npcEntity && npcEntity.type === 'npc') {
+                                        // Add to NPC's skills array
+                                        const updatedNpc = { ...npcEntity };
+                                        if (!updatedNpc.skills) {
+                                            updatedNpc.skills = [];
+                                        }
+                                        if (!updatedNpc.skills.includes(name)) {
+                                            updatedNpc.skills.push(name);
+                                            console.log(`🎓 NPC ${skillLearner} learned skill: ${name}`);
+                                        }
+                                        newEntities[skillLearner] = updatedNpc;
+                                    } else {
+                                        // Target is PC or unknown, add to PC's learnedSkills
+                                        const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                        if (pc) {
+                                            const updatedPc = { ...newEntities[pc.name] };
+                                            if (!updatedPc.learnedSkills) {
+                                                updatedPc.learnedSkills = [];
+                                            }
+                                            if (!updatedPc.learnedSkills.includes(name)) {
+                                                updatedPc.learnedSkills.push(name);
+                                                console.log(`🎓 PC ${pc.name} learned skill: ${name}`);
+                                            }
+                                            newEntities[pc.name] = updatedPc;
+                                        }
                                     }
-                                    if (!updatedPc.learnedSkills.includes(name)) {
-                                        updatedPc.learnedSkills.push(name);
+                                } else {
+                                    // No target specified - try intelligent detection first
+                                    console.warn(`⚠️ SKILL_LEARNED without learner parameter: ${name}. Attempting intelligent detection...`);
+                                    
+                                    // Smart detection: Look for recent context clues in skill name/description
+                                    const skillContext = `${name} ${description}`.toLowerCase();
+                                    let detectedLearner: string | null = null;
+                                    
+                                    // Check all NPCs to see if any names appear in the skill context
+                                    const npcs = Object.values(newEntities).filter(e => e.type === 'npc' || e.type === 'companion');
+                                    for (const npc of npcs) {
+                                        const npcNameLower = npc.name.toLowerCase();
+                                        // Check if NPC name appears in skill context
+                                        if (skillContext.includes(npcNameLower)) {
+                                            detectedLearner = npc.name;
+                                            console.log(`🔍 Intelligent detection: Skill "${name}" likely belongs to NPC "${npc.name}" based on name in context`);
+                                            break;
+                                        }
                                     }
-                                    newEntities[pcName] = updatedPc;
+                                    
+                                    // If no direct name match, check for NPCs with related skills (Haki example)
+                                    if (!detectedLearner && name.toLowerCase().includes('haki')) {
+                                        for (const npc of npcs) {
+                                            if (npc.skills && Array.isArray(npc.skills)) {
+                                                const hasRelatedHakiSkill = npc.skills.some(skill => 
+                                                    skill.toLowerCase().includes('haki')
+                                                );
+                                                if (hasRelatedHakiSkill) {
+                                                    detectedLearner = npc.name;
+                                                    console.log(`🔍 Intelligent detection: Skill "${name}" likely belongs to NPC "${npc.name}" based on related Haki skills`);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (detectedLearner) {
+                                        // Apply to detected NPC
+                                        const npcEntity = newEntities[detectedLearner];
+                                        if (npcEntity && (npcEntity.type === 'npc' || npcEntity.type === 'companion')) {
+                                            const updatedNpc = { ...npcEntity };
+                                            if (!updatedNpc.skills) {
+                                                updatedNpc.skills = [];
+                                            }
+                                            if (!updatedNpc.skills.includes(name)) {
+                                                updatedNpc.skills.push(name);
+                                                console.log(`🎓 NPC ${detectedLearner} learned skill: ${name} (intelligent detection)`);
+                                            }
+                                            newEntities[detectedLearner] = updatedNpc;
+                                        }
+                                    } else {
+                                        // Default to PC if no intelligent detection worked
+                                        const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                        if (pc) {
+                                            const pcName = pc.name;
+                                            const updatedPc = { ...newEntities[pcName] };
+                                            if (!updatedPc.learnedSkills) {
+                                                updatedPc.learnedSkills = [];
+                                            }
+                                            if (!updatedPc.learnedSkills.includes(name)) {
+                                                updatedPc.learnedSkills.push(name);
+                                                console.log(`🎓 PC ${pc.name} learned skill: ${name} (default target - no NPC detected)`);
+                                            }
+                                            newEntities[pcName] = updatedPc;
+                                        }
+                                    }
                                 }
                             }
                             return newEntities;
