@@ -174,15 +174,12 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
         const unprocessedTags: string[] = [];
         while ((match = tagRegex.exec(storyText)) !== null) {
             cleanStory = cleanStory.replace(match[0], ''); // Remove tag from displayed story
-            console.log(`🔧 DEBUG: Found tag: ${match[0]}`);
             
             if (applySideEffects) {
                 const tagType = match[1];
                 const rawContent = match[2];
-                console.log(`🔧 DEBUG: Tag type: ${tagType}, Raw content: ${rawContent}`);
                 
                 const attributes = parseAttributes(rawContent);
-                console.log(`🔧 DEBUG: Parsed attributes:`, attributes);
                 
                 if (Object.keys(attributes).length === 0) {
                      unprocessedTags.push(match[0]);
@@ -315,11 +312,9 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         });
                         break;
                     case 'SKILL_LEARNED':
-                        console.log(`🔧 DEBUG: Processing SKILL_LEARNED tag:`, attributes);
                         setKnownEntities(prev => {
                             const newEntities = { ...prev };
                             const { name, description, learner, target, ...rest } = attributes;
-                            console.log(`🔧 DEBUG: Skill data - name: ${name}, description: ${description}, learner: ${learner}, target: ${target}`);
                             if (name && description) {
                                 const newSkill: Entity = {
                                     type: 'skill',
@@ -453,6 +448,29 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                         if (key === 'motivation' && existingPC.motivation) {
                                             console.log(`🔒 PROTECTED: Refusing to overwrite user motivation "${existingPC.motivation}" with AI motivation "${newAttributes[key]}"`);
                                             return; // Skip this attribute
+                                        }
+                                        // Special handling: Merge AI-generated skills with existing starting skills
+                                        if (key === 'learnedSkills' && existingPC.learnedSkills && existingPC.learnedSkills.length > 0) {
+                                            const existingSkills = existingPC.learnedSkills;
+                                            const newSkills = Array.isArray(newAttributes[key]) ? newAttributes[key] : [];
+                                            
+                                            // Filter out placeholder values that indicate "no skills"
+                                            const placeholderValues = ['chưa có', 'chua co', 'none', 'n/a', 'không có', 'khong co', '', 'null', 'undefined'];
+                                            const validNewSkills = newSkills.filter((skill: string) => {
+                                                const skillLower = skill.toString().toLowerCase().trim();
+                                                return skillLower && !placeholderValues.includes(skillLower);
+                                            });
+                                            
+                                            // Merge skills, keeping existing ones and adding new unique ones
+                                            const mergedSkills = [...existingSkills];
+                                            validNewSkills.forEach((skill: string) => {
+                                                if (!mergedSkills.includes(skill)) {
+                                                    mergedSkills.push(skill);
+                                                }
+                                            });
+                                            filteredAttributes[key] = mergedSkills;
+                                            console.log(`🔄 MERGED: Starting skills [${existingSkills.join(', ')}] + AI skills [${validNewSkills.join(', ')}] = [${mergedSkills.join(', ')}]`);
+                                            return; // Use merged skills
                                         }
                                         filteredAttributes[key] = newAttributes[key];
                                     }
