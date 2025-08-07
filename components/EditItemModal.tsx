@@ -121,50 +121,58 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Boolean Properties */}
+                    {/* Item Type Selection */}
                     <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Loại vật phẩm</label>
+                        
                         <div className="flex items-center space-x-3">
                             <input
-                                type="checkbox"
+                                type="radio"
                                 id="usable"
+                                name="itemType"
                                 checked={editedItem.usable || false}
-                                onChange={(e) => handleInputChange('usable', e.target.checked)}
-                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 rounded focus:ring-amber-500 focus:ring-2"
+                                onChange={() => {
+                                    handleInputChange('usable', true);
+                                    handleInputChange('equippable', false);
+                                    handleInputChange('learnable', false);
+                                    handleInputChange('equipped', false);
+                                }}
+                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 focus:ring-amber-500 focus:ring-2"
                             />
                             <label htmlFor="usable" className="text-sm font-semibold text-gray-300">Có thể sử dụng</label>
                         </div>
 
                         <div className="flex items-center space-x-3">
                             <input
-                                type="checkbox"
+                                type="radio"
                                 id="equippable"
+                                name="itemType"
                                 checked={editedItem.equippable || false}
-                                onChange={(e) => handleInputChange('equippable', e.target.checked)}
-                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 rounded focus:ring-amber-500 focus:ring-2"
+                                onChange={() => {
+                                    handleInputChange('usable', false);
+                                    handleInputChange('equippable', true);
+                                    handleInputChange('learnable', false);
+                                }}
+                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 focus:ring-amber-500 focus:ring-2"
                             />
                             <label htmlFor="equippable" className="text-sm font-semibold text-gray-300">Có thể trang bị</label>
                         </div>
 
                         <div className="flex items-center space-x-3">
                             <input
-                                type="checkbox"
-                                id="learnable"
+                                type="radio"
+                                id="other"
+                                name="itemType"
                                 checked={editedItem.learnable || false}
-                                onChange={(e) => handleInputChange('learnable', e.target.checked)}
-                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 rounded focus:ring-amber-500 focus:ring-2"
+                                onChange={() => {
+                                    handleInputChange('usable', false);
+                                    handleInputChange('equippable', false);
+                                    handleInputChange('learnable', true);
+                                    handleInputChange('equipped', false);
+                                }}
+                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 focus:ring-amber-500 focus:ring-2"
                             />
-                            <label htmlFor="learnable" className="text-sm font-semibold text-gray-300">Có thể học (công pháp)</label>
-                        </div>
-
-                        <div className="flex items-center space-x-3">
-                            <input
-                                type="checkbox"
-                                id="consumable"
-                                checked={editedItem.consumable || false}
-                                onChange={(e) => handleInputChange('consumable', e.target.checked)}
-                                className="w-4 h-4 text-amber-600 bg-slate-800 border-slate-600 rounded focus:ring-amber-500 focus:ring-2"
-                            />
-                            <label htmlFor="consumable" className="text-sm font-semibold text-gray-300">Tiêu hao khi sử dụng</label>
+                            <label htmlFor="other" className="text-sm font-semibold text-gray-300">Khác</label>
                         </div>
 
                         {editedItem.equippable && (

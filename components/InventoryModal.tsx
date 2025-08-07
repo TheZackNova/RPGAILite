@@ -120,7 +120,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                     {/* Item Count */}
                                     {(item.quantities || item.uses) && (
                                         <div className="absolute bottom-1 right-1 bg-slate-900/80 text-xs px-1 rounded text-white">
-                                            {item.quantities || item.uses}
+                                            {String(item.quantities || item.uses).replace(/,/g, '')}
                                         </div>
                                     )}
                                     
@@ -172,7 +172,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                             setSelectedItem(null);
                                         }}
                                     >
-                                        SỬ DỤNG {(selectedItem.quantities && `(${selectedItem.quantities} lần)`) || (selectedItem.uses && `(${selectedItem.uses} lần)`)}
+                                        SỬ DỤNG {(selectedItem.quantities && `(${String(selectedItem.quantities).replace(/,/g, '')} lần)`) || (selectedItem.uses && `(${String(selectedItem.uses).replace(/,/g, '')} lần)`)}
                                     </button>
                                 )}
                                 

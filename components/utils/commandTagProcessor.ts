@@ -741,14 +741,40 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         break;
                     case 'ITEM_AQUIRED':
                         setKnownEntities(prev => {
-                            const newItem: Entity = { 
-                                type: 'item', 
-                                owner: 'pc',
-                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'item'),
-                                ...attributes 
-                            };
-                            console.log(`🔗 Generated reference ID for acquired item ${attributes.name}: ${newItem.referenceId}`);
-                            return { ...prev, [attributes.name]: newItem };
+                            const existingItem = prev[attributes.name];
+                            
+                            if (existingItem && existingItem.type === 'item' && existingItem.owner === 'pc') {
+                                // Item already exists - stack quantities
+                                const newQuantity = (attributes.quantities || 1);
+                                const existingQuantity = existingItem.quantities || existingItem.uses || 1;
+                                const totalQuantity = existingQuantity + newQuantity;
+                                
+                                const updatedItem: Entity = {
+                                    ...existingItem,
+                                    ...attributes, // Apply new attributes (like description updates)
+                                    name: attributes.name, // Ensure name is preserved
+                                    quantities: existingItem.quantities ? totalQuantity : undefined,
+                                    uses: existingItem.uses ? totalQuantity : undefined
+                                };
+                                
+                                // If neither quantities nor uses existed, add quantities
+                                if (!existingItem.quantities && !existingItem.uses) {
+                                    updatedItem.quantities = totalQuantity;
+                                }
+                                
+                                console.log(`📦 Stacked item: ${attributes.name} (${existingQuantity} + ${newQuantity} = ${totalQuantity})`);
+                                return { ...prev, [attributes.name]: updatedItem };
+                            } else {
+                                // New item or different owner - create new entry
+                                const newItem: Entity = { 
+                                    type: 'item', 
+                                    owner: 'pc',
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'item'),
+                                    ...attributes 
+                                };
+                                console.log(`🔗 Generated reference ID for acquired item ${attributes.name}: ${newItem.referenceId}`);
+                                return { ...prev, [attributes.name]: newItem };
+                            }
                         });
                         break;
                      case 'ITEM_CONSUMED':
@@ -759,25 +785,26 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             if (itemToConsume && itemToConsume.type === 'item' && itemToConsume.owner === 'pc') {
                                 // Check quantities first (new system), then uses (legacy)
                                 const currentQuantity = itemToConsume.quantities || itemToConsume.uses;
+                                const quantityToConsume = attributes.quantity || attributes.quantities || 1; // Support quantity parameter
                                 
-                                if (typeof currentQuantity === 'number' && currentQuantity > 1) {
-                                    // Decrease quantity/uses by 1
+                                if (typeof currentQuantity === 'number' && currentQuantity > quantityToConsume) {
+                                    // Decrease quantity/uses by specified amount
                                     if (itemToConsume.quantities) {
                                         newEntities[attributes.name] = {
                                             ...itemToConsume,
-                                            quantities: itemToConsume.quantities - 1,
+                                            quantities: itemToConsume.quantities - quantityToConsume,
                                         };
                                     } else if (itemToConsume.uses) {
                                         newEntities[attributes.name] = {
                                             ...itemToConsume,
-                                            uses: itemToConsume.uses - 1,
+                                            uses: itemToConsume.uses - quantityToConsume,
                                         };
                                     }
-                                    console.log(`📦 Item consumed: ${attributes.name} now has ${currentQuantity - 1} remaining`);
+                                    console.log(`📦 Item consumed: ${attributes.name} - consumed ${quantityToConsume}, now has ${currentQuantity - quantityToConsume} remaining`);
                                 } else {
-                                    // Remove item completely when quantity reaches 0
+                                    // Remove item completely when quantity reaches 0 or below
                                     delete newEntities[attributes.name];
-                                    console.log(`🗑️ Item completely consumed: ${attributes.name} has been removed from inventory`);
+                                    console.log(`🗑️ Item completely consumed: ${attributes.name} - consumed ${quantityToConsume}, has been removed from inventory`);
                                 }
                             }
                             return newEntities;

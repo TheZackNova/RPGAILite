@@ -144,11 +144,17 @@ export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MAS
 *   **Hệ thống Vật phẩm & Trang bị:**
         *   \`[ITEM_AQUIRED: name="..." description="..." ...]\`
         *   \`[ITEM_DAMAGED: name="Tên Item" damage="10"]\`
-        *   \`[ITEM_CONSUMED: name="Tên Item"]\`
+        *   \`[ITEM_CONSUMED: name="Tên Item" quantity="1"]\`: Sử dụng/tiêu thụ vật phẩm HOẶC đưa/tặng/ban/cho item cho người khác. Hỗ trợ tham số "quantity" để xử lý nhiều cùng lúc. **BẮT BUỘC** dùng khi PC đưa item cho NPC/người khác để cập nhật inventory.
         *   \`[ITEM_TRANSFORMED: oldName="Tên item cũ", newName="Tên item mới", description="Mô tả mới", ...]\`
         *   \`[ITEM_EQUIPPED: name="Tên Item"]\`: Trang bị một vật phẩm cho nhân vật chính. Vật phẩm phải có \`equippable="true"\`.
         *   \`[ITEM_UNEQUIPPED: name="Tên Item"]\`: Tháo một vật phẩm đã trang bị.
         *   \`[ITEM_DISCARDED: name="Tên Item"]\`: Vứt bỏ một vật phẩm khỏi túi đồ của nhân vật chính. Vật phẩm sẽ bị xóa hoàn toàn khỏi inventory.
+        
+        **📤 QUAN TRỌNG - Quy tắc đưa/tặng item:**
+        *   Khi PC **đưa/tặng/ban/cho** item cho NPC/người khác, **BẮT BUỘC** phải dùng \`[ITEM_CONSUMED: name="..." quantity="số lượng"]\`
+        *   Ví dụ: "Tôi đưa 3 Devil Fruit cho Luffy" → \`[ITEM_CONSUMED: name="Devil Fruit thần bí" quantity="3"]\`
+        *   Ví dụ: "Tặng kiếm cho đồng đội" → \`[ITEM_CONSUMED: name="Tên kiếm"]\`
+        *   **KHÔNG được quên** tag này khi viết cảnh đưa item, nếu không inventory sẽ không sync!
 
 *   **Các Thẻ Quan Trọng Khác:**
         *   \`[COMPANION: name="...", description="...", personality="...", relationship="Quan hệ với PC", skills="Kỹ năng 1, Kỹ năng 2", realm="Cảnh giới", motivation="Động cơ đồng hành"]\`: **NÂNG CẤP** - Đồng hành với thông tin chi tiết. Tất cả đồng hành PHẢI có personality và relationship rõ ràng để AI có thể thể hiện cá tính riêng.
