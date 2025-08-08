@@ -414,16 +414,6 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     if (entity.type !== 'skill' || skillName === name) return false;
                                     const existingBaseName = skillName.replace(/\([^)]*\)/g, '').trim();
                                     
-                                    // Special handling for sealed/unsealed skills
-                                    const isSealed = skillName.includes('đang phong ấn') || skillName.includes('phong ấn');
-                                    const isUnsealed = name.includes('Sơ Giải') || name.includes('sơ giải');
-                                    
-                                    // If new skill is unsealed version of existing sealed skill
-                                    if (isSealed && isUnsealed && existingBaseName === baseSkillName) {
-                                        console.log(`🔓 Detected skill unsealing: ${skillName} → ${name}`);
-                                        return true;
-                                    }
-                                    
                                     return existingBaseName === baseSkillName;
                                 });
                                 
@@ -451,10 +441,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                 if (skillIndex !== -1) {
                                                     updatedMember.skills = [...member.skills];
                                                     updatedMember.skills[skillIndex] = name;
-                                                    
-                                                    // Special log for unsealing
-                                                    const isUnsealing = existingBaseSkill.includes('đang phong ấn') && name.includes('Sơ Giải');
-                                                    console.log(`🔄 ${isUnsealing ? '🔓 Unsealed' : 'Upgraded'} ${member.type.toUpperCase()} ${member.name} skill: ${existingBaseSkill} → ${name}`);
+                                                    console.log(`🔄 Upgraded ${member.type.toUpperCase()} ${member.name} skill: ${existingBaseSkill} → ${name}`);
                                                 }
                                             }
                                             
@@ -475,9 +462,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                     )
                                                 };
                                                 
-                                                // Special log for unsealing
-                                                const isUnsealing = existingBaseSkill.includes('đang phong ấn') && name.includes('Sơ Giải');
-                                                console.log(`🔄 ${isUnsealing ? '🔓 Unsealed' : 'Upgraded'} ${entity.type.toUpperCase()} ${entity.name} skill in knownEntities: ${existingBaseSkill} → ${name}`);
+                                                console.log(`🔄 Upgraded ${entity.type.toUpperCase()} ${entity.name} skill in knownEntities: ${existingBaseSkill} → ${name}`);
                                             }
                                         }
                                     });
@@ -668,7 +653,6 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             
                             // Determine update type for logging
                             const updateType = 
-                                oldSkill.includes('đang phong ấn') && newSkill.includes('Sơ Giải') ? '🔓 Unsealed' :
                                 oldSkill.includes('Cơ Bản') && newSkill.includes('Sơ Cấp') ? '📈 Mastery' :
                                 oldSkill.includes('Sơ Cấp') && newSkill.includes('Trung Cấp') ? '📈 Mastery' :
                                 oldSkill.includes('Trung Cấp') && newSkill.includes('Cao Cấp') ? '📈 Mastery' :
