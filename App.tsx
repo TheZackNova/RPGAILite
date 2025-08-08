@@ -13,7 +13,7 @@ import type { SaveData, Entity, AIContextType, FormData, CustomRule, KnownEntiti
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
 import { ReferenceIdGenerator } from './components/utils/ReferenceIdGenerator.ts';
 
-// --- Constants ---
+// --- Hằng số ---
 export const DEFAULT_SYSTEM_INSTRUCTION = `BẠN LÀ MỘT QUẢN TRÒ (GAME MASTER) AI. Nhiệm vụ của bạn là điều khiển một trò chơi nhập vai phiêu lưu văn bản, tuân thủ NGHIÊM NGẶT các quy tắc sau:
 
 --- NGUYÊN TẮC CỐT LÕI ---
@@ -441,7 +441,7 @@ Trước khi hoàn thành phản hồi, hãy tự kiểm tra theo thứ tự:
 
 **FINAL REMINDER:**
 "Bạn là người kể chuyện CHỦ ĐỘNG và sáng tạo. Thế giới phải SỐNG và PHẢN ỨNG với mọi hành động. Không bao giờ để game trở nên tĩnh lặng hay nhàm chán!"`;
-// --- AI Context for dependency injection ---
+// --- Ngữ cảnh AI cho dependency injection ---
 export const AIContext = createContext<AIContextType>({
     ai: null,
     isAiReady: false,
@@ -453,20 +453,20 @@ export const AIContext = createContext<AIContextType>({
 });
 
 export default function App() {
-  const [view, setView] = useState('menu'); // 'menu', 'create-world', 'game'
+  const [view, setView] = useState('menu'); // 'menu' - menu chính, 'create-world' - tạo thế giới, 'game' - trò chơi
   const [gameState, setGameState] = useState<SaveData | null>(null);
   const [isApiSettingsModalOpen, setIsApiSettingsModalOpen] = useState(false);
   const [isChangelogModalOpen, setIsChangelogModalOpen] = useState(false);
   const [keyRotationNotification, setKeyRotationNotification] = useState<string | null>(null);
   
-  // Progress tracking for game initialization
+  // Theo dõi tiến trình khởi tạo game
   const [isInitializing, setIsInitializing] = useState(false);
   const [initProgress, setInitProgress] = useState(0);
   const [initCurrentStep, setInitCurrentStep] = useState('');
   const [initSubStep, setInitSubStep] = useState('');
 
 
-  // --- API Key State ---
+  // --- Trạng thái API Key ---
   const [userApiKeys, setUserApiKeys] = useState<string[]>(() => {
       const savedKeys = localStorage.getItem('userApiKeys');
       return savedKeys ? JSON.parse(savedKeys) : [];
@@ -475,13 +475,13 @@ export default function App() {
       return parseInt(localStorage.getItem('activeUserApiKeyIndex') || '0', 10);
   });
   const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => {
-      return localStorage.getItem('isUsingDefaultKey') !== 'false'; // Default to true
+      return localStorage.getItem('isUsingDefaultKey') !== 'false'; // Mặc định là true
   });
   const [selectedAiModel, setSelectedAiModel] = useState(() => {
       return localStorage.getItem('selectedAiModel') || 'gemini-2.5-flash';
   });
 
-  // --- Memoized AI Instance ---
+  // --- Thể hiện AI được memoized ---
   const activeKey = useMemo(() => {
     if (isUsingDefaultKey) {
         return process.env.API_KEY || '';
@@ -505,12 +505,12 @@ export default function App() {
         const genAI = new GoogleGenAI({ apiKey: activeKey });
         return { ai: genAI, isAiReady: true, apiKeyError: null };
       } catch (e: any) {
-        console.error("Failed to initialize GoogleGenAI:", e);
+        console.error("Không thể khởi tạo GoogleGenAI:", e);
         return { ai: null, isAiReady: false, apiKeyError: `Lỗi khởi tạo AI: ${e.message}` };
       }
   }, [activeKey]);
   
-  // --- Key Management ---
+  // --- Quản lý API Key ---
   const handleSaveApiKeys = (newKeys: string[]) => {
       const filteredKeys = newKeys.filter(k => k.trim() !== '');
       setUserApiKeys(filteredKeys);
@@ -533,7 +533,7 @@ export default function App() {
     setActiveUserApiKeyIndex(nextIndex);
     localStorage.setItem('activeUserApiKeyIndex', nextIndex.toString());
     setKeyRotationNotification(`Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key #${nextIndex + 1}.`);
-    // Notification will be cleared in GameScreen after being displayed
+    // Thông báo sẽ được xóa trong GameScreen sau khi hiển thị
   };
 
 
@@ -548,42 +548,42 @@ export default function App() {
           const saved = localStorage.getItem('lastWorldSetup');
           return saved ? JSON.parse(saved) : null;
       } catch (error) {
-          console.error('Failed to load world setup from localStorage:', error);
+          console.error('Không thể tải cấu hình thế giới từ localStorage:', error);
           return null;
       }
   };
 
   const quickPlay = async () => {
-      console.log('🚀 QuickPlay: Starting...');
+      console.log('🚀 QuickPlay: Bắt đầu...');
       setIsInitializing(true);
       setInitProgress(5);
       setInitCurrentStep('Đang tải cấu hình thế giới...');
       setInitSubStep('');
       
       const lastSetup = getLastWorldSetup();
-      console.log('🚀 QuickPlay: Last setup loaded:', lastSetup ? 'Found' : 'Not found');
+      console.log('🚀 QuickPlay: Cấu hình cuối tải:', lastSetup ? 'Tìm thấy' : 'Không tìm thấy');
       
       if (lastSetup) {
           try {
-              console.log('🚀 QuickPlay: Calling startNewGame...');
+              console.log('🚀 QuickPlay: Đang gọi startNewGame...');
               await startNewGame(lastSetup);
-              console.log('🚀 QuickPlay: startNewGame completed successfully');
+              console.log('🚀 QuickPlay: startNewGame hoàn thành thành công');
           } catch (error) {
-              console.error('🚀 QuickPlay: Error in startNewGame:', error);
+              console.error('🚀 QuickPlay: Lỗi trong startNewGame:', error);
               setIsInitializing(false);
           }
       } else {
-          console.log('🚀 QuickPlay: No last setup found, cannot start game');
+          console.log('🚀 QuickPlay: Không tìm thấy cấu hình cuối, không thể bắt đầu game');
           setIsInitializing(false);
       }
   };
 
 
-  // Function to generate LORE_CONCEPT entities from custom rules
+  // Hàm tạo các thực thể LORE_CONCEPT từ quy tắc tùy chỉnh
   const generateLoreConcepts = async (activeRules: CustomRule[]): Promise<KnownEntities> => {
-      console.log('🧠 GenerateLoreConcepts: Starting with', activeRules.length, 'active rules');
+      console.log('🧠 GenerateLoreConcepts: Bắt đầu với', activeRules.length, 'quy tắc đang active');
       if (!ai || !isAiReady) {
-          console.log('🧠 GenerateLoreConcepts: AI not ready, returning empty');
+          console.log('🧠 GenerateLoreConcepts: AI chưa sẵn sàng, trả về rỗng');
           return {};
       }
 
@@ -623,7 +623,7 @@ YÊU CẦU:
 Trả về JSON với format đã chỉ định.`;
 
       try {
-          console.log('🧠 GenerateLoreConcepts: Making AI request...');
+          console.log('🧠 GenerateLoreConcepts: Đang gửi yêu cầu AI...');
           const response = await ai.models.generateContent({
               model: selectedAiModel,
               contents: [{ role: 'user', parts: [{ text: conceptPrompt }] }],
@@ -633,19 +633,19 @@ Trả về JSON với format đã chỉ định.`;
               }
           });
 
-          console.log('🧠 GenerateLoreConcepts: AI response received');
+          console.log('🧠 GenerateLoreConcepts: Nhận được phản hồi AI');
           const responseText = response.text?.trim();
           if (!responseText) {
-              console.log('🧠 GenerateLoreConcepts: Empty response text, returning empty');
+              console.log('🧠 GenerateLoreConcepts: Phản hồi rỗng, trả về rỗng');
               return {};
           }
 
-          console.log('🧠 GenerateLoreConcepts: Parsing JSON response...');
+          console.log('🧠 GenerateLoreConcepts: Đang phân tích phản hồi JSON...');
           const jsonResponse = JSON.parse(responseText);
           const conceptEntities: KnownEntities = {};
 
           if (jsonResponse.concepts && Array.isArray(jsonResponse.concepts)) {
-              console.log('🧠 GenerateLoreConcepts: Processing', jsonResponse.concepts.length, 'concepts');
+              console.log('🧠 GenerateLoreConcepts: Đang xử lý', jsonResponse.concepts.length, 'khái niệm');
               jsonResponse.concepts.forEach((concept: any) => {
                   if (concept.name && concept.description) {
                       conceptEntities[concept.name] = {
@@ -656,31 +656,31 @@ Trả về JSON với format đã chỉ định.`;
                   }
               });
           } else {
-              console.log('🧠 GenerateLoreConcepts: No concepts array found in response');
+              console.log('🧠 GenerateLoreConcepts: Không tìm thấy mảng concepts trong phản hồi');
           }
 
-          console.log('🧠 GenerateLoreConcepts: Generated LORE_CONCEPT entities:', Object.keys(conceptEntities));
+          console.log('🧠 GenerateLoreConcepts: Đã tạo các thực thể LORE_CONCEPT:', Object.keys(conceptEntities));
           return conceptEntities;
       } catch (error) {
-          console.error('🧠 GenerateLoreConcepts: Error generating LORE_CONCEPT:', error);
+          console.error('🧠 GenerateLoreConcepts: Lỗi tạo LORE_CONCEPT:', error);
           return {};
       }
   };
   
   const startNewGame = async (data: FormData) => {
-      console.log('🎮 StartNewGame: Beginning game creation...');
-      console.log('🎮 StartNewGame: AI Ready:', isAiReady, 'AI exists:', !!ai);
+      console.log('🎮 StartNewGame: Bắt đầu tạo game...');
+      console.log('🎮 StartNewGame: AI Sẵn sàng:', isAiReady, 'AI tồn tại:', !!ai);
       
       setIsInitializing(true);
       setInitProgress(10);
       setInitCurrentStep('Đang lưu cấu hình thế giới...');
       
-      // Save WorldSetup to localStorage for quick play
+      // Lưu cấu hình thế giới vào localStorage để chơi nhanh
       try {
           localStorage.setItem('lastWorldSetup', JSON.stringify(data));
-          console.log('🎮 StartNewGame: World setup saved to localStorage');
+          console.log('🎮 StartNewGame: Cấu hình thế giới đã lưu vào localStorage');
       } catch (error) {
-          console.error('🎮 StartNewGame: Failed to save world setup to localStorage:', error);
+          console.error('🎮 StartNewGame: Không thể lưu cấu hình thế giới vào localStorage:', error);
       }
 
       setInitProgress(20);
@@ -701,17 +701,17 @@ Trả về JSON với format đã chỉ định.`;
           currentExp: 0,
           referenceId: ReferenceIdGenerator.generateReferenceId(data.characterName || 'Vô Danh', 'pc'),
       };
-      console.log('🎮 StartNewGame: PC Entity created:', pcEntity.name);
-      console.log('🎮 StartNewGame: AddGoal from form:', data.addGoal);
-      console.log('🎮 StartNewGame: PC motivation set to:', pcEntity.motivation);
+      console.log('🎮 StartNewGame: Thực thể PC đã tạo:', pcEntity.name);
+      console.log('🎮 StartNewGame: Mục tiêu từ form:', data.addGoal);
+      console.log('🎮 StartNewGame: Động lực PC được đặt thành:', pcEntity.motivation);
 
-      // Generate appearance for PC if AI is available and user hasn't provided one
+      // Tạo ngoại hình cho PC nếu AI có sẵn và người dùng chưa cung cấp
       if (ai && isAiReady && !data.characterAppearance) {
           setInitProgress(30);
           setInitCurrentStep('Đang tạo ngoại hình nhân vật...');
           setInitSubStep('Sử dụng AI để tạo mô tả ngoại hình');
           
-          console.log('🎮 StartNewGame: Generating PC appearance...');
+          console.log('🎮 StartNewGame: Đang tạo ngoại hình PC...');
           try {
               const appearanceResponse = await ai.models.generateContent({
                   model: selectedAiModel,
@@ -731,53 +731,53 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
               const appearance = appearanceResponse.text?.trim();
               if (appearance) {
                   pcEntity.appearance = appearance;
-                  console.log('🎮 StartNewGame: PC appearance generated successfully');
+                  console.log('🎮 StartNewGame: Tạo ngoại hình PC thành công');
               } else {
-                  console.log('🎮 StartNewGame: PC appearance generation returned empty');
+                  console.log('🎮 StartNewGame: Tạo ngoại hình PC trả về rỗng');
               }
           } catch (error) {
-              console.error('🎮 StartNewGame: Failed to generate PC appearance:', error);
+              console.error('🎮 StartNewGame: Không thể tạo ngoại hình PC:', error);
           }
           
       } else if (data.characterAppearance) {
-          console.log('🎮 StartNewGame: Using user-defined appearance from WorldCreate');
+          console.log('🎮 StartNewGame: Sử dụng ngoại hình do người dùng định nghĩa từ WorldCreate');
       } else {
-          console.log('🎮 StartNewGame: Skipping PC appearance generation (AI not ready or no appearance needed)');
+          console.log('🎮 StartNewGame: Bỏ qua tạo ngoại hình PC (AI chưa sẵn sàng hoặc không cần)');
       }
       
       const { customRules, ...worldData } = data;
       
-      // Process starting skills and add them to PC
-      console.log('🎮 StartNewGame: Processing starting skills:', data.startSkills);
-      console.log('🎮 StartNewGame: Data object keys:', Object.keys(data));
+      // Xử lý kỹ năng khởi đầu và thêm vào PC
+      console.log('🎮 StartNewGame: Đang xử lý kỹ năng khởi đầu:', data.startSkills);
+      console.log('🎮 StartNewGame: Khóa đối tượng data:', Object.keys(data));
       
-      // Handle backwards compatibility with old startSkill format
+      // Xử lý tương thích ngược với định dạng startSkill cũ
       let skillsArray = data.startSkills || [];
       if ((data as any).startSkill && skillsArray.length === 0) {
           skillsArray = [{ name: (data as any).startSkill, description: '', mastery: '' }];
-          console.log('🎮 StartNewGame: Using legacy startSkill format:', (data as any).startSkill);
+          console.log('🎮 StartNewGame: Sử dụng định dạng startSkill cũ:', (data as any).startSkill);
       }
       
       const startingSkills = skillsArray.filter(skill => skill.name.trim() && skill.description.trim());
-      console.log('🎮 StartNewGame: Filtered starting skills:', startingSkills);
+      console.log('🎮 StartNewGame: Kỹ năng khởi đầu đã lọc:', startingSkills);
       
-      // Initialize PC's learnedSkills properly
+      // Khởi tạo learnedSkills của PC một cách đúng đắn
       if (!pcEntity.learnedSkills) {
           pcEntity.learnedSkills = [];
       }
       
-      // Add starting skills to PC's learnedSkills
+      // Thêm kỹ năng khởi đầu vào learnedSkills của PC
       if (startingSkills.length > 0) {
           pcEntity.learnedSkills = [...pcEntity.learnedSkills, ...startingSkills.map(skill => skill.name)];
-          console.log('🎮 StartNewGame: PC learnedSkills set to:', pcEntity.learnedSkills);
+          console.log('🎮 StartNewGame: Kỹ năng đã học của PC được đặt thành:', pcEntity.learnedSkills);
       }
       
-      // Update the PC entity in initialEntities to ensure it has the starting skills
+      // Cập nhật thực thể PC trong initialEntities để đảm bảo nó có kỹ năng khởi đầu
       let initialEntities = { [pcEntity.name]: pcEntity };
-      console.log('🎮 StartNewGame: PC Entity after skills processing:', pcEntity);
-      console.log('🎮 StartNewGame: PC motivation after skills processing:', pcEntity.motivation);
+      console.log('🎮 StartNewGame: Thực thể PC sau khi xử lý kỹ năng:', pcEntity);
+      console.log('🎮 StartNewGame: Động lực PC sau khi xử lý kỹ năng:', pcEntity.motivation);
       
-      // Add starting skills as skill entities
+      // Thêm kỹ năng khởi đầu như là thực thể kỹ năng
       startingSkills.forEach(skill => {
           const skillEntity: Entity = {
               name: skill.name,
@@ -787,7 +787,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
               referenceId: ReferenceIdGenerator.generateReferenceId(skill.name, 'skill'),
           };
           initialEntities[skill.name] = skillEntity;
-          console.log(`🎮 StartNewGame: Added skill entity: ${skill.name} (${skill.mastery}) -> ${skillEntity.referenceId}`);
+          console.log(`🎮 StartNewGame: Đã thêm thực thể kỹ năng: ${skill.name} (${skill.mastery}) -> ${skillEntity.referenceId}`);
       });
 
       // BƯỚC 1: TẠO LORE_CONCEPT TRƯỚC
@@ -795,43 +795,43 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       setInitCurrentStep('Đang phân tích quy tắc tùy chỉnh...');
       setInitSubStep('');
       
-      console.log('🎮 StartNewGame: Checking for custom rules...');
+      console.log('🎮 StartNewGame: Kiểm tra quy tắc tùy chỉnh...');
       if (customRules && customRules.length > 0 && ai && isAiReady) {
           const activeRules = customRules.filter(rule => rule.isActive);
-          console.log('🎮 StartNewGame: Active rules found:', activeRules.length);
+          console.log('🎮 StartNewGame: Tìm thấy quy tắc đang active:', activeRules.length);
           if (activeRules.length > 0) {
               try {
                   setInitProgress(60);
                   setInitCurrentStep('Đang tạo khái niệm thế giới...');
                   setInitSubStep(`Xử lý ${activeRules.length} quy tắc tùy chỉnh`);
                   
-                  console.log('🎮 StartNewGame: Generating LORE_CONCEPT...');
-                  console.log('🎮 StartNewGame: PC motivation before LORE_CONCEPT:', initialEntities[pcEntity.name]?.motivation);
+                  console.log('🎮 StartNewGame: Đang tạo LORE_CONCEPT...');
+                  console.log('🎮 StartNewGame: Động lực PC trước LORE_CONCEPT:', initialEntities[pcEntity.name]?.motivation);
                   const conceptEntities = await generateLoreConcepts(activeRules);
-                  console.log('🎮 StartNewGame: LORE_CONCEPT generated, count:', Object.keys(conceptEntities).length);
-                  console.log('🎮 StartNewGame: Concept entity names:', Object.keys(conceptEntities));
-                  console.log('🎮 StartNewGame: Does concepts contain PC name?', conceptEntities.hasOwnProperty(pcEntity.name));
+                  console.log('🎮 StartNewGame: LORE_CONCEPT đã tạo, số lượng:', Object.keys(conceptEntities).length);
+                  console.log('🎮 StartNewGame: Tên thực thể concept:', Object.keys(conceptEntities));
+                  console.log('🎮 StartNewGame: Concepts có chứa tên PC không?', conceptEntities.hasOwnProperty(pcEntity.name));
                   initialEntities = { ...initialEntities, ...conceptEntities };
-                  console.log('🎮 StartNewGame: PC motivation after LORE_CONCEPT merge:', initialEntities[pcEntity.name]?.motivation);
+                  console.log('🎮 StartNewGame: Động lực PC sau khi merge LORE_CONCEPT:', initialEntities[pcEntity.name]?.motivation);
                   
               } catch (error) {
-                  console.error('🎮 StartNewGame: Failed to generate LORE_CONCEPT:', error);
+                  console.error('🎮 StartNewGame: Không thể tạo LORE_CONCEPT:', error);
               }
           } else {
-              console.log('🎮 StartNewGame: No active rules found');
+              console.log('🎮 StartNewGame: Không tìm thấy quy tắc active nào');
           }
       } else {
-          console.log('🎮 StartNewGame: Skipping LORE_CONCEPT generation - customRules:', !!customRules, 'length:', customRules?.length, 'ai:', !!ai, 'isAiReady:', isAiReady);
+          console.log('🎮 StartNewGame: Bỏ qua tạo LORE_CONCEPT - customRules:', !!customRules, 'length:', customRules?.length, 'ai:', !!ai, 'isAiReady:', isAiReady);
       }
 
       setInitProgress(80);
       setInitCurrentStep('Đang thiết lập trạng thái game...');
       setInitSubStep('Chuẩn bị dữ liệu game');
       
-      console.log('🎮 StartNewGame: Setting game state...');
-      console.log('🎮 StartNewGame: Final PC entity:', pcEntity);
-      console.log('🎮 StartNewGame: Initial entities:', Object.keys(initialEntities));
-      console.log('🎮 StartNewGame: PC in initialEntities:', initialEntities[pcEntity.name]);
+      console.log('🎮 StartNewGame: Đang thiết lập trạng thái game...');
+      console.log('🎮 StartNewGame: Thực thể PC cuối cùng:', pcEntity);
+      console.log('🎮 StartNewGame: Thực thể ban đầu:', Object.keys(initialEntities));
+      console.log('🎮 StartNewGame: PC trong initialEntities:', initialEntities[pcEntity.name]);
       
       const gameStateData = {
         worldData: worldData,
@@ -853,39 +853,39 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
         },
       };
       
-      console.log('🎮 StartNewGame: Game state data prepared:', {
+      console.log('🎮 StartNewGame: Dữ liệu trạng thái game đã chuẩn bị:', {
           worldName: gameStateData.worldData.characterName,
           entitiesCount: Object.keys(gameStateData.knownEntities).length,
           customRulesCount: gameStateData.customRules.length
       });
       
       setGameState(gameStateData);
-      console.log('🎮 StartNewGame: Game state set, creating initial quest...');
+      console.log('🎮 StartNewGame: Trạng thái game đã thiết lập, đang tạo nhiệm vụ ban đầu...');
       
       setInitProgress(90);
       setInitCurrentStep('Đang tạo quest khởi đầu...');
       setInitSubStep('Tạo nhiệm vụ đầu tiên');
       
-      // Create initial quest for the new world
+      // Tạo nhiệm vụ ban đầu cho thế giới mới
       
       setInitProgress(95);
       setInitCurrentStep('Đang chuyển sang màn hình game...');
       setInitSubStep('Hoàn tất khởi tạo');
       
-      // Small delay to show completion
+      // Trễ nhỏ để hiển thị hoàn thành
       await new Promise(resolve => setTimeout(resolve, 500));
       
       setInitProgress(100);
       setInitCurrentStep('Hoàn tất!');
       setInitSubStep('Bắt đầu cuộc phiêu lưu');
       
-      // Hide progress after a short delay
+      // Ẩn tiến trình sau một khoảng ngắn
       setTimeout(() => {
           setIsInitializing(false);
       }, 800);
       
       setView('game');
-      console.log('🎮 StartNewGame: View changed to game - COMPLETED');
+      console.log('🎮 StartNewGame: Chuyển sang chế độ game - HOÀN THÀNH');
   }
 
   const handleLoadGameFromFile = (file: File) => {
@@ -895,20 +895,20 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
             const text = e.target?.result;
             if (typeof text === 'string') {
                 const loadedJson = JSON.parse(text);
-                // Basic validation
+                // Xác thực cơ bản
                 if (loadedJson.worldData && loadedJson.knownEntities && loadedJson.gameHistory) {
                     const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
-                    // Ensure new fields have default values if loading an old save
+                    // Đảm bảo các trường mới có giá trị mặc định khi tải save cũ
                     const validatedData: SaveData = {
                         worldData: {
                             ...loadedJson.worldData,
-                            startLocation: loadedJson.worldData.startLocation || '', // Backward compatibility
-                            customStartLocation: loadedJson.worldData.customStartLocation || '', // Backward compatibility
-                            expName: loadedJson.worldData.expName || 'Kinh Nghiệm', // Backward compatibility
+                            startLocation: loadedJson.worldData.startLocation || '', // Tương thích ngược
+                            customStartLocation: loadedJson.worldData.customStartLocation || '', // Tương thích ngược
+                            expName: loadedJson.worldData.expName || 'Kinh Nghiệm', // Tương thích ngược
                             realmTiers: loadedJson.worldData.realmTiers || [
                                 { id: '1', name: 'Luyện Khí', requiredExp: 0 },
                                 { id: '2', name: 'Trúc Cơ', requiredExp: 100 }
-                            ], // Backward compatibility
+                            ], // Tương thích ngược
                         },
                         knownEntities: loadedJson.knownEntities,
                         statuses: loadedJson.statuses || [],
@@ -931,7 +931,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
                         storyLog: loadedJson.storyLog,
                         choices: loadedJson.choices,
                         locationDiscoveryOrder: loadedJson.locationDiscoveryOrder,
-                        // Thêm support cho compressed history
+                        // Hỗ trợ cho lịch sử nén
                         compressedHistory: loadedJson.compressedHistory || [],
                         lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
                         historyStats: loadedJson.historyStats || {
@@ -1000,14 +1000,14 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
             background-size: 200% 200%;
         }
 
-        /* Desktop animation - only on larger screens and when motion is preferred */
+        /* Hoạt ảnh desktop - chỉ trên màn hình lớn và khi ưa thích chuyển động */
         @media (min-width: 769px) and (prefers-reduced-motion: no-preference) {
             .am-kim {
                 animation: am-kim-shine 3s linear infinite;
             }
         }
 
-        /* Mobile fallback - static gradient for better battery life */
+        /* Dự phòng mobile - gradient tĩnh cho pin tốt hơn */
         @media (max-width: 768px), (prefers-reduced-motion: reduce) {
             .am-kim {
                 background-position: 50% 50%;
@@ -1029,7 +1029,7 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
       <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 font-sans text-slate-900 dark:text-white antialiased pb-4 bg-slate-100 dark:bg-slate-900 transition-colors duration-500">
         {renderContent()}
         
-        {/* Initialization Progress Bar */}
+        {/* Thanh tiến trình khởi tạo */}
         <InitializationProgress
           isVisible={isInitializing}
           currentStep={initCurrentStep}
