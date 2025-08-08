@@ -1252,7 +1252,14 @@ export class EnhancedRAGSystem {
             prompt += `\nLƯU Ý: Chế độ NSFW đang BẬT.`;
         }
         
-        prompt += `\nYÊU CẦU: Tiếp tục câu chuyện dựa trên hành động và tri thức đã truy xuất.`;
+        prompt += `
+YÊU CẦU: Tiếp tục câu chuyện dựa trên hành động và tri thức đã truy xuất.
+
+HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
+- Khi một kỹ năng được THAY ĐỔI/NÂNG CẤP/GIẢI PHONG ẤN: Sử dụng [SKILL_UPDATE: oldSkill="tên kỹ năng cũ" newSkill="tên kỹ năng mới" target="tên nhân vật" description="mô tả kỹ năng mới"]
+- Khi học kỹ năng HOÀN TOÀN MỚI (chưa từng có): Sử dụng [SKILL_LEARNED: name="tên kỹ năng" learner="tên nhân vật" description="mô tả"]
+- KHÔNG BAO GIỜ tạo kỹ năng trùng lặp - luôn dùng SKILL_UPDATE để thay thế kỹ năng cũ
+- Ví dụ: "Thiên Hồ Huyễn Linh Bí Pháp (đang phong ấn)" → "Thiên Hồ Huyễn Linh Bí Pháp (Sơ Giải)" phải dùng SKILL_UPDATE`;
         
         return prompt;
     }

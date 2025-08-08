@@ -413,6 +413,17 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     const entity = newEntities[skillName];
                                     if (entity.type !== 'skill' || skillName === name) return false;
                                     const existingBaseName = skillName.replace(/\([^)]*\)/g, '').trim();
+                                    
+                                    // Special handling for sealed/unsealed skills
+                                    const isSealed = skillName.includes('đang phong ấn') || skillName.includes('phong ấn');
+                                    const isUnsealed = name.includes('Sơ Giải') || name.includes('sơ giải');
+                                    
+                                    // If new skill is unsealed version of existing sealed skill
+                                    if (isSealed && isUnsealed && existingBaseName === baseSkillName) {
+                                        console.log(`🔓 Detected skill unsealing: ${skillName} → ${name}`);
+                                        return true;
+                                    }
+                                    
                                     return existingBaseName === baseSkillName;
                                 });
                                 
@@ -440,7 +451,10 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                 if (skillIndex !== -1) {
                                                     updatedMember.skills = [...member.skills];
                                                     updatedMember.skills[skillIndex] = name;
-                                                    console.log(`🔄 Upgraded ${member.type.toUpperCase()} ${member.name} skill: ${existingBaseSkill} → ${name}`);
+                                                    
+                                                    // Special log for unsealing
+                                                    const isUnsealing = existingBaseSkill.includes('đang phong ấn') && name.includes('Sơ Giải');
+                                                    console.log(`🔄 ${isUnsealing ? '🔓 Unsealed' : 'Upgraded'} ${member.type.toUpperCase()} ${member.name} skill: ${existingBaseSkill} → ${name}`);
                                                 }
                                             }
                                             
@@ -460,7 +474,10 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                                         skill === existingBaseSkill ? name : skill
                                                     )
                                                 };
-                                                console.log(`🔄 Upgraded ${entity.type.toUpperCase()} ${entity.name} skill in knownEntities: ${existingBaseSkill} → ${name}`);
+                                                
+                                                // Special log for unsealing
+                                                const isUnsealing = existingBaseSkill.includes('đang phong ấn') && name.includes('Sơ Giải');
+                                                console.log(`🔄 ${isUnsealing ? '🔓 Unsealed' : 'Upgraded'} ${entity.type.toUpperCase()} ${entity.name} skill in knownEntities: ${existingBaseSkill} → ${name}`);
                                             }
                                         }
                                     });
@@ -616,6 +633,207 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                     }
                                 }
                             }
+                            return newEntities;
+                        });
+                        break;
+                    case 'SKILL_UPDATE':
+                        setKnownEntities(prev => {
+                            const { oldSkill, newSkill, target, description, ...rest } = attributes;
+                            
+                            // Validation
+                            if (!oldSkill || !newSkill) {
+                                console.error('❌ SKILL_UPDATE: oldSkill and newSkill are required');
+                                return prev;
+                            }
+                            
+                            if (oldSkill === newSkill) {
+                                console.warn('⚠️ SKILL_UPDATE: oldSkill and newSkill are the same, skipping');
+                                return prev;
+                            }
+                            
+                            const newEntities = { ...prev };
+                            
+                            // Create or update the new skill entity
+                            if (description) {
+                                const newSkillEntity: Entity = {
+                                    type: 'skill',
+                                    name: newSkill,
+                                    description: description,
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(newSkill, 'skill'),
+                                    ...rest
+                                };
+                                console.log(`🔗 Generated reference ID for updated skill ${newSkill}: ${newSkillEntity.referenceId}`);
+                                newEntities[newSkill] = newSkillEntity;
+                            }
+                            
+                            // Determine update type for logging
+                            const updateType = 
+                                oldSkill.includes('đang phong ấn') && newSkill.includes('Sơ Giải') ? '🔓 Unsealed' :
+                                oldSkill.includes('Cơ Bản') && newSkill.includes('Sơ Cấp') ? '📈 Mastery' :
+                                oldSkill.includes('Sơ Cấp') && newSkill.includes('Trung Cấp') ? '📈 Mastery' :
+                                oldSkill.includes('Trung Cấp') && newSkill.includes('Cao Cấp') ? '📈 Mastery' :
+                                oldSkill.includes('Cao Cấp') && newSkill.includes('Đại Thành') ? '📈 Mastery' :
+                                oldSkill.includes('Đại Thành') && newSkill.includes('Viên Mãn') ? '📈 Mastery' :
+                                '🔄 Evolved';
+                            
+                            let updatesApplied = 0;
+                            
+                            // If target is specified, update only that character
+                            if (target) {
+                                // Check if target is PC
+                                const pc = Object.values(newEntities).find(e => e.type === 'pc' && (e.name === target || target.toLowerCase() === 'pc'));
+                                if (pc && pc.learnedSkills) {
+                                    const skillIndex = pc.learnedSkills.indexOf(oldSkill);
+                                    if (skillIndex !== -1) {
+                                        const updatedPc = { ...pc };
+                                        updatedPc.learnedSkills = [...pc.learnedSkills];
+                                        updatedPc.learnedSkills[skillIndex] = newSkill;
+                                        newEntities[pc.name] = updatedPc;
+                                        console.log(`${updateType} PC ${pc.name} skill: ${oldSkill} → ${newSkill}`);
+                                        updatesApplied++;
+                                    }
+                                }
+                                
+                                // Check if target is NPC/Companion in knownEntities
+                                if (newEntities[target] && (newEntities[target].type === 'npc' || newEntities[target].type === 'companion')) {
+                                    const entity = newEntities[target];
+                                    if (entity.skills) {
+                                        const skillIndex = entity.skills.indexOf(oldSkill);
+                                        if (skillIndex !== -1) {
+                                            newEntities[target] = {
+                                                ...entity,
+                                                skills: entity.skills.map(skill => 
+                                                    skill === oldSkill ? newSkill : skill
+                                                )
+                                            };
+                                            console.log(`${updateType} ${entity.type.toUpperCase()} ${target} skill: ${oldSkill} → ${newSkill}`);
+                                            updatesApplied++;
+                                        }
+                                    }
+                                }
+                                
+                                // Also check party array for target
+                                setParty(prevParty => {
+                                    return prevParty.map(member => {
+                                        if (member.name === target) {
+                                            const updatedMember = { ...member };
+                                            let memberUpdated = false;
+                                            
+                                            // Update PC learnedSkills
+                                            if (member.type === 'pc' && member.learnedSkills) {
+                                                const skillIndex = member.learnedSkills.indexOf(oldSkill);
+                                                if (skillIndex !== -1) {
+                                                    updatedMember.learnedSkills = [...member.learnedSkills];
+                                                    updatedMember.learnedSkills[skillIndex] = newSkill;
+                                                    memberUpdated = true;
+                                                }
+                                            }
+                                            
+                                            // Update NPC/Companion skills
+                                            if ((member.type === 'npc' || member.type === 'companion') && member.skills) {
+                                                const skillIndex = member.skills.indexOf(oldSkill);
+                                                if (skillIndex !== -1) {
+                                                    updatedMember.skills = [...member.skills];
+                                                    updatedMember.skills[skillIndex] = newSkill;
+                                                    memberUpdated = true;
+                                                }
+                                            }
+                                            
+                                            if (memberUpdated && !updatesApplied) {
+                                                console.log(`${updateType} Party ${member.type.toUpperCase()} ${target} skill: ${oldSkill} → ${newSkill}`);
+                                                updatesApplied++;
+                                            }
+                                            
+                                            return updatedMember;
+                                        }
+                                        return member;
+                                    });
+                                });
+                            } else {
+                                // No target specified - update all characters who have this skill
+                                console.log(`🔍 SKILL_UPDATE: No target specified, updating all characters with skill "${oldSkill}"`);
+                                
+                                // Update PC
+                                const pc = Object.values(newEntities).find(e => e.type === 'pc');
+                                if (pc && pc.learnedSkills) {
+                                    const skillIndex = pc.learnedSkills.indexOf(oldSkill);
+                                    if (skillIndex !== -1) {
+                                        const updatedPc = { ...pc };
+                                        updatedPc.learnedSkills = [...pc.learnedSkills];
+                                        updatedPc.learnedSkills[skillIndex] = newSkill;
+                                        newEntities[pc.name] = updatedPc;
+                                        console.log(`${updateType} PC ${pc.name} skill: ${oldSkill} → ${newSkill}`);
+                                        updatesApplied++;
+                                    }
+                                }
+                                
+                                // Update all NPCs/Companions in knownEntities
+                                Object.keys(newEntities).forEach(entityKey => {
+                                    const entity = newEntities[entityKey];
+                                    if ((entity.type === 'npc' || entity.type === 'companion') && entity.skills) {
+                                        const skillIndex = entity.skills.indexOf(oldSkill);
+                                        if (skillIndex !== -1) {
+                                            newEntities[entityKey] = {
+                                                ...entity,
+                                                skills: entity.skills.map(skill => 
+                                                    skill === oldSkill ? newSkill : skill
+                                                )
+                                            };
+                                            console.log(`${updateType} ${entity.type.toUpperCase()} ${entity.name} skill: ${oldSkill} → ${newSkill}`);
+                                            updatesApplied++;
+                                        }
+                                    }
+                                });
+                                
+                                // Update party array
+                                setParty(prevParty => {
+                                    return prevParty.map(member => {
+                                        const updatedMember = { ...member };
+                                        let memberUpdated = false;
+                                        
+                                        // Update PC learnedSkills
+                                        if (member.type === 'pc' && member.learnedSkills) {
+                                            const skillIndex = member.learnedSkills.indexOf(oldSkill);
+                                            if (skillIndex !== -1) {
+                                                updatedMember.learnedSkills = [...member.learnedSkills];
+                                                updatedMember.learnedSkills[skillIndex] = newSkill;
+                                                memberUpdated = true;
+                                            }
+                                        }
+                                        
+                                        // Update NPC/Companion skills
+                                        if ((member.type === 'npc' || member.type === 'companion') && member.skills) {
+                                            const skillIndex = member.skills.indexOf(oldSkill);
+                                            if (skillIndex !== -1) {
+                                                updatedMember.skills = [...member.skills];
+                                                updatedMember.skills[skillIndex] = newSkill;
+                                                memberUpdated = true;
+                                            }
+                                        }
+                                        
+                                        if (memberUpdated) {
+                                            console.log(`${updateType} Party ${member.type.toUpperCase()} ${member.name} skill: ${oldSkill} → ${newSkill}`);
+                                            updatesApplied++;
+                                        }
+                                        
+                                        return updatedMember;
+                                    });
+                                });
+                            }
+                            
+                            // Remove old skill entity if it exists and updates were applied
+                            if (newEntities[oldSkill] && updatesApplied > 0) {
+                                delete newEntities[oldSkill];
+                                console.log(`🗑️ Removed old skill entity: ${oldSkill}`);
+                            }
+                            
+                            // Summary log
+                            if (updatesApplied > 0) {
+                                console.log(`✅ SKILL_UPDATE completed: ${updatesApplied} character(s) updated with ${oldSkill} → ${newSkill}`);
+                            } else {
+                                console.warn(`⚠️ SKILL_UPDATE: No characters found with skill "${oldSkill}" to update`);
+                            }
+                            
                             return newEntities;
                         });
                         break;
