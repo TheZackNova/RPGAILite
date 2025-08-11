@@ -956,7 +956,11 @@ export class EnhancedRAGSystem {
             if (entity.skills?.length) {
                 // Handle both string and array formats for skills
                 const skillsArray = Array.isArray(entity.skills) ? entity.skills : entity.skills.split(',').map(s => s.trim());
-                details.push(`Kỹ năng: ${skillsArray.slice(0, 3).join(', ')}`);
+                const skillsText = `Kỹ năng: ${skillsArray.slice(0, 3).join(', ')}`;
+                details.push(skillsText);
+                console.log(`🎯 Prompt Builder - NPC "${entity.name}" skills in prompt:`, skillsText);
+            } else {
+                console.log(`🎯 Prompt Builder - NPC "${entity.name}" has no skills (entity.skills:`, entity.skills, ')');
             }
         }
         

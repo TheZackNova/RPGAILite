@@ -589,6 +589,7 @@ export const GameScreen: React.FC<{
             // Add/update the edited NPC
             newEntities[editedNPC.name] = editedNPC;
             console.log(`✏️ NPC edited: ${editedNPC.name} has been updated`);
+            console.log(`✏️ NPC Skills Status - "${editedNPC.name}" skills:`, editedNPC.skills);
             
             return newEntities;
         });

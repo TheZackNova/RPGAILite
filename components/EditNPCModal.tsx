@@ -44,7 +44,14 @@ export const EditNPCModal: React.FC<EditNPCModalProps> = ({
                 const skillsArray = (finalNPC as any).skillsText.split(',').map((skill: string) => skill.trim()).filter((skill: string) => skill.length > 0);
                 finalNPC.skills = skillsArray;
                 delete (finalNPC as any).skillsText; // Remove the temporary field
+                console.log(`✏️ NPC Skills Debug - Converting skillsText: "${(editedNPC as any).skillsText}" to skills array:`, skillsArray);
+            } else if (!finalNPC.skills) {
+                // Ensure skills is at least an empty array
+                finalNPC.skills = [];
+                console.log(`✏️ NPC Skills Debug - No skillsText found, setting skills to empty array for "${finalNPC.name}"`);
             }
+            
+            console.log(`✏️ NPC Edit Save Debug - Final NPC "${finalNPC.name}" skills:`, finalNPC.skills);
             
             onSaveNPC(npc, finalNPC);
             onClose();
