@@ -1227,24 +1227,35 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                                 const currentQuantity = itemToConsume.quantities || itemToConsume.uses;
                                 const quantityToConsume = attributes.quantity || attributes.quantities || 1; // Support quantity parameter
                                 
-                                if (typeof currentQuantity === 'number' && currentQuantity > quantityToConsume) {
-                                    // Decrease quantity/uses by specified amount
-                                    if (itemToConsume.quantities) {
-                                        newEntities[attributes.name] = {
-                                            ...itemToConsume,
-                                            quantities: itemToConsume.quantities - quantityToConsume,
-                                        };
-                                    } else if (itemToConsume.uses) {
-                                        newEntities[attributes.name] = {
-                                            ...itemToConsume,
-                                            uses: itemToConsume.uses - quantityToConsume,
-                                        };
-                                    }
-                                    console.log(`📦 Item consumed: ${attributes.name} - consumed ${quantityToConsume}, now has ${currentQuantity - quantityToConsume} remaining`);
-                                } else {
-                                    // Remove item completely when quantity reaches 0 or below
+                                // If item has no quantity/uses defined, treat it as single-use item (remove after consumption)
+                                if (typeof currentQuantity !== 'number' || currentQuantity === undefined || currentQuantity === null) {
                                     delete newEntities[attributes.name];
-                                    console.log(`🗑️ Item completely consumed: ${attributes.name} - consumed ${quantityToConsume}, has been removed from inventory`);
+                                    console.log(`🗑️ Single-use item consumed: ${attributes.name} - removed from inventory (no quantity/uses defined)`);
+                                } else if (currentQuantity > quantityToConsume) {
+                                    // Decrease quantity/uses by specified amount
+                                    const newQuantity = currentQuantity - quantityToConsume;
+                                    if (newQuantity > 0) {
+                                        if (itemToConsume.quantities) {
+                                            newEntities[attributes.name] = {
+                                                ...itemToConsume,
+                                                quantities: newQuantity,
+                                            };
+                                        } else if (itemToConsume.uses) {
+                                            newEntities[attributes.name] = {
+                                                ...itemToConsume,
+                                                uses: newQuantity,
+                                            };
+                                        }
+                                        console.log(`📦 Item consumed: ${attributes.name} - consumed ${quantityToConsume}, now has ${newQuantity} remaining`);
+                                    } else {
+                                        // Remove item if new quantity would be 0 or negative
+                                        delete newEntities[attributes.name];
+                                        console.log(`🗑️ Item completely consumed: ${attributes.name} - consumed ${quantityToConsume}, removed from inventory (reached 0)`);
+                                    }
+                                } else {
+                                    // Remove item completely when current quantity equals or is less than consumption amount
+                                    delete newEntities[attributes.name];
+                                    console.log(`🗑️ Item completely consumed: ${attributes.name} - consumed ${quantityToConsume}, removed from inventory (quantity ${currentQuantity} <= consume ${quantityToConsume})`);
                                 }
                             }
                             return newEntities;

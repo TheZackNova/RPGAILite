@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import type { Entity } from './types';
 
+// Utility function to format numbers properly, removing trailing commas
+const formatNumber = (value: number): string => {
+    if (value === 0) return '0';
+    return value.toLocaleString().replace(/,$/, '');
+};
+
 export interface AdminModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -49,7 +55,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         }
         onAddExp?.(amount);
         setExpAmount('');
-        alert(`Đã thêm ${amount.toLocaleString()} kinh nghiệm!`);
+        alert(`Đã thêm ${formatNumber(amount)} kinh nghiệm!`);
     };
 
     const handleAddItem = () => {
@@ -194,7 +200,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-600">
                                 <h4 className="text-lg font-semibold text-blue-400 mb-2">Kinh nghiệm hiện tại</h4>
                                 <p className="text-2xl font-bold text-green-400">
-                                    {currentPlayerExp.toLocaleString()}
+                                    {formatNumber(currentPlayerExp)}
                                 </p>
                             </div>
                             
@@ -212,11 +218,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                                 key={amount}
                                                 onClick={() => {
                                                     onAddExp?.(amount);
-                                                    alert(`Đã thêm ${amount.toLocaleString()} kinh nghiệm!`);
+                                                    alert(`Đã thêm ${formatNumber(amount)} kinh nghiệm!`);
                                                 }}
                                                 className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-semibold transition-colors"
                                             >
-                                                +{amount.toLocaleString()}
+                                                +{formatNumber(amount)}
                                             </button>
                                         ))}
                                     </div>

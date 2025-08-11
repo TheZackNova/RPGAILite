@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Entity } from './types';
 
 export interface InventoryModalProps {
@@ -23,6 +23,21 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     onEditItem
 }) => {
     const [selectedItem, setSelectedItem] = useState<Entity | null>(null);
+
+    // Reset selected item when modal opens/closes to ensure fresh state
+    useEffect(() => {
+        if (!isOpen) {
+            setSelectedItem(null);
+        }
+    }, [isOpen]);
+
+    // Reset selected item when inventory changes and the selected item is no longer in the inventory
+    useEffect(() => {
+        if (selectedItem && !playerInventory.find(item => item.name === selectedItem.name)) {
+            console.log(`🔄 Inventory cleanup: Selected item "${selectedItem.name}" no longer in inventory, clearing selection`);
+            setSelectedItem(null);
+        }
+    }, [playerInventory, selectedItem]);
 
     if (!isOpen) return null;
 
@@ -223,8 +238,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                         className="px-3 py-2 sm:px-4 bg-red-600 hover:bg-red-500 text-white rounded-md font-semibold transition-colors text-sm sm:text-base"
                                         onClick={() => {
                                             if (window.confirm(`Bạn có chắc muốn vứt bỏ "${selectedItem.name}"?`)) {
-                                                onDiscardItem(selectedItem);
-                                                setSelectedItem(null);
+                                                console.log(`🗑️ Inventory Modal: Discarding item "${selectedItem.name}"`);
+                                                const itemToDiscard = selectedItem;
+                                                setSelectedItem(null); // Clear selection immediately
+                                                onDiscardItem(itemToDiscard);
                                             }
                                         }}
                                     >

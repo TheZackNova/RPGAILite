@@ -27,13 +27,87 @@ export const PartyMemberTab: React.FC<{
         );
     };
     
+    // Function to simplify complex relationship text to one clear Vietnamese attitude
+    const simplifyRelationship = (relationship: string): string => {
+        if (!relationship) return 'Chưa xác định';
+        
+        const rel = relationship.toLowerCase();
+        
+        // Define relationship priorities (stronger relationships take precedence)
+        const relationshipPriority = [
+            // Romantic relationships (highest priority)
+            { keywords: ['người yêu', 'tình nhân', 'vợ', 'chồng', 'lover', 'wife', 'husband', 'romantic'], result: 'Người yêu' },
+            
+            // Very strong positive relationships
+            { keywords: ['devoted', 'loyal', 'love', 'adoring', 'yêu thương', 'tận tụy', 'tận hiến'], result: 'Tận tụy' },
+            
+            // Strong negative relationships  
+            { keywords: ['hostile', 'enemy', 'thù địch', 'thù ghét', 'kẻ thù'], result: 'Thù địch' },
+            
+            // Family relationships
+            { keywords: ['gia đình', 'anh em', 'chị em', 'family', 'sibling', 'brother', 'sister'], result: 'Gia đình' },
+            
+            // Close relationships
+            { keywords: ['đồng đội', 'teammate', 'partner', 'ally'], result: 'Đồng đội' },
+            { keywords: ['bạn thân', 'best friend', 'close friend'], result: 'Bạn thân' },
+            
+            // Positive relationships
+            { keywords: ['friendly', 'friend', 'warm', 'bạn bè', 'thân thiện'], result: 'Thân thiện' },
+            { keywords: ['respect', 'admire', 'reverent', 'tôn kính', 'ngưỡng mộ'], result: 'Tôn kính' },
+            { keywords: ['trust', 'confident', 'tin tưởng', 'tin cậy'], result: 'Tin tưởng' },
+            { keywords: ['grateful', 'thankful', 'biết ơn', 'cảm kích'], result: 'Biết ơn' },
+            
+            // Negative relationships
+            { keywords: ['suspicious', 'doubt', 'nghi ngờ', 'hoài nghi'], result: 'Nghi ngờ' },
+            { keywords: ['competitive', 'rival', 'cạnh tranh', 'đối thủ'], result: 'Cạnh tranh' },
+            { keywords: ['fear', 'afraid', 'sợ hãi', 'e ngại'], result: 'Sợ hãi' },
+            
+            // Neutral relationships
+            { keywords: ['curious', 'interested', 'tò mò', 'quan tâm'], result: 'Tò mò' },
+            { keywords: ['cautious', 'careful', 'cẩn thận', 'thận trọng'], result: 'Thận trọng' },
+            { keywords: ['neutral', 'trung lập', 'bình thường'], result: 'Trung lập' }
+        ];
+        
+        // Check each relationship type in priority order
+        for (const relType of relationshipPriority) {
+            for (const keyword of relType.keywords) {
+                if (rel.includes(keyword)) {
+                    return relType.result;
+                }
+            }
+        }
+        
+        // If no specific keywords found, extract first meaningful part before "và" or other separators
+        const firstPart = relationship.split(/\s*(?:và|and|,|;|\||\s-\s)\s*/)[0].trim();
+        if (firstPart.length > 0 && firstPart.length < 20) {
+            return firstPart;
+        }
+        
+        return 'Chưa rõ';
+    };
+
     // Helper to get relationship color
     const getRelationshipColor = (relationship: string) => {
         if (!relationship) return 'text-gray-500';
-        const rel = relationship.toLowerCase();
-        if (rel.includes('thù') || rel.includes('địch')) return 'text-red-400';
-        if (rel.includes('bạn') || rel.includes('yêu') || rel.includes('tốt')) return 'text-green-400';
-        if (rel.includes('trung') || rel.includes('bình')) return 'text-yellow-400';
+        const simplified = simplifyRelationship(relationship);
+        const rel = simplified.toLowerCase();
+        
+        // Romantic relationships (special pink/red color)
+        if (rel.includes('người yêu') || rel.includes('tình nhân') || rel.includes('vợ') || rel.includes('chồng')) {
+            return 'text-pink-400';
+        }
+        // Negative relationships (red)
+        if (rel.includes('thù') || rel.includes('địch') || rel.includes('ghét') || rel.includes('sợ')) {
+            return 'text-red-400';
+        }
+        // Positive relationships (green)
+        if (rel.includes('tận tụy') || rel.includes('thân thiện') || rel.includes('tin') || rel.includes('tôn kính') || rel.includes('biết ơn') || rel.includes('gia đình') || rel.includes('đồng đội') || rel.includes('bạn thân')) {
+            return 'text-green-400';
+        }
+        // Neutral relationships (yellow)
+        if (rel.includes('trung lập') || rel.includes('tò mò') || rel.includes('thận trọng') || rel.includes('cạnh tranh')) {
+            return 'text-yellow-400';
+        }
         return 'text-blue-400';
     };
     
@@ -68,7 +142,7 @@ export const PartyMemberTab: React.FC<{
                                         <div className="mt-2 space-y-1">
                                             {member.relationship && (
                                                 <p className={`text-xs ${getRelationshipColor(member.relationship)}`}>
-                                                    ♦ {member.relationship}
+                                                    ♦ {simplifyRelationship(member.relationship)}
                                                 </p>
                                             )}
                                             {member.skills && Array.isArray(member.skills) && member.skills.length > 0 && (

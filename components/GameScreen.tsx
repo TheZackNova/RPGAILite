@@ -202,10 +202,12 @@ export const GameScreen: React.FC<{
     // Initialize entity handlers  
     const entityHandlers = useMemo(() => createEntityHandlers({
         knownEntities,
+        setKnownEntities,
         setActiveEntity,
         setActiveStatus,
+        setActiveQuest,
         handleAction: gameActionHandlers.handleAction
-    }), [knownEntities, gameActionHandlers]);
+    }), [knownEntities, setKnownEntities, gameActionHandlers]);
 
     // Initialize game state handlers
     const gameStateHandlers = useMemo(() => createGameStateHandlers({
@@ -480,12 +482,18 @@ export const GameScreen: React.FC<{
     const handleEquipItem = useCallback((itemName: string) => entityHandlers.handleEquipItem(itemName), [entityHandlers]);
     const handleUnequipItem = useCallback((itemName: string) => entityHandlers.handleUnequipItem(itemName), [entityHandlers]);
     const handleDiscardItem = useCallback((item: Entity) => {
+        console.log(`🗑️ GameScreen: Discard request for "${item.name}", owner: ${item.owner}`);
+        
         // Directly process the discard by removing the item from knownEntities
         setKnownEntities(prev => {
             const newEntities = { ...prev };
-            if (newEntities[item.name] && newEntities[item.name].owner === 'pc') {
+            console.log(`🗑️ GameScreen: Checking if item "${item.name}" exists in knownEntities:`, !!newEntities[item.name]);
+            
+            if (newEntities[item.name] && (newEntities[item.name].owner === 'pc' || !newEntities[item.name].owner)) {
                 delete newEntities[item.name];
-                console.log(`🗑️ Item discarded directly: ${item.name} has been removed from inventory`);
+                console.log(`🗑️ GameScreen: Item "${item.name}" successfully removed from knownEntities`);
+            } else {
+                console.log(`🗑️ GameScreen: Item "${item.name}" not removed - does not meet criteria (exists: ${!!newEntities[item.name]}, owner: ${newEntities[item.name]?.owner})`);
             }
             return newEntities;
         });
@@ -842,13 +850,7 @@ export const GameScreen: React.FC<{
     const displayParty = party.filter(p => p.name !== pcName);
     const isCustomActionLocked = useMemo(() => customRules.some(rule => rule.isActive && rule.content.toUpperCase().includes('KHÓA HÀNH ĐỘNG TÙY Ý')), [customRules]);
     
-    // Create a stable dependency that only changes when items change
-    const itemsSignature = useMemo(() => {
-        const items = Object.values(knownEntities).filter(e => e.type === 'item');
-        return items.map(item => `${item.name}-${item.owner || 'noowner'}`).join('|');
-    }, [knownEntities]);
-    
-    // Optimized player inventory computation - only recompute when items actually change
+    // Optimized player inventory computation - recompute when knownEntities changes
     const playerInventory = useMemo(() => {
         const items = Object.values(knownEntities).filter((entity): entity is Entity => entity.type === 'item');
         
@@ -864,7 +866,7 @@ export const GameScreen: React.FC<{
             // Exclude items that explicitly belong to NPCs
             return false;
         });
-    }, [itemsSignature, knownEntities]);
+    }, [knownEntities]);
 
     const entityComputations = useMemo(() => ({
         pcEntity,

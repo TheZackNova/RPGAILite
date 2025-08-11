@@ -4,6 +4,12 @@ import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusText
 import { CrossIcon } from './Icons.tsx';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 
+// Utility function to format numbers properly, removing trailing commas
+const formatNumber = (value: number): string => {
+    if (value === 0) return '0';
+    return value.toLocaleString().replace(/,$/, '');
+};
+
 export const EntityInfoModal: React.FC<{ 
     entity: Entity | null; 
     onClose: () => void; 
@@ -50,14 +56,84 @@ export const EntityInfoModal: React.FC<{
         return isOwnerMatch || isPcMatch;
     });
     
+    // Function to simplify complex relationship text to one clear Vietnamese attitude
+    const simplifyRelationship = (relationship: string): string => {
+        if (!relationship) return 'Chưa xác định';
+        
+        const rel = relationship.toLowerCase();
+        
+        // Define relationship priorities (stronger relationships take precedence)
+        const relationshipPriority = [
+            // Romantic relationships (highest priority)
+            { keywords: ['người yêu', 'tình nhân', 'vợ', 'chồng', 'lover', 'wife', 'husband', 'romantic'], result: 'Người yêu' },
+            
+            // Very strong positive relationships
+            { keywords: ['devoted', 'loyal', 'love', 'adoring', 'yêu thương', 'tận tụy', 'tận hiến'], result: 'Tận tụy' },
+            
+            // Strong negative relationships  
+            { keywords: ['hostile', 'enemy', 'thù địch', 'thù ghét', 'kẻ thù'], result: 'Thù địch' },
+            
+            // Family relationships
+            { keywords: ['gia đình', 'anh em', 'chị em', 'family', 'sibling', 'brother', 'sister'], result: 'Gia đình' },
+            
+            // Close relationships
+            { keywords: ['đồng đội', 'teammate', 'partner', 'ally'], result: 'Đồng đội' },
+            { keywords: ['bạn thân', 'best friend', 'close friend'], result: 'Bạn thân' },
+            
+            // Positive relationships
+            { keywords: ['friendly', 'friend', 'warm', 'bạn bè', 'thân thiện'], result: 'Thân thiện' },
+            { keywords: ['respect', 'admire', 'reverent', 'tôn kính', 'ngưỡng mộ'], result: 'Tôn kính' },
+            { keywords: ['trust', 'confident', 'tin tưởng', 'tin cậy'], result: 'Tin tưởng' },
+            { keywords: ['grateful', 'thankful', 'biết ơn', 'cảm kích'], result: 'Biết ơn' },
+            
+            // Negative relationships
+            { keywords: ['suspicious', 'doubt', 'nghi ngờ', 'hoài nghi'], result: 'Nghi ngờ' },
+            { keywords: ['competitive', 'rival', 'cạnh tranh', 'đối thủ'], result: 'Cạnh tranh' },
+            { keywords: ['fear', 'afraid', 'sợ hãi', 'e ngại'], result: 'Sợ hãi' },
+            
+            // Neutral relationships
+            { keywords: ['curious', 'interested', 'tò mò', 'quan tâm'], result: 'Tò mò' },
+            { keywords: ['cautious', 'careful', 'cẩn thận', 'thận trọng'], result: 'Thận trọng' },
+            { keywords: ['neutral', 'trung lập', 'bình thường'], result: 'Trung lập' }
+        ];
+        
+        // Check each relationship type in priority order
+        for (const relType of relationshipPriority) {
+            for (const keyword of relType.keywords) {
+                if (rel.includes(keyword)) {
+                    return relType.result;
+                }
+            }
+        }
+        
+        // If no specific keywords found, extract first meaningful part before "và" or other separators
+        const firstPart = relationship.split(/\s*(?:và|and|,|;|\||\s-\s)\s*/)[0].trim();
+        if (firstPart.length > 0 && firstPart.length < 20) {
+            return firstPart;
+        }
+        
+        return 'Chưa rõ';
+    };
+
     // Helper function to get relationship status color
     const getRelationshipColor = (relationship: string): string => {
-        const rel = relationship.toLowerCase();
-        if (rel.includes('thù') || rel.includes('địch') || rel.includes('ghét')) {
+        const simplified = simplifyRelationship(relationship);
+        const rel = simplified.toLowerCase();
+        
+        // Romantic relationships (special pink/red color)
+        if (rel.includes('người yêu') || rel.includes('tình nhân') || rel.includes('vợ') || rel.includes('chồng')) {
+            return 'text-pink-600 dark:text-pink-400';
+        }
+        // Negative relationships (red)
+        if (rel.includes('thù') || rel.includes('địch') || rel.includes('ghét') || rel.includes('sợ')) {
             return 'text-red-600 dark:text-red-400';
-        } else if (rel.includes('bạn') || rel.includes('yêu') || rel.includes('tốt')) {
+        } 
+        // Positive relationships (green)
+        else if (rel.includes('tận tụy') || rel.includes('thân thiện') || rel.includes('tin') || rel.includes('tôn kính') || rel.includes('biết ơn') || rel.includes('gia đình') || rel.includes('đồng đội') || rel.includes('bạn thân')) {
             return 'text-green-600 dark:text-green-400';
-        } else if (rel.includes('trung') || rel.includes('bình')) {
+        } 
+        // Neutral relationships (yellow)
+        else if (rel.includes('trung lập') || rel.includes('tò mò') || rel.includes('thận trọng') || rel.includes('cạnh tranh')) {
             return 'text-yellow-600 dark:text-yellow-400';
         }
         return 'text-slate-700 dark:text-gray-300';
@@ -115,7 +191,7 @@ export const EntityInfoModal: React.FC<{
                                 
                                 {/* REALM AND EXPERIENCE - For PC and NPC */}
                                 {entity.realm && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">Cảnh giới:</strong> <span className="text-purple-600 dark:text-purple-400 font-medium">{entity.realm}</span></p>}
-                                {entity.currentExp !== undefined && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{worldData?.expName || 'Kinh nghiệm'}:</strong> <span className="text-blue-600 dark:text-blue-400 font-medium">{entity.currentExp.toLocaleString()}</span></p>}
+                                {entity.currentExp !== undefined && <p><strong className="font-semibold text-slate-800 dark:text-gray-100">{worldData?.expName || 'Kinh nghiệm'}:</strong> <span className="text-blue-600 dark:text-blue-400 font-medium">{formatNumber(entity.currentExp)}</span></p>}
                                 
                                 {/* DANH VỌNG - Enhanced display for both PC and NPC */}
                                 <div>
@@ -214,7 +290,7 @@ export const EntityInfoModal: React.FC<{
                                 <strong className="font-semibold text-slate-800 dark:text-gray-100">Quan hệ:</strong>
                                 {entity.relationship ? (
                                     <span className={`ml-2 ${getRelationshipColor(entity.relationship)}`}>
-                                        {entity.relationship}
+                                        {simplifyRelationship(entity.relationship)}
                                     </span>
                                 ) : (
                                     <span className="ml-2 text-gray-500 dark:text-gray-400 italic">Chưa xác định</span>

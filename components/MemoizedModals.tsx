@@ -21,6 +21,12 @@ import { CrossIcon, UserIcon } from './Icons.tsx';
 import * as GameIcons from './GameIcons.tsx';
 import { getIconForEntity, getIconForStatus, getStatusBorderColor, getStatusTextColor, getStatusFontWeight } from './utils.ts';
 
+// Utility function to format numbers properly, removing trailing commas
+const formatNumber = (value: number): string => {
+    if (value === 0) return '0';
+    return value.toLocaleString().replace(/,$/, '');
+};
+
 
 // Props Interface
 interface MemoizedModalsProps {
@@ -210,7 +216,7 @@ export const MemoizedPlayerCharacterSheet = memo<{
                     {pc.currentExp !== undefined && (
                         <p>
                             <strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">{worldData?.expName || 'Kinh nghiệm'}:</strong> 
-                            <span className="text-blue-600 dark:text-blue-400 font-semibold">{pc.currentExp.toLocaleString()}</span>
+                            <span className="text-blue-600 dark:text-blue-400 font-semibold">{formatNumber(pc.currentExp)}</span>
                         </p>
                     )}
                     
@@ -602,6 +608,7 @@ const MemoizedModalsComponent = ({
 
             {/* Inventory Modal */}
             <InventoryModal
+                key={`inventory-${entityComputations.playerInventory.length}`}
                 isOpen={isInventoryModalOpen}
                 onClose={modalCloseHandlers.inventory}
                 playerInventory={entityComputations.playerInventory}
