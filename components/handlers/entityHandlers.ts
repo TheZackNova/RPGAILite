@@ -1,12 +1,15 @@
 import type { Entity, Status, Quest } from '../types';
 
+import type { SaveData } from '../types';
+
 export interface EntityHandlersParams {
     knownEntities: { [key: string]: Entity };
     setKnownEntities: (updater: (prev: { [key: string]: Entity }) => { [key: string]: Entity }) => void;
     setActiveEntity: (entity: Entity | null) => void;
     setActiveStatus: (status: Status | null) => void;
     setActiveQuest: (quest: Quest | null) => void;
-    handleAction: (action: string) => void;
+    handleAction: (action: string, gameState: SaveData) => void;
+    getCurrentGameState: () => SaveData;
 }
 
 export const createEntityHandlers = (params: EntityHandlersParams) => {
@@ -16,7 +19,8 @@ export const createEntityHandlers = (params: EntityHandlersParams) => {
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,
-        handleAction
+        handleAction,
+        getCurrentGameState
     } = params;
 
     const handleEntityClick = (entityName: string) => {
@@ -57,22 +61,22 @@ export const createEntityHandlers = (params: EntityHandlersParams) => {
             }
         }
         
-        setTimeout(() => handleAction(`Sử dụng vật phẩm: ${itemName}`), 100);
+        setTimeout(() => handleAction(`Sử dụng vật phẩm: ${itemName}`, getCurrentGameState()), 100);
     };
 
     const handleLearnItem = (itemName: string) => {
         setActiveEntity(null);
-        setTimeout(() => handleAction(`Học công pháp: ${itemName}`), 100);
+        setTimeout(() => handleAction(`Học công pháp: ${itemName}`, getCurrentGameState()), 100);
     };
 
     const handleEquipItem = (itemName: string) => {
         setActiveEntity(null);
-        setTimeout(() => handleAction(`Trang bị ${itemName}`), 100);
+        setTimeout(() => handleAction(`Trang bị ${itemName}`, getCurrentGameState()), 100);
     };
 
     const handleUnequipItem = (itemName: string) => {
         setActiveEntity(null);
-        setTimeout(() => handleAction(`Tháo ${itemName}`), 100);
+        setTimeout(() => handleAction(`Tháo ${itemName}`, getCurrentGameState()), 100);
     };
 
     const handleStatusClick = (status: Status) => {

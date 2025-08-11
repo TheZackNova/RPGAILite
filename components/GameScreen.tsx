@@ -199,6 +199,27 @@ export const GameScreen: React.FC<{
         updateChoiceHistory
     }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, ruleChanges, parseStoryAndTags, updateChoiceHistory]);
 
+    // Function to get current game state
+    const getCurrentGameState = useCallback((): SaveData => {
+        return {
+            worldData,
+            knownEntities,
+            statuses,
+            quests,
+            gameHistory,
+            memories,
+            party,
+            customRules,
+            systemInstruction,
+            turnCount,
+            totalTokens,
+            gameTime,
+            chronicle,
+            storyLog,
+            choices: choices
+        };
+    }, [worldData, knownEntities, statuses, quests, gameHistory, memories, party, customRules, systemInstruction, turnCount, totalTokens, gameTime, chronicle, storyLog, choices]);
+
     // Initialize entity handlers  
     const entityHandlers = useMemo(() => createEntityHandlers({
         knownEntities,
@@ -206,8 +227,9 @@ export const GameScreen: React.FC<{
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,
-        handleAction: gameActionHandlers.handleAction
-    }), [knownEntities, setKnownEntities, gameActionHandlers]);
+        handleAction: gameActionHandlers.handleAction,
+        getCurrentGameState
+    }), [knownEntities, setKnownEntities, gameActionHandlers, getCurrentGameState]);
 
     // Initialize game state handlers
     const gameStateHandlers = useMemo(() => createGameStateHandlers({

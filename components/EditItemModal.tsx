@@ -94,7 +94,14 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                             <input
                                 type="number"
                                 min="0"
-                                value={editedItem.quantities || editedItem.uses || 0}
+                                value={(() => {
+                                    const rawValue = editedItem.quantities || editedItem.uses || 0;
+                                    // Ensure clean number value for React number input
+                                    if (typeof rawValue === 'string') {
+                                        return parseInt(rawValue.replace(/,/g, '')) || 0;
+                                    }
+                                    return rawValue;
+                                })()}
                                 onChange={(e) => {
                                     const value = parseInt(e.target.value) || 0;
                                     if (editedItem.quantities !== undefined) {
@@ -114,7 +121,14 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                                 type="number"
                                 min="0"
                                 max="100"
-                                value={editedItem.durability || 100}
+                                value={(() => {
+                                    const rawValue = editedItem.durability || 100;
+                                    // Ensure clean number value for React number input
+                                    if (typeof rawValue === 'string') {
+                                        return parseInt(rawValue.replace(/,/g, '')) || 100;
+                                    }
+                                    return rawValue;
+                                })()}
                                 onChange={(e) => handleInputChange('durability', parseInt(e.target.value) || 100)}
                                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                             />
