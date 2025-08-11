@@ -134,7 +134,7 @@ export const GameScreen: React.FC<{
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
         isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
         isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen, isEntityImportModalOpen,
-        isInventoryModalOpen, isAdminModalOpen, isEditItemModalOpen, activeEntity, activeStatus, activeQuest, activeEditItem, showSaveSuccess, showRulesSavedSuccess,
+        isInventoryModalOpen, isAdminModalOpen, isEditItemModalOpen, isEditSkillModalOpen, isEditNPCModalOpen, isEditPCModalOpen, isEditLocationModalOpen, activeEntity, activeStatus, activeQuest, activeEditItem, activeEditSkill, activeEditNPC, activeEditPC, activeEditLocation, showSaveSuccess, showRulesSavedSuccess,
         notification
     } = modalState;
 
@@ -142,7 +142,7 @@ export const GameScreen: React.FC<{
         setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
         setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
         setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen, setIsEntityImportModalOpen,
-        setIsInventoryModalOpen, setIsAdminModalOpen, setIsEditItemModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setActiveEditItem, setShowSaveSuccess, setShowRulesSavedSuccess,
+        setIsInventoryModalOpen, setIsAdminModalOpen, setIsEditItemModalOpen, setIsEditSkillModalOpen, setIsEditNPCModalOpen, setIsEditPCModalOpen, setIsEditLocationModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setActiveEditItem, setActiveEditSkill, setActiveEditNPC, setActiveEditPC, setActiveEditLocation, setShowSaveSuccess, setShowRulesSavedSuccess,
         setNotification, modalCloseHandlers
     } = modalStateActions;
 
@@ -549,6 +549,125 @@ export const GameScreen: React.FC<{
         setIsEditItemModalOpen(false);
         setActiveEditItem(null);
     }, [setKnownEntities, setNotification, setIsEditItemModalOpen, setActiveEditItem]);
+
+    const handleSaveEditedSkill = useCallback((originalSkill: Entity, editedSkill: Entity) => {
+        setKnownEntities(prev => {
+            const newEntities = { ...prev };
+            
+            // If the name changed, remove the old skill
+            if (originalSkill.name !== editedSkill.name) {
+                delete newEntities[originalSkill.name];
+                console.log(`✏️ Skill renamed: ${originalSkill.name} → ${editedSkill.name}, old skill removed`);
+            }
+            
+            // Add/update the edited skill
+            newEntities[editedSkill.name] = editedSkill;
+            console.log(`✏️ Skill edited: ${editedSkill.name} has been updated`);
+            
+            return newEntities;
+        });
+        
+        // Show success notification
+        setNotification("Kỹ năng đã được chỉnh sửa thành công!");
+        setTimeout(() => setNotification(null), 3000);
+        
+        // Close the edit modal
+        setIsEditSkillModalOpen(false);
+        setActiveEditSkill(null);
+    }, [setKnownEntities, setNotification, setIsEditSkillModalOpen, setActiveEditSkill]);
+
+    const handleSaveEditedNPC = useCallback((originalNPC: Entity, editedNPC: Entity) => {
+        setKnownEntities(prev => {
+            const newEntities = { ...prev };
+            
+            // If the name changed, remove the old NPC
+            if (originalNPC.name !== editedNPC.name) {
+                delete newEntities[originalNPC.name];
+                console.log(`✏️ NPC renamed: ${originalNPC.name} → ${editedNPC.name}, old NPC removed`);
+            }
+            
+            // Add/update the edited NPC
+            newEntities[editedNPC.name] = editedNPC;
+            console.log(`✏️ NPC edited: ${editedNPC.name} has been updated`);
+            
+            return newEntities;
+        });
+        
+        // Show success notification
+        setNotification("NPC đã được chỉnh sửa thành công!");
+        setTimeout(() => setNotification(null), 3000);
+        
+        // Close the edit modal
+        setIsEditNPCModalOpen(false);
+        setActiveEditNPC(null);
+    }, [setKnownEntities, setNotification, setIsEditNPCModalOpen, setActiveEditNPC]);
+
+    const handleSaveEditedPC = useCallback((originalPC: Entity, editedPC: Entity) => {
+        setKnownEntities(prev => {
+            const newEntities = { ...prev };
+            
+            // If the name changed, remove the old PC
+            if (originalPC.name !== editedPC.name) {
+                delete newEntities[originalPC.name];
+                console.log(`✏️ PC renamed: ${originalPC.name} → ${editedPC.name}, old PC removed`);
+            }
+            
+            // Add/update the edited PC
+            newEntities[editedPC.name] = editedPC;
+            console.log(`✏️ PC edited: ${editedPC.name} has been updated`);
+            
+            return newEntities;
+        });
+        
+        // Show success notification
+        setNotification("Thông tin nhân vật chính đã được cập nhật thành công!");
+        setTimeout(() => setNotification(null), 3000);
+        
+        // Close the edit modal
+        setIsEditPCModalOpen(false);
+        setActiveEditPC(null);
+    }, [setKnownEntities, setNotification, setIsEditPCModalOpen, setActiveEditPC]);
+
+    const handleSaveEditedLocation = useCallback((originalLocation: Entity, editedLocation: Entity) => {
+        setKnownEntities(prev => {
+            const newEntities = { ...prev };
+            
+            // If the name changed, remove the old location
+            if (originalLocation.name !== editedLocation.name) {
+                delete newEntities[originalLocation.name];
+                console.log(`✏️ Location renamed: ${originalLocation.name} → ${editedLocation.name}, old location removed`);
+            }
+            
+            // Add/update the edited location
+            newEntities[editedLocation.name] = editedLocation;
+            console.log(`✏️ Location edited: ${editedLocation.name} has been updated`);
+            
+            return newEntities;
+        });
+        
+        // Show success notification
+        setNotification("Thông tin địa điểm đã được cập nhật thành công!");
+        setTimeout(() => setNotification(null), 3000);
+        
+        // Close the edit modal
+        setIsEditLocationModalOpen(false);
+        setActiveEditLocation(null);
+    }, [setKnownEntities, setNotification, setIsEditLocationModalOpen, setActiveEditLocation]);
+
+    const handleDeleteStatus = useCallback((statusName: string, entityName: string) => {
+        setStatuses(prev => {
+            const newStatuses = prev.filter(status => 
+                !(status.name === statusName && (status.owner === entityName || (entityName === 'pc' && status.owner === 'pc')))
+            );
+            console.log(`🗑️ Status deleted: "${statusName}" removed from ${entityName}`);
+            return newStatuses;
+        });
+        
+        // Show success notification
+        setNotification(`Trạng thái "${statusName}" đã được xóa thành công!`);
+        setTimeout(() => setNotification(null), 3000);
+    }, [setStatuses, setNotification]);
+
     const handleStatusClick = useCallback((status: Status) => entityHandlers.handleStatusClick(status), [entityHandlers]);
     const handleToggleMemoryPin = useCallback((index: number) => gameStateHandlers.handleToggleMemoryPin(index), [gameStateHandlers]);
     
@@ -1029,10 +1148,18 @@ export const GameScreen: React.FC<{
                 isInventoryModalOpen={isInventoryModalOpen}
                 isAdminModalOpen={isAdminModalOpen}
                 isEditItemModalOpen={isEditItemModalOpen}
+                isEditSkillModalOpen={isEditSkillModalOpen}
+                isEditNPCModalOpen={isEditNPCModalOpen}
+                isEditPCModalOpen={isEditPCModalOpen}
+                isEditLocationModalOpen={isEditLocationModalOpen}
                 activeEntity={activeEntity}
                 activeStatus={activeStatus}
                 activeQuest={activeQuest}
                 activeEditItem={activeEditItem}
+                activeEditSkill={activeEditSkill}
+                activeEditNPC={activeEditNPC}
+                activeEditPC={activeEditPC}
+                activeEditLocation={activeEditLocation}
                 onBackToMenu={onBackToMenu}
                 handleRestartGame={handleRestartGame}
                 setActiveEntity={setActiveEntity}
@@ -1043,6 +1170,7 @@ export const GameScreen: React.FC<{
                 handleDiscardItem={handleDiscardItem}
                 setActiveStatus={setActiveStatus}
                 handleStatusClick={handleStatusClick}
+                handleDeleteStatus={handleDeleteStatus}
                 setActiveQuest={setActiveQuest}
                 handleToggleMemoryPin={handleToggleMemoryPin}
                 handleEntityClick={handleEntityClick}
@@ -1051,6 +1179,18 @@ export const GameScreen: React.FC<{
                 setActiveEditItem={setActiveEditItem}
                 handleSaveEditedItem={handleSaveEditedItem}
                 setIsEditItemModalOpen={setIsEditItemModalOpen}
+                setActiveEditSkill={setActiveEditSkill}
+                handleSaveEditedSkill={handleSaveEditedSkill}
+                setIsEditSkillModalOpen={setIsEditSkillModalOpen}
+                setActiveEditNPC={setActiveEditNPC}
+                handleSaveEditedNPC={handleSaveEditedNPC}
+                setIsEditNPCModalOpen={setIsEditNPCModalOpen}
+                setActiveEditPC={setActiveEditPC}
+                handleSaveEditedPC={handleSaveEditedPC}
+                setIsEditPCModalOpen={setIsEditPCModalOpen}
+                setActiveEditLocation={setActiveEditLocation}
+                handleSaveEditedLocation={handleSaveEditedLocation}
+                setIsEditLocationModalOpen={setIsEditLocationModalOpen}
                 modalCloseHandlers={modalCloseHandlers}
                 memories={memories}
                 knownEntities={knownEntities}

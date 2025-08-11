@@ -21,7 +21,12 @@ export const EntityInfoModal: React.FC<{
     onStatusClick: (status: Status) => void;
     onLocationAction?: (action: string) => void;
     worldData?: any;
-}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick, onLocationAction, worldData }) => {
+    onEditSkill?: (skill: Entity) => void;
+    onEditNPC?: (npc: Entity) => void;
+    onEditPC?: (pc: Entity) => void;
+    onEditLocation?: (location: Entity) => void;
+    onDeleteStatus?: (statusName: string, entityName: string) => void;
+}> = ({ entity, onClose, onUseItem, onLearnItem, onEquipItem, onUnequipItem, statuses, onStatusClick, onLocationAction, worldData, onEditSkill, onEditNPC, onEditPC, onEditLocation, onDeleteStatus }) => {
     if (!entity) return null;
 
     const typeColors: { [key in EntityType | string]: string } = {
@@ -165,9 +170,47 @@ export const EntityInfoModal: React.FC<{
                         {entity.type === 'pc' && <span className="text-xs text-yellow-400 dark:text-yellow-500 font-normal italic">(Nhân vật chính)</span>}
                         {entity.equipped && <span className="text-xs text-green-400 dark:text-green-500 font-normal italic">(Đang trang bị)</span>}
                     </h3>
-                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">
-                        <CrossIcon className="w-6 h-6"/>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {entity.type === 'skill' && onEditSkill && (
+                            <button 
+                                onClick={() => onEditSkill(entity)} 
+                                className="text-amber-500 hover:text-amber-400 transition-colors p-1"
+                                title="Chỉnh sửa kỹ năng"
+                            >
+                                ✏️
+                            </button>
+                        )}
+                        {(entity.type === 'npc' || entity.type === 'companion') && onEditNPC && (
+                            <button 
+                                onClick={() => onEditNPC(entity)} 
+                                className="text-blue-500 hover:text-blue-400 transition-colors p-1"
+                                title="Chỉnh sửa NPC"
+                            >
+                                ✏️
+                            </button>
+                        )}
+                        {entity.type === 'pc' && onEditPC && (
+                            <button 
+                                onClick={() => onEditPC(entity)} 
+                                className="text-yellow-500 hover:text-yellow-400 transition-colors p-1"
+                                title="Chỉnh sửa nhân vật chính"
+                            >
+                                ✏️
+                            </button>
+                        )}
+                        {entity.type === 'location' && onEditLocation && (
+                            <button 
+                                onClick={() => onEditLocation(entity)} 
+                                className="text-green-500 hover:text-green-400 transition-colors p-1"
+                                title="Chỉnh sửa địa điểm"
+                            >
+                                ✏️
+                            </button>
+                        )}
+                        <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-3xl leading-none">
+                            <CrossIcon className="w-6 h-6"/>
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="p-5 space-y-3 text-slate-700 dark:text-gray-300 max-h-[70vh] overflow-y-auto">
@@ -321,21 +364,37 @@ export const EntityInfoModal: React.FC<{
                             {characterStatuses.length > 0 ? (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {characterStatuses.map(status => (
-                                        <button
-                                            key={status.name}
-                                            onClick={() => onStatusClick(status)}
-                                            className={`px-3 py-1.5 border rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')} shadow-sm`}
-                                        >
-                                            <span className="w-4 h-4">{getIconForStatus(status)}</span>
-                                            <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
-                                                {status.name}
-                                            </span>
-                                            {status.duration && status.duration !== 'permanent' && (
-                                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                                    ({status.duration})
+                                        <div key={status.name} className="relative group">
+                                            <button
+                                                onClick={() => onStatusClick(status)}
+                                                className={`px-3 py-1.5 border rounded-lg transition-all duration-200 flex items-center gap-2 hover:scale-105 ${getStatusBorderColor(status)} hover:bg-slate-200 dark:hover:bg-slate-700/50 focus:outline-none focus:ring-2 ${getStatusBorderColor(status).replace('border-', 'ring-').replace('/50', '')} shadow-sm`}
+                                            >
+                                                <span className="w-4 h-4">{getIconForStatus(status)}</span>
+                                                <span className={`${getStatusTextColor(status)} ${getStatusFontWeight(status)} text-sm`}>
+                                                    {status.name}
                                                 </span>
+                                                {status.duration && status.duration !== 'permanent' && (
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                                        ({status.duration})
+                                                    </span>
+                                                )}
+                                            </button>
+                                            {/* Delete Status Button - Only show for PC and NPC */}
+                                            {(entity.type === 'pc' || entity.type === 'npc' || entity.type === 'companion') && onDeleteStatus && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm(`Bạn có chắc chắn muốn xóa trạng thái "${status.name}"?`)) {
+                                                            onDeleteStatus(status.name, entity.name);
+                                                        }
+                                                    }}
+                                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg z-10"
+                                                    title={`Xóa trạng thái: ${status.name}`}
+                                                >
+                                                    ×
+                                                </button>
                                             )}
-                                        </button>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (

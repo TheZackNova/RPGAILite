@@ -19,12 +19,20 @@ export interface ModalState {
     isInventoryModalOpen: boolean;
     isAdminModalOpen: boolean;
     isEditItemModalOpen: boolean;
+    isEditSkillModalOpen: boolean;
+    isEditNPCModalOpen: boolean;
+    isEditPCModalOpen: boolean;
+    isEditLocationModalOpen: boolean;
     
     // Active modal entities
     activeEntity: Entity | null;
     activeStatus: Status | null;
     activeQuest: Quest | null;
     activeEditItem: Entity | null;
+    activeEditSkill: Entity | null;
+    activeEditNPC: Entity | null;
+    activeEditPC: Entity | null;
+    activeEditLocation: Entity | null;
     
     // Notification states
     showSaveSuccess: boolean;
@@ -50,12 +58,20 @@ export interface ModalStateActions {
     setIsInventoryModalOpen: (open: boolean) => void;
     setIsAdminModalOpen: (open: boolean) => void;
     setIsEditItemModalOpen: (open: boolean) => void;
+    setIsEditSkillModalOpen: (open: boolean) => void;
+    setIsEditNPCModalOpen: (open: boolean) => void;
+    setIsEditPCModalOpen: (open: boolean) => void;
+    setIsEditLocationModalOpen: (open: boolean) => void;
     
     // Active modal entity setters
     setActiveEntity: (entity: Entity | null) => void;
     setActiveStatus: (status: Status | null) => void;
     setActiveQuest: (quest: Quest | null) => void;
     setActiveEditItem: (item: Entity | null) => void;
+    setActiveEditSkill: (skill: Entity | null) => void;
+    setActiveEditNPC: (npc: Entity | null) => void;
+    setActiveEditPC: (pc: Entity | null) => void;
+    setActiveEditLocation: (location: Entity | null) => void;
     
     // Notification setters
     setShowSaveSuccess: (show: boolean) => void;
@@ -77,6 +93,10 @@ export interface ModalStateActions {
         inventory: () => void;
         admin: () => void;
         editItem: () => void;
+        editSkill: () => void;
+        editNPC: () => void;
+        editPC: () => void;
+        editLocation: () => void;
     };
 }
 
@@ -98,12 +118,20 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [isEditItemModalOpen, setIsEditItemModalOpen] = useState(false);
+    const [isEditSkillModalOpen, setIsEditSkillModalOpen] = useState(false);
+    const [isEditNPCModalOpen, setIsEditNPCModalOpen] = useState(false);
+    const [isEditPCModalOpen, setIsEditPCModalOpen] = useState(false);
+    const [isEditLocationModalOpen, setIsEditLocationModalOpen] = useState(false);
     
     // Active modal entities
     const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
     const [activeStatus, setActiveStatus] = useState<Status | null>(null);
     const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
     const [activeEditItem, setActiveEditItem] = useState<Entity | null>(null);
+    const [activeEditSkill, setActiveEditSkill] = useState<Entity | null>(null);
+    const [activeEditNPC, setActiveEditNPC] = useState<Entity | null>(null);
+    const [activeEditPC, setActiveEditPC] = useState<Entity | null>(null);
+    const [activeEditLocation, setActiveEditLocation] = useState<Entity | null>(null);
     
     // Notification states
     const [showSaveSuccess, setShowSaveSuccess] = useState(false);
@@ -128,6 +156,22 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
             setIsEditItemModalOpen(false);
             setActiveEditItem(null);
         },
+        editSkill: () => {
+            setIsEditSkillModalOpen(false);
+            setActiveEditSkill(null);
+        },
+        editNPC: () => {
+            setIsEditNPCModalOpen(false);
+            setActiveEditNPC(null);
+        },
+        editPC: () => {
+            setIsEditPCModalOpen(false);
+            setActiveEditPC(null);
+        },
+        editLocation: () => {
+            setIsEditLocationModalOpen(false);
+            setActiveEditLocation(null);
+        },
     }), []);
 
     const modalState: ModalState = {
@@ -147,10 +191,18 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         isInventoryModalOpen,
         isAdminModalOpen,
         isEditItemModalOpen,
+        isEditSkillModalOpen,
+        isEditNPCModalOpen,
+        isEditPCModalOpen,
+        isEditLocationModalOpen,
         activeEntity,
         activeStatus,
         activeQuest,
         activeEditItem,
+        activeEditSkill,
+        activeEditNPC,
+        activeEditPC,
+        activeEditLocation,
         showSaveSuccess,
         showRulesSavedSuccess,
         notification
@@ -173,10 +225,18 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         setIsInventoryModalOpen,
         setIsAdminModalOpen,
         setIsEditItemModalOpen,
+        setIsEditSkillModalOpen,
+        setIsEditNPCModalOpen,
+        setIsEditPCModalOpen,
+        setIsEditLocationModalOpen,
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,
         setActiveEditItem,
+        setActiveEditSkill,
+        setActiveEditNPC,
+        setActiveEditPC,
+        setActiveEditLocation,
         setShowSaveSuccess,
         setShowRulesSavedSuccess,
         setNotification,

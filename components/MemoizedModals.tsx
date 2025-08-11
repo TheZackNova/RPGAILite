@@ -14,6 +14,10 @@ import { QuestLog } from './QuestLog.tsx';
 import { InventoryModal } from './InventoryModal.tsx';
 import { AdminModal } from './AdminModal.tsx';
 import { EditItemModal } from './EditItemModal.tsx';
+import { EditSkillModal } from './EditSkillModal.tsx';
+import { EditNPCModal } from './EditNPCModal.tsx';
+import { EditPCModal } from './EditPCModal.tsx';
+import { EditLocationModal } from './EditLocationModal.tsx';
 
 import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
@@ -44,12 +48,20 @@ interface MemoizedModalsProps {
     isInventoryModalOpen: boolean;
     isAdminModalOpen: boolean;
     isEditItemModalOpen: boolean;
+    isEditSkillModalOpen: boolean;
+    isEditNPCModalOpen: boolean;
+    isEditPCModalOpen: boolean;
+    isEditLocationModalOpen: boolean;
 
     // Active data for detail modals
     activeEntity: Entity | null;
     activeStatus: Status | null;
     activeQuest: Quest | null;
     activeEditItem: Entity | null;
+    activeEditSkill: Entity | null;
+    activeEditNPC: Entity | null;
+    activeEditPC: Entity | null;
+    activeEditLocation: Entity | null;
 
     // Handlers
     onBackToMenu: () => void;
@@ -62,6 +74,7 @@ interface MemoizedModalsProps {
     handleDiscardItem: (item: Entity) => void;
     setActiveStatus: (status: Status | null) => void;
     handleStatusClick: (status: Status) => void;
+    handleDeleteStatus: (statusName: string, entityName: string) => void;
     setActiveQuest: (quest: Quest | null) => void;
     handleToggleMemoryPin: (index: number) => void;
     handleEntityClick: (entityName: string) => void;
@@ -70,6 +83,18 @@ interface MemoizedModalsProps {
     setActiveEditItem: (item: Entity | null) => void;
     handleSaveEditedItem: (originalItem: Entity, editedItem: Entity) => void;
     setIsEditItemModalOpen: (open: boolean) => void;
+    setActiveEditSkill: (skill: Entity | null) => void;
+    handleSaveEditedSkill: (originalSkill: Entity, editedSkill: Entity) => void;
+    setIsEditSkillModalOpen: (open: boolean) => void;
+    setActiveEditNPC: (npc: Entity | null) => void;
+    handleSaveEditedNPC: (originalNPC: Entity, editedNPC: Entity) => void;
+    setIsEditNPCModalOpen: (open: boolean) => void;
+    setActiveEditPC: (pc: Entity | null) => void;
+    handleSaveEditedPC: (originalPC: Entity, editedPC: Entity) => void;
+    setIsEditPCModalOpen: (open: boolean) => void;
+    setActiveEditLocation: (location: Entity | null) => void;
+    handleSaveEditedLocation: (originalLocation: Entity, editedLocation: Entity) => void;
+    setIsEditLocationModalOpen: (open: boolean) => void;
     
     // onClose handlers for modals
     modalCloseHandlers: {
@@ -86,6 +111,10 @@ interface MemoizedModalsProps {
         inventory: () => void;
         admin: () => void;
         editItem: () => void;
+        editSkill: () => void;
+        editNPC: () => void;
+        editPC: () => void;
+        editLocation: () => void;
     };
 
     // Game state data
@@ -152,8 +181,9 @@ export const MemoizedPlayerCharacterSheet = memo<{
     knownEntities: KnownEntities;
     onStatusClick: (status: Status) => void;
     onEntityClick: (entityName: string) => void;
+    onEditPC?: (pc: Entity) => void;
     worldData: any;
-}>(({ pc, statuses, knownEntities, onStatusClick, onEntityClick, worldData }) => {
+}>(({ pc, statuses, knownEntities, onStatusClick, onEntityClick, onEditPC, worldData }) => {
     
     // Helper function to get fame color
     const getFameColor = (fame: string): string => {
@@ -186,9 +216,20 @@ export const MemoizedPlayerCharacterSheet = memo<{
         <div className="p-4 h-full flex flex-col space-y-4 text-slate-700 dark:text-gray-300">
             {/* Basic Info */}
             <div>
-                <h4 className="font-semibold text-lg text-slate-800 dark:text-white mb-2 border-b border-slate-300 dark:border-slate-600 pb-1 flex items-center gap-2">
-                    <UserIcon className="w-5 h-5" />
-                    Thông tin cơ bản
+                <h4 className="font-semibold text-lg text-slate-800 dark:text-white mb-2 border-b border-slate-300 dark:border-slate-600 pb-1 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <UserIcon className="w-5 h-5" />
+                        Thông tin cơ bản
+                    </div>
+                    {onEditPC && pc && (
+                        <button 
+                            onClick={() => onEditPC(pc)} 
+                            className="text-yellow-500 hover:text-yellow-400 transition-colors p-1"
+                            title="Chỉnh sửa thông tin nhân vật"
+                        >
+                            ✏️
+                        </button>
+                    )}
                 </h4>
                 <div className="space-y-2 text-sm pl-2">
                     <p><strong className="font-semibold text-slate-800 dark:text-gray-100 w-20 inline-block">Tên:</strong> {pc.name}</p>
@@ -437,10 +478,18 @@ const MemoizedModalsComponent = ({
     isInventoryModalOpen,
     isAdminModalOpen,
     isEditItemModalOpen,
+    isEditSkillModalOpen,
+    isEditNPCModalOpen,
+    isEditPCModalOpen,
+    isEditLocationModalOpen,
     activeEntity,
     activeStatus,
     activeQuest,
     activeEditItem,
+    activeEditSkill,
+    activeEditNPC,
+    activeEditPC,
+    activeEditLocation,
     onBackToMenu,
     handleRestartGame,
     setActiveEntity,
@@ -451,6 +500,7 @@ const MemoizedModalsComponent = ({
     handleDiscardItem,
     setActiveStatus,
     handleStatusClick,
+    handleDeleteStatus,
     setActiveQuest,
     handleToggleMemoryPin,
     handleEntityClick,
@@ -459,6 +509,18 @@ const MemoizedModalsComponent = ({
     setActiveEditItem,
     handleSaveEditedItem,
     setIsEditItemModalOpen,
+    setActiveEditSkill,
+    handleSaveEditedSkill,
+    setIsEditSkillModalOpen,
+    setActiveEditNPC,
+    handleSaveEditedNPC,
+    setIsEditNPCModalOpen,
+    setActiveEditPC,
+    handleSaveEditedPC,
+    setIsEditPCModalOpen,
+    setActiveEditLocation,
+    handleSaveEditedLocation,
+    setIsEditLocationModalOpen,
     modalCloseHandlers,
     memories,
     knownEntities,
@@ -503,6 +565,23 @@ const MemoizedModalsComponent = ({
                 onStatusClick={handleStatusClick}
                 onLocationAction={handleAction}
                 worldData={worldData}
+                onEditSkill={(skill) => {
+                    setActiveEditSkill(skill);
+                    setIsEditSkillModalOpen(true);
+                }}
+                onEditNPC={(npc) => {
+                    setActiveEditNPC(npc);
+                    setIsEditNPCModalOpen(true);
+                }}
+                onEditPC={(pc) => {
+                    setActiveEditPC(pc);
+                    setIsEditPCModalOpen(true);
+                }}
+                onEditLocation={(location) => {
+                    setActiveEditLocation(location);
+                    setIsEditLocationModalOpen(true);
+                }}
+                onDeleteStatus={handleDeleteStatus}
             />
             
             <StatusDetailModal 
@@ -569,6 +648,10 @@ const MemoizedModalsComponent = ({
                     knownEntities={knownEntities} 
                     onStatusClick={handleStatusClick} 
                     onEntityClick={handleEntityClick}
+                    onEditPC={(pc) => {
+                        setActiveEditPC(pc);
+                        setIsEditPCModalOpen(true);
+                    }}
                     worldData={worldData}
                 />
             </MemoizedInfoPanelModal>
@@ -644,6 +727,38 @@ const MemoizedModalsComponent = ({
                 onClose={modalCloseHandlers.editItem}
                 item={activeEditItem}
                 onSaveItem={handleSaveEditedItem}
+            />
+
+            {/* Edit Skill Modal */}
+            <EditSkillModal
+                isOpen={isEditSkillModalOpen}
+                onClose={modalCloseHandlers.editSkill}
+                skill={activeEditSkill}
+                onSaveSkill={handleSaveEditedSkill}
+            />
+
+            {/* Edit NPC Modal */}
+            <EditNPCModal
+                isOpen={isEditNPCModalOpen}
+                onClose={modalCloseHandlers.editNPC}
+                npc={activeEditNPC}
+                onSaveNPC={handleSaveEditedNPC}
+            />
+
+            {/* Edit PC Modal */}
+            <EditPCModal
+                isOpen={isEditPCModalOpen}
+                onClose={modalCloseHandlers.editPC}
+                pc={activeEditPC}
+                onSavePC={handleSaveEditedPC}
+            />
+
+            {/* Edit Location Modal */}
+            <EditLocationModal
+                isOpen={isEditLocationModalOpen}
+                onClose={modalCloseHandlers.editLocation}
+                location={activeEditLocation}
+                onSaveLocation={handleSaveEditedLocation}
             />
         </>
     );

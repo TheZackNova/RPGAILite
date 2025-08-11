@@ -3,6 +3,29 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.41.0',
+    date: '2025-08-11',
+    changes: [
+      { type: 'feature', text: 'Triển khai Unified Edit System hoàn chỉnh cho tất cả Entity types - Người chơi giờ có thể chỉnh sửa trực tiếp thông tin của Skills, NPCs, PCs, và Locations thông qua các edit modals chuyên dụng với giao diện thân thiện và validation system.' },
+      { type: 'feature', text: 'EditSkillModal với mastery dropdown system - Hỗ trợ chỉnh sửa tất cả thuộc tính skill bao gồm name, description, realm, element, skillType với mastery levels (Mới học, Bậc nhập môn, Thành thạo, Tinh thông, Đại thành, Viên mãn, Cực đại). Loại bỏ location và owner fields theo feedback.' },
+      { type: 'feature', text: 'EditNPCModal với comprehensive character editing - Chỉnh sửa đầy đủ thông tin NPC bao gồm basic info (name, gender, age, appearance, location), character attributes (realm, fame, personality, motivation, MBTI), relationship dropdown với predefined options, và skills management với cursor position preservation.' },
+      { type: 'feature', text: 'EditPCModal với MBTI personality integration - Chỉnh sửa Player Character với tất cả PC-specific fields bao gồm learned skills, MBTI personality dropdown, experience points, realm progression, và character development attributes với yellow color theme.' },
+      { type: 'feature', text: 'EditLocationModal với safety status management - Chỉnh sửa địa điểm với fields: name, parent location, safety status dropdown (tự động update description), climate/environment, notable features, resources/economy, và inhabitants information với green color theme.' },
+      { type: 'feature', text: 'Manual Status Deletion System - Thêm X buttons cho mỗi status trong PC và NPC EntityInfoModal. Players có thể manually delete bugged statuses với confirmation dialog, red X buttons xuất hiện on hover, và success notifications. Hỗ trợ cho PC, NPC, và Companion entities.' },
+      { type: 'improvement', text: 'Advanced cursor position preservation trong text inputs - Khắc phục cursor jumping issue trong NPC skills field bằng cách implement temporary string fields (skillsText) chỉ convert thành array khi save, maintain cursor position during editing.' },
+      { type: 'improvement', text: 'Unified modal state management system - Tích hợp hoàn chỉnh tất cả edit modals vào useModalState hook với proper state cleanup, modal close handlers, và React state management. Enhanced GameScreen integration với save handlers và success notifications.' },
+      { type: 'improvement', text: 'Smart edit modal UI/UX design - Mỗi modal có color scheme riêng biệt (amber-skills, blue-NPCs, yellow-PC, green-locations), glass-morphism styling, proper form validation, responsive design, và consistent user experience across all entity types.' },
+      { type: 'improvement', text: 'Enhanced EntityInfoModal với edit icons - Thêm pencil edit icons (✏️) trong header của tất cả entity info modals, proper permission checks, color-coded theo entity type, và seamless integration với edit modal system.' },
+      { type: 'fix', text: 'Sửa lỗi GameScreen component error "missing modal state variables" - Thêm isEditLocationModalOpen, activeEditLocation, setIsEditLocationModalOpen, setActiveEditLocation vào modal state destructuring trong GameScreen.tsx, khắc phục runtime errors.' },
+      { type: 'fix', text: 'Khắc phục cursor jumping trong skills textarea - Enhanced input handling với temporary text state, preserve cursor position during typing, chỉ parse thành array format khi save để tránh input interruption.' },
+      { type: 'fix', text: 'Smart status deletion với entity matching - Status deletion system correctly identifies statuses belonging to specific entities, handles PC status ownership properly (matches both entity name và "pc" owner), và prevents accidental deletion của wrong statuses.' },
+      { type: 'technical', text: 'Comprehensive edit modal architecture - Created 4 specialized edit modals (EditSkillModal, EditNPCModal, EditPCModal, EditLocationModal) với shared patterns: two-parameter save handlers (original, edited), proper TypeScript interfaces, form validation, responsive design, và error handling.' },
+      { type: 'technical', text: 'Advanced modal state integration - Updated useModalState.ts với all Location modal states, enhanced GameScreen.tsx với save handlers và prop passing, updated MemoizedModals.tsx với proper modal integration và component composition.' },
+      { type: 'technical', text: 'Status deletion handler implementation - Created handleDeleteStatus với smart filtering logic, success notifications, console logging for debugging, và proper React state management. Integrated across EntityInfoModal → GameScreen → MemoizedModals component chain.' },
+      { type: 'technical', text: 'Enhanced form handling và validation - All edit modals implement proper form state management, input validation, save/cancel logic, và data cleanup before saving. Support for both string và array fields với appropriate parsing.' },
+    ],
+  },
+  {
     version: '1.40.0',
     date: '2025-08-06', 
     changes: [
