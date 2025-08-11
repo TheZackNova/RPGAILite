@@ -12,6 +12,7 @@ import { buildEnhancedRagPrompt } from './promptBuilder.ts';
 import { createGameActionHandlers } from './handlers/gameActionHandlers';
 import { createEntityHandlers } from './handlers/entityHandlers';
 import { createGameStateHandlers } from './handlers/gameStateHandlers';
+import { createAutoTrimmedStoryLog } from './utils/storyLogUtils';
 import { createCommandTagProcessor } from './utils/commandTagProcessor';
 import { partyDebugger } from './utils/partyDebugger';
 
@@ -125,6 +126,9 @@ export const GameScreen: React.FC<{
         setTurnCount, setCurrentTurnTokens, setTotalTokens, setStoryLog, setChoices,
         setLocationDiscoveryOrder, updateChoiceHistory, setIsLoading, setHasGeneratedInitialStory, setCustomAction
     } = gameStateActions;
+
+    // Create auto-trimmed story log for main story updates
+    const storyLogManager = useMemo(() => createAutoTrimmedStoryLog(setStoryLog), [setStoryLog]);
 
     const {
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
@@ -450,7 +454,7 @@ export const GameScreen: React.FC<{
             }
             
             const cleanStory = parseStoryAndTags(jsonResponse.story, true);
-            setStoryLog(prev => [...prev, cleanStory]);
+            storyLogManager.update(prev => [...prev, cleanStory]);
             setChoices(jsonResponse.choices || []);
         } catch (e) {
             console.error("Failed to parse AI response:", e, "Raw response:", text);

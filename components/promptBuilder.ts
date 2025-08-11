@@ -1255,6 +1255,13 @@ export class EnhancedRAGSystem {
         prompt += `
 YÊU CẦU: Tiếp tục câu chuyện dựa trên hành động và tri thức đã truy xuất.
 
+**NGÔN NGỮ BẮT BUỘC:**
+-BẮT BUỘC sử dụng 100% tiếng Việt trong toàn bộ nội dung (story, choices, descriptions)
+-TUYỆT ĐỐI KHÔNG dùng tiếng Anh trừ tên riêng nước ngoài
+-Quan hệ PHẢI dùng tiếng Việt: "friend"→"bạn bè", "enemy"→"kẻ thù", "ally"→"đồng minh", "lover"→"người yêu", "family"→"gia đình", "master"→"sư phụ", "rival"→"đối thủ"
+-Kiểm tra kỹ lưỡng để không có từ tiếng Anh nào lọt vào câu chuyện
+-Tuyệt đối không lập lại hành động của NPC ở lượt trước vào lượt này.
+
 HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
 - Khi một kỹ năng được THAY ĐỔI/NÂNG CẤP/GIẢI PHONG ẤN: Sử dụng [SKILL_UPDATE: oldSkill="tên kỹ năng cũ" newSkill="tên kỹ năng mới" target="tên nhân vật" description="mô tả kỹ năng mới"]
 - Khi học kỹ năng HOÀN TOÀN MỚI (chưa từng có): Sử dụng [SKILL_LEARNED: name="tên kỹ năng" learner="tên nhân vật" description="mô tả"]
@@ -1367,7 +1374,16 @@ Lượt: ${gameState.turnCount}
 --- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---
 "${action}"
 
-YÊU CẦU: Tiếp tục câu chuyện.`;
+YÊU CẦU: Tiếp tục câu chuyện dựa trên hành động và tri thức đã truy xuất.
+-Bắt buộc phải sử dụng 100% tiếng việt trừ danh từ riêng.
+-Tuyệt đối không lập lại hành động của NPC ở lượt trước vào lượt này.
+
+HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
+- Khi một kỹ năng được THAY ĐỔI/NÂNG CẤP/GIẢI PHONG ẤN: Sử dụng [SKILL_UPDATE: oldSkill="tên kỹ năng cũ" newSkill="tên kỹ năng mới" target="tên nhân vật" description="mô tả kỹ năng mới"]
+- Khi học kỹ năng HOÀN TOÀN MỚI (chưa từng có): Sử dụng [SKILL_LEARNED: name="tên kỹ năng" learner="tên nhân vật" description="mô tả"]
+- KHÔNG BAO GIỜ tạo kỹ năng trùng lặp - luôn dùng SKILL_UPDATE để thay thế kỹ năng cũ
+- Ví dụ: "Thiên Hồ Huyễn Linh Bí Pháp (đang phong ấn)" → "Thiên Hồ Huyễn Linh Bí Pháp (Sơ Giải)" phải dùng SKILL_UPDATE`;
+
     }
 }
 

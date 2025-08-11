@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { GameHistoryEntry, SaveData } from '../types';
 import { buildEnhancedRagPrompt } from '../promptBuilder';
 import { EntityExportManager } from '../utils/EntityExportManager';
+import { createAutoTrimmedStoryLog } from '../utils/storyLogUtils';
 
 export interface GameActionHandlersParams {
     ai: GoogleGenAI | null;
@@ -44,6 +45,9 @@ export const createGameActionHandlers = (params: GameActionHandlersParams) => {
         updateChoiceHistory
     } = params;
 
+    // Create auto-trimmed story log functions
+    const storyLogManager = createAutoTrimmedStoryLog(setStoryLog);
+
     const generateInitialStory = async (
         worldData: any,
         knownEntities: any,
@@ -72,17 +76,19 @@ export const createGameActionHandlers = (params: GameActionHandlersParams) => {
 
         if (!pcEntity) return;
 
-        // Build skill information with mastery levels
+        // Build skill information with mastery levels and descriptions
         let skillsWithMastery = '';
         if (pcEntity.learnedSkills && pcEntity.learnedSkills.length > 0) {
             const skillDetails = pcEntity.learnedSkills.map((skillName: string) => {
                 const skillEntity = knownEntities[skillName];
-                if (skillEntity && skillEntity.mastery) {
-                    return `${skillName} (${skillEntity.mastery})`;
+                if (skillEntity) {
+                    const mastery = skillEntity.mastery ? ` (${skillEntity.mastery})` : '';
+                    const description = skillEntity.description ? ` - ${skillEntity.description}` : '';
+                    return `${skillName}${mastery}${description}`;
                 }
                 return skillName;
             });
-            skillsWithMastery = skillDetails.join(', ');
+            skillsWithMastery = skillDetails.join('\n  • ');
         }
 
         const userPrompt = `${customRulesContext}${conceptContext}
@@ -93,7 +99,7 @@ BẠN LÀ QUẢN TRÒ AI. Tạo câu chuyện mở đầu cho game RPG với yê
 Tên: ${pcEntity.name}
 Giới tính: ${pcEntity.gender}
 Tiểu sử: ${pcEntity.description}
-Tính cách: ${pcEntity.personality}${pcEntity.motivation ? `\n**ĐỘNG CƠ/MỤC TIÊU QUAN TRỌNG**: ${pcEntity.motivation}` : ''}${skillsWithMastery ? `\n**KỸ NĂNG KHỞI ĐẦU**: ${skillsWithMastery}` : ''}
+Tính cách: ${pcEntity.personality}${pcEntity.motivation ? `\n**ĐỘNG CƠ/MỤC TIÊU QUAN TRỌNG**: ${pcEntity.motivation}` : ''}${skillsWithMastery ? `\n**KỸ NĂNG KHỞI ĐẦU**:\n  • ${skillsWithMastery}` : ''}
 
 --- THÔNG TIN THẾ GIỚI ---
 Thế giới: ${worldData.worldName}
@@ -104,14 +110,17 @@ Phong cách viết: ${writingStyleText}
 Nội dung 18+: ${nsfwInstruction}
 
 --- YÊU CẦU VIẾT STORY ---
-1. **CHIỀU DÀI**: Chính xác 300-400 từ, chi tiết và sống động
-2. **SỬ DỤNG CONCEPT**: Phải tích hợp các LORE_CONCEPT đã thiết lập vào câu chuyện một cách tự nhiên
-3. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama${skillsWithMastery ? `\n4. **NHẮC ĐẾN KỸ NĂNG**: Phải đề cập hoặc thể hiện kỹ năng khởi đầu của nhân vật trong câu chuyện hoặc lựa chọn, chú ý đến mức độ thành thạo` : ''}${pcEntity.motivation ? `\n${skillsWithMastery ? '5' : '4'}. **PHẢN ÁNH ĐỘNG CƠ NHÂN VẬT**: Câu chuyện và lựa chọn phải liên quan đến động cơ/mục tiêu của nhân vật chính: "${pcEntity.motivation}"` : ''}
-${pcEntity.motivation && skillsWithMastery ? '6' : pcEntity.motivation || skillsWithMastery ? '5' : '4'}. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
-${pcEntity.motivation && skillsWithMastery ? '7' : pcEntity.motivation || skillsWithMastery ? '6' : '5'}. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
-${pcEntity.motivation && skillsWithMastery ? '8' : pcEntity.motivation || skillsWithMastery ? '7' : '6'}. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị${pcEntity.motivation ? `, một số lựa chọn phải hướng tới việc thực hiện mục tiêu: "${pcEntity.motivation}"` : ''}${skillsWithMastery ? `, và một số lựa chọn cho phép sử dụng kỹ năng khởi đầu với mức độ thành thạo phù hợp` : ''}
+1. **NGÔN NGỮ TUYỆT ĐỐI**: BẮT BUỘC 100% tiếng Việt. KHÔNG dùng tiếng Anh trừ tên riêng nước ngoài. Quan hệ nhân vật PHẢI tiếng Việt: "friend"→"bạn", "enemy"→"kẻ thù", "ally"→"đồng minh", "lover"→"người yêu"
+2. **CHIỀU DÀI**: Chính xác 300-400 từ, chi tiết và sống động  
+3. **SỬ DỤNG CONCEPT**: Phải tích hợp các LORE_CONCEPT đã thiết lập vào câu chuyện một cách tự nhiên
+4. **THIẾT LẬP BỐI CẢNH**: Tạo tình huống mở đầu thú vị, không quá drama${skillsWithMastery ? `\n5. **NHẮC ĐẾN KỸ NĂNG**: Phải đề cập hoặc thể hiện kỹ năng khởi đầu của nhân vật trong câu chuyện hoặc lựa chọn, chú ý đến mức độ thành thạo` : ''}${pcEntity.motivation ? `\n${skillsWithMastery ? '6' : '5'}. **PHẢN ÁNH ĐỘNG CƠ NHÂN VẬT**: Câu chuyện và lựa chọn phải liên quan đến động cơ/mục tiêu của nhân vật chính: "${pcEntity.motivation}"` : ''}
+${pcEntity.motivation && skillsWithMastery ? '7' : pcEntity.motivation || skillsWithMastery ? '6' : '5'}. **TIME_ELAPSED**: Bắt buộc sử dụng [TIME_ELAPSED: hours=0] 
+${pcEntity.motivation && skillsWithMastery ? '8' : pcEntity.motivation || skillsWithMastery ? '7' : '6'}. **THẺ LỆNH**: Tạo ít nhất 2-3 thẻ lệnh phù hợp (LORE_LOCATION, LORE_NPC, STATUS_APPLIED_SELF...)
+${pcEntity.motivation && skillsWithMastery ? '9' : pcEntity.motivation || skillsWithMastery ? '8' : '7'}. **LỰA CHỌN**: Tạo 4-6 lựa chọn hành động đa dạng và thú vị${pcEntity.motivation ? `, một số lựa chọn phải hướng tới việc thực hiện mục tiêu: "${pcEntity.motivation}"` : ''}${skillsWithMastery ? `, và một số lựa chọn cho phép sử dụng kỹ năng khởi đầu với mức độ thành thạo phù hợp` : ''}
 
-Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` và thể hiện rõ động cơ "${pcEntity.motivation}" của nhân vật` : ''}${skillsWithMastery ? `${pcEntity.motivation ? ', ' : ' và '}nhắc đến hoặc cho phép sử dụng kỹ năng khởi đầu với mức độ thành thạo` : ''}!`;
+Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` và thể hiện rõ động cơ "${pcEntity.motivation}" của nhân vật` : ''}${skillsWithMastery ? `${pcEntity.motivation ? ', ' : ' và '}nhắc đến hoặc cho phép sử dụng kỹ năng khởi đầu với mức độ thành thạo` : ''}!
+
+**LƯU Ý CUỐI CÙNG**: Kiểm tra kỹ lưỡng toàn bộ output để đảm bảo 100% tiếng Việt, không có từ tiếng Anh nào!`;
 
         const finalHistory: GameHistoryEntry[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
         setGameHistory(finalHistory);
@@ -161,7 +170,7 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
                 
                 errorMessage += " Vui lòng thử tạo lại thế giới hoặc kiểm tra API key.";
                 
-                setStoryLog(prev => [...prev, errorMessage]);
+                storyLogManager.update(prev => [...prev, errorMessage]);
                 setChoices([]);
                 return;
             }
@@ -182,11 +191,11 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
             if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
                 console.log("📖 GenerateInitialStory: Rate limit detected, rotating key...");
                 rotateKey();
-                setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+                storyLogManager.update(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
                 setChoices(rehydratedChoices);
             } else {
                 console.error("📖 GenerateInitialStory: Non-rate-limit error, showing error message");
-                setStoryLog(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại.", `Chi tiết lỗi: ${error.message || error.toString()}`]);
+                storyLogManager.set(["Có lỗi xảy ra khi bắt đầu câu chuyện. Vui lòng thử lại.", `Chi tiết lỗi: ${error.message || error.toString()}`]);
             }
         } finally {
             console.log("📖 GenerateInitialStory: Cleaning up, setting loading false");
@@ -209,7 +218,7 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
         setIsLoading(true);
         setChoices([]);
         setCustomAction('');
-        setStoryLog(prev => [...prev, `> ${originalAction}`]);
+        storyLogManager.update(prev => [...prev, `> ${originalAction}`]);
         
         // Track selected choice in history
         updateChoiceHistory([], originalAction, 'Player action executed');
@@ -257,7 +266,7 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
                 
                 errorMessage += " Vui lòng thử lại với hành động khác hoặc kiểm tra API key.";
                 
-                setStoryLog(prev => [...prev, errorMessage]);
+                storyLogManager.update(prev => [...prev, errorMessage]);
                 return;
             }
             
@@ -289,9 +298,9 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
 
             if (!isUsingDefaultKey && userApiKeyCount > 1 && error.toString().includes('429')) {
                 rotateKey();
-                setStoryLog(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
+                storyLogManager.update(prev => [...prev, "**⭐ Lỗi giới hạn yêu cầu. Đã tự động chuyển sang API Key tiếp theo. Vui lòng thử lại hành động của bạn. ⭐**"]);
             } else {
-                 setStoryLog(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
+                 storyLogManager.update(prev => [...prev, "Lỗi: AI không thể xử lý yêu cầu. Vui lòng thử một hành động khác."]);
             }
         } finally {
             setIsLoading(false);
@@ -351,7 +360,7 @@ Hãy gợi ý hành động:`;
             // Check if response is empty or whitespace only
             if (!text || text.trim().length === 0) {
                 console.error("Empty AI response received");
-                setStoryLog(prev => [...prev, "Lỗi: AI trả về phản hồi trống. Hãy thử lại."]);
+                storyLogManager.update(prev => [...prev, "Lỗi: AI trả về phản hồi trống. Hãy thử lại."]);
                 setChoices([]);
                 return;
             }
@@ -381,7 +390,7 @@ Hãy gợi ý hành động:`;
             // Final check if cleanText is valid before parsing
             if (!cleanText || cleanText.length === 0) {
                 console.error("No valid JSON found in response");
-                setStoryLog(prev => [...prev, "Lỗi: Không tìm thấy JSON hợp lệ trong phản hồi. Hãy thử lại."]);
+                storyLogManager.update(prev => [...prev, "Lỗi: Không tìm thấy JSON hợp lệ trong phản hồi. Hãy thử lại."]);
                 setChoices([]);
                 return;
             }
@@ -391,13 +400,13 @@ Hãy gợi ý hành động:`;
             // Validate required fields
             if (!jsonResponse.story) {
                 console.error("Missing story field in JSON response");
-                setStoryLog(prev => [...prev, "Lỗi: Phản hồi thiếu nội dung câu chuyện. Hãy thử lại."]);
+                storyLogManager.update(prev => [...prev, "Lỗi: Phản hồi thiếu nội dung câu chuyện. Hãy thử lại."]);
                 setChoices([]);
                 return;
             }
             
             const cleanStory = parseStoryAndTags(jsonResponse.story, true);
-            setStoryLog(prev => [...prev, cleanStory]);
+            storyLogManager.update(prev => [...prev, cleanStory]);
             const newChoices = jsonResponse.choices || [];
             setChoices(newChoices);
             
@@ -411,7 +420,7 @@ Hãy gợi ý hành động:`;
             }
         } catch (e) {
             console.error("Failed to parse AI response:", e, "Raw response:", text);
-            setStoryLog(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);
+            storyLogManager.update(prev => [...prev, "Lỗi: AI trả về dữ liệu không hợp lệ. Hãy thử lại."]);
             setChoices([]);
         }
     };

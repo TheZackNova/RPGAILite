@@ -282,8 +282,7 @@ const MemoizedSkillsSection = memo<{
             const skillEntity = knownEntities[skillName];
             return {
                 name: skillName,
-                entity: skillEntity,
-                realm: skillEntity?.realm
+                entity: skillEntity
             };
         });
     }, [learnedSkills, knownEntities]);
@@ -316,7 +315,7 @@ MemoizedSkillsSection.displayName = 'MemoizedSkillsSection';
 
 // ===== MEMOIZED SKILL LIST ITEM =====
 const SkillListItem = memo<{
-    skill: { name: string; entity?: Entity; realm?: string };
+    skill: { name: string; entity?: Entity };
     onEntityClick: (entityName: string) => void;
 }>(({ skill, onEntityClick }) => {
     const handleClick = useCallback(() => {
@@ -333,7 +332,7 @@ const SkillListItem = memo<{
                     <span className="w-4 h-4">
                         {getIconForEntity(skill.entity || {name: skill.name, type: 'skill', description: ''})}
                     </span>
-                    {skill.name} {skill.realm ? `(${skill.realm})` : ''}
+                    {skill.name} {skill.entity?.mastery ? `(${skill.entity.mastery})` : ''}
                 </p>
                 {skill.entity?.description && (
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 pl-6">

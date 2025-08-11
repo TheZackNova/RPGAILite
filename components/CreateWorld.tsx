@@ -155,7 +155,7 @@ export const CreateWorld: React.FC<{
         setIsAnySuggestionLoading(true);
         setLoadingStates(prev => ({ ...prev, genre: true }));
         setSuggestionError(null);
-        const prompt = 'Gợi ý 5 chủ đề/bối cảnh độc đáo (tiếng Việt) cho game phiêu lưu văn bản, phong cách tiểu thuyết mạng. Mỗi cái trên một dòng.';
+        const prompt = 'Gợi ý 5 chủ đề/bối cảnh độc đáo cho game phiêu lưu văn bản, phong cách tiểu thuyết mạng. BẮT BUỘC 100% tiếng Việt, KHÔNG dùng tiếng Anh. Mỗi cái trên một dòng.';
         
         try {
             const response = await ai.models.generateContent({
@@ -188,7 +188,11 @@ export const CreateWorld: React.FC<{
         setLoadingStates(prev => ({ ...prev, worldDetail: true }));
         setSuggestionError(null);
 
-        const prompt = `Dựa trên thể loại "${formData.genre}" và ý tưởng "${formData.worldDetail}", hãy viết một bối cảnh thế giới chi tiết và hấp dẫn (khoảng 3-5 dòng) theo văn phong tiểu thuyết mạng Trung Quốc. Bối cảnh cần khơi gợi sự tò mò và giới thiệu một xung đột hoặc yếu tố đặc biệt của thế giới. AI tự kể tiếp. Ví dụ: "Giang Hồ hiểm ác đầy rẫy anh hùng hảo hán và ma đầu tàn bạo, nơi công pháp và bí tịch quyết định tất cả, hệ thống cho phép bạn đoạt lấy nội lực, kinh nghiệm chiến đấu từ các cao thủ chính tà, khiến bạn phải ẩn mình giữa vô vàn ân oán giang hồ và lựa chọn giữa chính đạo giả tạo hay ma đạo tàn khốc."`;
+        const prompt = `Dựa trên thể loại "${formData.genre}" và ý tưởng "${formData.worldDetail}", hãy viết một bối cảnh thế giới chi tiết và hấp dẫn (khoảng 3-5 dòng) theo văn phong tiểu thuyết mạng Trung Quốc. Bối cảnh cần khơi gợi sự tò mò và giới thiệu một xung đột hoặc yếu tố đặc biệt của thế giới. 
+
+QUAN TRỌNG: BẮT BUỘC 100% tiếng Việt, TUYỆT ĐỐI KHÔNG dùng tiếng Anh.
+
+Ví dụ: "Giang Hồ hiểm ác đầy rẫy anh hùng hảo hán và ma đầu tàn bạo, nơi công pháp và bí tịch quyết định tất cả, hệ thống cho phép bạn đoạt lấy nội lực, kinh nghiệm chiến đấu từ các cao thủ chính tà, khiến bạn phải ẩn mình giữa vô vàn ân oán giang hồ và lựa chọn giữa chính đạo giả tạo hay ma đạo tàn khốc."`;
         
         try {
             const response = await ai.models.generateContent({
@@ -232,13 +236,15 @@ export const CreateWorld: React.FC<{
 - Bối cảnh: '${formData.worldDetail || 'Chưa có'}'
 - Giới tính: '${formData.gender}'
 - Tính cách: '${finalPersonality || 'Chưa có'}'
-Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng khởi đầu phù hợp. KHÔNG được thay đổi tên nhân vật. Văn phong cần giống tiểu thuyết mạng. Trả về kết quả dưới dạng JSON với hai khóa: "bio" và "skill".`;
+Vui lòng tạo ra một tiểu sử ngắn (2-3 câu) và một kỹ năng khởi đầu phù hợp. KHÔNG được thay đổi tên nhân vật. Văn phong cần giống tiểu thuyết mạng. 
+
+QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔNG dùng tiếng Anh. Trả về kết quả dưới dạng JSON với hai khóa: "bio" và "skill".`;
         
         const characterSuggestionSchema = {
           type: Type.OBJECT,
           properties: {
-            bio: { type: Type.STRING, description: 'Tiểu sử nhân vật gợi ý (2-3 câu, tiếng Việt).' },
-            skill: { type: Type.STRING, description: 'Kỹ năng khởi đầu gợi ý (tiếng Việt).' }
+            bio: { type: Type.STRING, description: 'Tiểu sử nhân vật gợi ý (2-3 câu, BẮT BUỘC 100% tiếng Việt, KHÔNG dùng tiếng Anh).' },
+            skill: { type: Type.STRING, description: 'Kỹ năng khởi đầu gợi ý (BẮT BUỘC 100% tiếng Việt, KHÔNG dùng tiếng Anh).' }
           },
           required: ['bio', 'skill']
         };
