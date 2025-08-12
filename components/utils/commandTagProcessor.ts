@@ -1,7 +1,8 @@
-import type { Entity, Status, Quest, Memory, Chronicle } from '../types';
+import type { Entity, Status, Quest, Memory, Chronicle, RegexRule } from '../types';
 import { partyDebugger } from './partyDebugger';
 import { MemoryEnhancer } from './MemoryEnhancer';
 import { ReferenceIdGenerator } from './ReferenceIdGenerator';
+import { regexEngine, RegexPlacement } from './RegexEngine';
 
 export interface CommandTagProcessorParams {
     // State setters
@@ -18,6 +19,7 @@ export interface CommandTagProcessorParams {
     knownEntities: { [key: string]: Entity };
     statuses: Status[];
     party: Entity[];
+    regexRules: RegexRule[];
     turnCount?: number;
     worldData?: any; // For accessing realm tiers and experience system
 }
@@ -220,7 +222,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
     const {
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities,
         setQuests, setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party, turnCount, worldData
+        knownEntities, statuses, party, regexRules, turnCount, worldData
     } = params;
 
     const parseStoryAndTags = (storyText: string, applySideEffects = true): string => {
@@ -286,8 +288,19 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             chronicleTurnContent += (chronicleTurnContent ? '\n\n' : '') + attributes.text;
                             // Automatically create enhanced memory from Chronicle turn content
                             setMemories(prev => {
+                                // Process memory text through regex rules
+                                let processedText = regexEngine.processText(
+                                    attributes.text,
+                                    RegexPlacement.MEMORY_PROCESSING,
+                                    regexRules || [],
+                                    {
+                                        depth: turnCount || 0,
+                                        isEdit: false
+                                    }
+                                );
+                                
                                 const basicMemory: Memory = { 
-                                    text: attributes.text, 
+                                    text: processedText, 
                                     pinned: false,
                                     source: 'chronicle',
                                     createdAt: turnCount,

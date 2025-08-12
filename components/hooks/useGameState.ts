@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { SaveData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle } from '../types';
+import type { SaveData, KnownEntities, Status, Quest, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle, RegexRule } from '../types';
 import { MemoryMigration } from '../utils/MemoryMigration';
 
 export interface GameState {
@@ -12,6 +12,7 @@ export interface GameState {
     memories: Memory[];
     party: Entity[];
     customRules: CustomRule[];
+    regexRules: RegexRule[];
     systemInstruction: string;
     chronicle: Chronicle;
     gameTime: any;
@@ -48,6 +49,7 @@ export interface GameStateActions {
     setMemories: (memories: Memory[] | ((prev: Memory[]) => Memory[])) => void;
     setParty: (party: Entity[] | ((prev: Entity[]) => Entity[])) => void;
     setCustomRules: (rules: CustomRule[]) => void;
+    setRegexRules: (rules: RegexRule[] | ((prev: RegexRule[]) => RegexRule[])) => void;
     setSystemInstruction: (instruction: string) => void;
     setChronicle: (chronicle: Chronicle | ((prev: Chronicle) => Chronicle)) => void;
     setGameTime: (time: any | ((prev: any) => any)) => void;
@@ -91,6 +93,7 @@ export const useGameState = (
     });
     const [party, setParty] = useState<Entity[]>(initialGameState.party);
     const [customRules, setCustomRules] = useState<CustomRule[]>(initialGameState.customRules);
+    const [regexRules, setRegexRules] = useState<RegexRule[]>(initialGameState.regexRules || []);
     const [systemInstruction, setSystemInstruction] = useState<string>(initialGameState.systemInstruction);
     const [chronicle, setChronicle] = useState<Chronicle>(initialGameState.chronicle);
     const [gameTime, setGameTime] = useState(initialGameState.gameTime || { year: 1, month: 1, day: 1, hour: 8, minute: 0 });
@@ -192,6 +195,7 @@ export const useGameState = (
         memories,
         party,
         customRules,
+        regexRules,
         systemInstruction,
         chronicle,
         gameTime,
@@ -216,6 +220,7 @@ export const useGameState = (
         setMemories,
         setParty,
         setCustomRules,
+        setRegexRules,
         setSystemInstruction,
         setChronicle,
         setGameTime,

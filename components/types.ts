@@ -209,6 +209,14 @@ export interface SaveData {
         selectedChoice?: string;
         context?: string; // Brief context when choices were presented
     }>;
+    
+    // Regex System
+    regexRules?: RegexRule[];
+    regexSettings?: {
+        enabled: boolean;
+        processingOrder: string[]; // Array of rule IDs in execution order
+        defaultPlacement: RegexPlacement[];
+    };
 }
 
 export interface AIContextType {
@@ -219,4 +227,50 @@ export interface AIContextType {
     userApiKeyCount: number;
     rotateKey: () => void;
     selectedModel: string;
+}
+
+// --- Regex System Types ---
+export enum RegexPlacement {
+    PLAYER_INPUT = 1,      // Process player commands before parsing
+    AI_OUTPUT = 2,         // Format AI responses
+    MEMORY_PROCESSING = 3, // Process memories before storage
+    ENTITY_DETECTION = 4,  // Extract entities from text
+    QUEST_PROCESSING = 5,  // Process quest-related text
+    DIALOGUE_FORMATTING = 6, // Format dialogue and conversations
+    STAT_EXTRACTION = 7,   // Extract stat changes and numbers
+    COMBAT_FORMATTING = 8  // Format combat descriptions
+}
+
+export enum RegexSubstituteMode {
+    NONE = 0,    // Use regex as-is
+    RAW = 1,     // Substitute macros without escaping
+    ESCAPED = 2  // Substitute macros with regex escaping
+}
+
+export interface RegexRule {
+    id: string;
+    name: string;
+    findRegex: string;
+    replaceString: string;
+    trimStrings: string[];
+    placement: RegexPlacement[];
+    disabled: boolean;
+    isScoped: boolean;          // Character/world specific vs global
+    markdownOnly: boolean;      // Only apply to markdown rendering
+    promptOnly: boolean;        // Only apply to prompt generation
+    runOnEdit: boolean;         // Run when editing existing content
+    substituteRegex: RegexSubstituteMode;
+    minDepth?: number;          // Minimum message depth to apply
+    maxDepth?: number;          // Maximum message depth to apply
+    category?: string;          // User-defined category for organization
+    description?: string;       // User description of what the rule does
+    createdAt?: number;         // Timestamp when rule was created
+    lastUsed?: number;          // Timestamp when rule was last applied
+}
+
+export interface RegexRuleTemplate {
+    name: string;
+    description: string;
+    category: string;
+    rules: Omit<RegexRule, 'id' | 'createdAt' | 'lastUsed'>[];
 }

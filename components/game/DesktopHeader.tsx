@@ -14,6 +14,7 @@ interface DesktopHeaderProps {
     onExportWorldSetup: () => void;
     onMap: () => void;
     onRules: () => void;
+    onRegexManager: () => void;
     onKnowledge: () => void;
     onMemory: () => void;
     onRestart: () => void;
@@ -37,7 +38,7 @@ const getTokenColor = (tokens: number) => {
     return 'text-green-500 bg-green-100 dark:bg-green-900/30';
 };
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
-    onHome, onSettings, onImport, onSave, onExportWorldSetup, onMap, onRules, onKnowledge, onMemory, onRestart,
+    onHome, onSettings, onImport, onSave, onExportWorldSetup, onMap, onRules, onRegexManager, onKnowledge, onMemory, onRestart,
     onPCInfo, onParty, onQuests, onInventory, onAdmin, hasActiveQuests, onManualCleanup,
     worldData, gameTime, turnCount, currentTurnTokens, totalTokens
 }) => {
@@ -186,6 +187,9 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     </button>
                     <button onClick={() => { onRules(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
                         <DocumentAddIcon className="w-4 h-4" /> Nạp Tri Thức
+                    </button>
+                    <button onClick={() => { onRegexManager(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                        🔧 Regex Manager
                     </button>
                     <button onClick={() => { onKnowledge(); setShowGameMenu(false); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm flex items-center gap-2 text-slate-700 dark:text-slate-200">
                         <BrainIcon className="w-4 h-4" /> Tri Thức

@@ -18,7 +18,8 @@
       "Bash(grep:*)",
       "WebFetch",
       "Bash(true)",
-      "Bash(timeout 5 npm run dev)"
+      "Bash(timeout 5 npm run dev)",
+      "Bash(timeout 8 npm run dev)"
     ],
     "deny": []
   }

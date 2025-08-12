@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef, useMemo, useContext, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
-import type { SaveData, FormData, KnownEntities, Status, GameHistoryEntry, Memory, Entity, CustomRule, Chronicle, CompressedHistorySegment } from './types.ts';
+import type { SaveData, FormData, KnownEntities, Status, GameHistoryEntry, Memory, Entity, CustomRule, RegexRule, Chronicle, CompressedHistorySegment } from './types.ts';
 import { buildEnhancedRagPrompt } from './promptBuilder.ts';
 
 // Extracted Handlers
@@ -115,14 +115,14 @@ export const GameScreen: React.FC<{
     // Extract values from hooks for easier access
     const {
         worldData, knownEntities, statuses, quests, gameHistory, memories, party,
-        customRules, systemInstruction, chronicle, gameTime, turnCount, currentTurnTokens,
+        customRules, regexRules, systemInstruction, chronicle, gameTime, turnCount, currentTurnTokens,
         totalTokens, storyLog, choices, locationDiscoveryOrder, choiceHistory, isLoading,
         hasGeneratedInitialStory, customAction
     } = gameState;
 
     const {
         setWorldData, setKnownEntities, setStatuses, setQuests, setGameHistory, setMemories,
-        setParty, setCustomRules, setSystemInstruction, setChronicle, setGameTime,
+        setParty, setCustomRules, setRegexRules, setSystemInstruction, setChronicle, setGameTime,
         setTurnCount, setCurrentTurnTokens, setTotalTokens, setStoryLog, setChoices,
         setLocationDiscoveryOrder, updateChoiceHistory, setIsLoading, setHasGeneratedInitialStory, setCustomAction
     } = gameStateActions;
@@ -134,7 +134,7 @@ export const GameScreen: React.FC<{
         isHomeModalOpen, isRestartModalOpen, isMemoryModalOpen, isKnowledgeModalOpen,
         isCustomRulesModalOpen, isMapModalOpen, isPcInfoModalOpen, isPartyModalOpen,
         isQuestLogModalOpen, isSidebarOpen, isChoicesModalOpen, isGameSettingsModalOpen, isEntityImportModalOpen,
-        isInventoryModalOpen, isAdminModalOpen, isEditItemModalOpen, isEditSkillModalOpen, isEditNPCModalOpen, isEditPCModalOpen, isEditLocationModalOpen, activeEntity, activeStatus, activeQuest, activeEditItem, activeEditSkill, activeEditNPC, activeEditPC, activeEditLocation, showSaveSuccess, showRulesSavedSuccess,
+        isInventoryModalOpen, isAdminModalOpen, isEditItemModalOpen, isEditSkillModalOpen, isEditNPCModalOpen, isEditPCModalOpen, isEditLocationModalOpen, isRegexManagerModalOpen, activeEntity, activeStatus, activeQuest, activeEditItem, activeEditSkill, activeEditNPC, activeEditPC, activeEditLocation, showSaveSuccess, showRulesSavedSuccess,
         notification
     } = modalState;
 
@@ -142,7 +142,7 @@ export const GameScreen: React.FC<{
         setIsHomeModalOpen, setIsRestartModalOpen, setIsMemoryModalOpen, setIsKnowledgeModalOpen,
         setIsCustomRulesModalOpen, setIsMapModalOpen, setIsPcInfoModalOpen, setIsPartyModalOpen,
         setIsQuestLogModalOpen, setIsSidebarOpen, setIsChoicesModalOpen, setIsGameSettingsModalOpen, setIsEntityImportModalOpen,
-        setIsInventoryModalOpen, setIsAdminModalOpen, setIsEditItemModalOpen, setIsEditSkillModalOpen, setIsEditNPCModalOpen, setIsEditPCModalOpen, setIsEditLocationModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setActiveEditItem, setActiveEditSkill, setActiveEditNPC, setActiveEditPC, setActiveEditLocation, setShowSaveSuccess, setShowRulesSavedSuccess,
+        setIsInventoryModalOpen, setIsAdminModalOpen, setIsEditItemModalOpen, setIsEditSkillModalOpen, setIsEditNPCModalOpen, setIsEditPCModalOpen, setIsEditLocationModalOpen, setIsRegexManagerModalOpen, setActiveEntity, setActiveStatus, setActiveQuest, setActiveEditItem, setActiveEditSkill, setActiveEditNPC, setActiveEditPC, setActiveEditLocation, setShowSaveSuccess, setShowRulesSavedSuccess,
         setNotification, modalCloseHandlers
     } = modalStateActions;
 
@@ -168,8 +168,8 @@ export const GameScreen: React.FC<{
     const commandTagProcessor = useMemo(() => createCommandTagProcessor({
         setGameTime, setChronicle, setMemories, setStatuses, setKnownEntities, setQuests,
         setParty, setLocationDiscoveryOrder,
-        knownEntities, statuses, party, turnCount, worldData
-    }), [knownEntities, statuses, party, turnCount, worldData]);
+        knownEntities, statuses, party, regexRules, turnCount, worldData
+    }), [knownEntities, statuses, party, regexRules, turnCount, worldData]);
     
     const parseStoryAndTags = useCallback((storyText: string, applySideEffects = true): string => {
         return commandTagProcessor.parseStoryAndTags(storyText, applySideEffects);
@@ -195,9 +195,9 @@ export const GameScreen: React.FC<{
         isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices,
         setIsLoading, setChoices, setCustomAction, setStoryLog, setGameHistory,
         setTurnCount, setCurrentTurnTokens, setTotalTokens,
-        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags,
+        gameHistory, customRules, regexRules, ruleChanges, setRuleChanges, parseStoryAndTags,
         updateChoiceHistory
-    }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, ruleChanges, parseStoryAndTags, updateChoiceHistory]);
+    }), [ai, selectedModel, systemInstruction, responseSchema, isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices, gameHistory, customRules, regexRules, ruleChanges, parseStoryAndTags, updateChoiceHistory]);
 
     // Function to get current game state
     const getCurrentGameState = useCallback((): SaveData => {
@@ -210,6 +210,7 @@ export const GameScreen: React.FC<{
             memories,
             party,
             customRules,
+            regexRules,
             systemInstruction,
             turnCount,
             totalTokens,
@@ -733,6 +734,21 @@ export const GameScreen: React.FC<{
         gameStateHandlers.handleSaveRules(newRules, setShowRulesSavedSuccess);
     }, [gameStateHandlers]);
 
+    const handleSaveRegexRules = useCallback((newRules: RegexRule[]) => {
+        try {
+            if (setRegexRules && typeof setRegexRules === 'function') {
+                setRegexRules(newRules);
+            }
+            // Show success notification
+            if (setNotification && typeof setNotification === 'function') {
+                setNotification('Regex rules saved successfully!');
+                setTimeout(() => setNotification(null), 3000);
+            }
+        } catch (error) {
+            console.error('Error saving regex rules:', error);
+        }
+    }, [setRegexRules, setNotification]);
+
     const handleRestartGame = useCallback(() => {
         setIsRestartModalOpen(false);
         gameStateHandlers.handleRestartGame();
@@ -1104,6 +1120,7 @@ export const GameScreen: React.FC<{
                 onExportWorldSetup={handleExportWorldSetup}
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
+                onRegexManager={() => setIsRegexManagerModalOpen(true)}
                 onKnowledge={() => setIsKnowledgeModalOpen(true)}
                 onMemory={() => setIsMemoryModalOpen(true)}
                 onRestart={() => setIsRestartModalOpen(true)}
@@ -1130,6 +1147,7 @@ export const GameScreen: React.FC<{
                 onExportWorldSetup={handleExportWorldSetup}
                 onMap={() => setIsMapModalOpen(true)}
                 onRules={() => setIsCustomRulesModalOpen(true)}
+                onRegexManager={() => setIsRegexManagerModalOpen(true)}
                 onKnowledge={() => setIsKnowledgeModalOpen(true)}
                 onMemory={() => setIsMemoryModalOpen(true)}
                 onRestart={() => setIsRestartModalOpen(true)}
@@ -1181,75 +1199,88 @@ export const GameScreen: React.FC<{
                 isCustomActionLocked={isCustomActionLocked}
             />
 
-            <MemoizedModals
-                isHomeModalOpen={isHomeModalOpen}
-                isRestartModalOpen={isRestartModalOpen}
-                isMemoryModalOpen={isMemoryModalOpen}
-                isKnowledgeModalOpen={isKnowledgeModalOpen}
-                isCustomRulesModalOpen={isCustomRulesModalOpen}
-                isMapModalOpen={isMapModalOpen}
-                isPcInfoModalOpen={isPcInfoModalOpen}
-                isPartyModalOpen={isPartyModalOpen}
-                isQuestLogModalOpen={isQuestLogModalOpen}
-                isChoicesModalOpen={isChoicesModalOpen}
-                isInventoryModalOpen={isInventoryModalOpen}
-                isAdminModalOpen={isAdminModalOpen}
-                isEditItemModalOpen={isEditItemModalOpen}
-                isEditSkillModalOpen={isEditSkillModalOpen}
-                isEditNPCModalOpen={isEditNPCModalOpen}
-                isEditPCModalOpen={isEditPCModalOpen}
-                isEditLocationModalOpen={isEditLocationModalOpen}
-                activeEntity={activeEntity}
-                activeStatus={activeStatus}
-                activeQuest={activeQuest}
-                activeEditItem={activeEditItem}
-                activeEditSkill={activeEditSkill}
-                activeEditNPC={activeEditNPC}
-                activeEditPC={activeEditPC}
-                activeEditLocation={activeEditLocation}
-                onBackToMenu={onBackToMenu}
-                handleRestartGame={handleRestartGame}
-                setActiveEntity={setActiveEntity}
-                handleUseItem={handleUseItem}
-                handleLearnItem={handleLearnItem}
-                handleEquipItem={handleEquipItem}
-                handleUnequipItem={handleUnequipItem}
-                handleDiscardItem={handleDiscardItem}
-                setActiveStatus={setActiveStatus}
-                handleStatusClick={handleStatusClick}
-                handleDeleteStatus={handleDeleteStatus}
-                setActiveQuest={setActiveQuest}
-                handleToggleMemoryPin={handleToggleMemoryPin}
-                handleEntityClick={handleEntityClick}
-                handleSaveRules={handleSaveRules}
-                handleAction={handleAction}
-                setActiveEditItem={setActiveEditItem}
-                handleSaveEditedItem={handleSaveEditedItem}
-                setIsEditItemModalOpen={setIsEditItemModalOpen}
-                setActiveEditSkill={setActiveEditSkill}
-                handleSaveEditedSkill={handleSaveEditedSkill}
-                setIsEditSkillModalOpen={setIsEditSkillModalOpen}
-                setActiveEditNPC={setActiveEditNPC}
-                handleSaveEditedNPC={handleSaveEditedNPC}
-                setIsEditNPCModalOpen={setIsEditNPCModalOpen}
-                setActiveEditPC={setActiveEditPC}
-                handleSaveEditedPC={handleSaveEditedPC}
-                setIsEditPCModalOpen={setIsEditPCModalOpen}
-                setActiveEditLocation={setActiveEditLocation}
-                handleSaveEditedLocation={handleSaveEditedLocation}
-                setIsEditLocationModalOpen={setIsEditLocationModalOpen}
-                modalCloseHandlers={modalCloseHandlers}
-                memories={memories}
-                knownEntities={knownEntities}
-                statuses={statuses}
-                quests={quests}
-                customRules={customRules}
-                choices={choices}
-                turnCount={turnCount}
-                locationDiscoveryOrder={locationDiscoveryOrder}
-                worldData={worldData}
-                entityComputations={entityComputations}
-            />
+            {/* Render MemoizedModals with error boundary protection */}
+            {(() => {
+                try {
+                    return (
+                        <MemoizedModals
+                            isHomeModalOpen={isHomeModalOpen || false}
+                            isRestartModalOpen={isRestartModalOpen || false}
+                            isMemoryModalOpen={isMemoryModalOpen || false}
+                            isKnowledgeModalOpen={isKnowledgeModalOpen || false}
+                            isCustomRulesModalOpen={isCustomRulesModalOpen || false}
+                            isMapModalOpen={isMapModalOpen || false}
+                            isPcInfoModalOpen={isPcInfoModalOpen || false}
+                            isPartyModalOpen={isPartyModalOpen || false}
+                            isQuestLogModalOpen={isQuestLogModalOpen || false}
+                            isChoicesModalOpen={isChoicesModalOpen || false}
+                            isInventoryModalOpen={isInventoryModalOpen || false}
+                            isAdminModalOpen={isAdminModalOpen || false}
+                            isEditItemModalOpen={isEditItemModalOpen || false}
+                            isEditSkillModalOpen={isEditSkillModalOpen || false}
+                            isEditNPCModalOpen={isEditNPCModalOpen || false}
+                            isEditPCModalOpen={isEditPCModalOpen || false}
+                            isEditLocationModalOpen={isEditLocationModalOpen || false}
+                            isRegexManagerModalOpen={isRegexManagerModalOpen || false}
+                            activeEntity={activeEntity || null}
+                            activeStatus={activeStatus || null}
+                            activeQuest={activeQuest || null}
+                            activeEditItem={activeEditItem || null}
+                            activeEditSkill={activeEditSkill || null}
+                            activeEditNPC={activeEditNPC || null}
+                            activeEditPC={activeEditPC || null}
+                            activeEditLocation={activeEditLocation || null}
+                            onBackToMenu={onBackToMenu}
+                            handleRestartGame={handleRestartGame}
+                            setActiveEntity={setActiveEntity}
+                            handleUseItem={handleUseItem}
+                            handleLearnItem={handleLearnItem}
+                            handleEquipItem={handleEquipItem}
+                            handleUnequipItem={handleUnequipItem}
+                            handleDiscardItem={handleDiscardItem}
+                            setActiveStatus={setActiveStatus}
+                            handleStatusClick={handleStatusClick}
+                            handleDeleteStatus={handleDeleteStatus}
+                            setActiveQuest={setActiveQuest}
+                            handleToggleMemoryPin={handleToggleMemoryPin}
+                            handleEntityClick={handleEntityClick}
+                            handleSaveRules={handleSaveRules}
+                            handleSaveRegexRules={handleSaveRegexRules || undefined}
+                            handleAction={handleAction}
+                            setActiveEditItem={setActiveEditItem}
+                            handleSaveEditedItem={handleSaveEditedItem}
+                            setIsEditItemModalOpen={setIsEditItemModalOpen}
+                            setActiveEditSkill={setActiveEditSkill}
+                            handleSaveEditedSkill={handleSaveEditedSkill}
+                            setIsEditSkillModalOpen={setIsEditSkillModalOpen}
+                            setActiveEditNPC={setActiveEditNPC}
+                            handleSaveEditedNPC={handleSaveEditedNPC}
+                            setIsEditNPCModalOpen={setIsEditNPCModalOpen}
+                            setActiveEditPC={setActiveEditPC}
+                            handleSaveEditedPC={handleSaveEditedPC}
+                            setIsEditPCModalOpen={setIsEditPCModalOpen}
+                            setActiveEditLocation={setActiveEditLocation}
+                            handleSaveEditedLocation={handleSaveEditedLocation}
+                            setIsEditLocationModalOpen={setIsEditLocationModalOpen}
+                            modalCloseHandlers={modalCloseHandlers || {}}
+                            memories={memories || []}
+                            knownEntities={knownEntities || {}}
+                            statuses={statuses || []}
+                            quests={quests || []}
+                            customRules={customRules || []}
+                            regexRules={regexRules || []}
+                            choices={choices || []}
+                            turnCount={turnCount || 0}
+                            locationDiscoveryOrder={locationDiscoveryOrder || []}
+                            worldData={worldData || {}}
+                            entityComputations={entityComputations || { pcEntity: undefined, pcStatuses: [], displayParty: [], playerInventory: [] }}
+                        />
+                    );
+                } catch (error) {
+                    console.error('Error in MemoizedModals:', error);
+                    return <div>Error loading modals. Please refresh the page.</div>;
+                }
+            })()}
 
             <GameSettingsModal
                 isOpen={isGameSettingsModalOpen}

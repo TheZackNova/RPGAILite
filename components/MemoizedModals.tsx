@@ -18,8 +18,9 @@ import { EditSkillModal } from './EditSkillModal.tsx';
 import { EditNPCModal } from './EditNPCModal.tsx';
 import { EditPCModal } from './EditPCModal.tsx';
 import { EditLocationModal } from './EditLocationModal.tsx';
+import { RegexManager } from './RegexManager.tsx';
 
-import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule } from './types.ts';
+import type { Entity, Status, Quest, KnownEntities, Memory, CustomRule, RegexRule } from './types.ts';
 import { MBTI_PERSONALITIES } from './data/mbti.ts';
 import { CrossIcon, UserIcon } from './Icons.tsx';
 import * as GameIcons from './GameIcons.tsx';
@@ -52,6 +53,7 @@ interface MemoizedModalsProps {
     isEditNPCModalOpen: boolean;
     isEditPCModalOpen: boolean;
     isEditLocationModalOpen: boolean;
+    isRegexManagerModalOpen?: boolean;
 
     // Active data for detail modals
     activeEntity: Entity | null;
@@ -79,6 +81,7 @@ interface MemoizedModalsProps {
     handleToggleMemoryPin: (index: number) => void;
     handleEntityClick: (entityName: string) => void;
     handleSaveRules: (rules: CustomRule[]) => void;
+    handleSaveRegexRules?: (rules: RegexRule[]) => void;
     handleAction: (action: string) => void;
     setActiveEditItem: (item: Entity | null) => void;
     handleSaveEditedItem: (originalItem: Entity, editedItem: Entity) => void;
@@ -115,6 +118,7 @@ interface MemoizedModalsProps {
         editNPC: () => void;
         editPC: () => void;
         editLocation: () => void;
+        regexManager?: () => void;
     };
 
     // Game state data
@@ -123,6 +127,7 @@ interface MemoizedModalsProps {
     statuses: Status[];
     quests: Quest[];
     customRules: CustomRule[];
+    regexRules?: RegexRule[];
     choices: string[];
     turnCount: number;
     locationDiscoveryOrder: string[];
@@ -482,6 +487,7 @@ const MemoizedModalsComponent = ({
     isEditNPCModalOpen,
     isEditPCModalOpen,
     isEditLocationModalOpen,
+    isRegexManagerModalOpen,
     activeEntity,
     activeStatus,
     activeQuest,
@@ -505,6 +511,7 @@ const MemoizedModalsComponent = ({
     handleToggleMemoryPin,
     handleEntityClick,
     handleSaveRules,
+    handleSaveRegexRules,
     handleAction,
     setActiveEditItem,
     handleSaveEditedItem,
@@ -527,6 +534,7 @@ const MemoizedModalsComponent = ({
     statuses,
     quests,
     customRules,
+    regexRules,
     choices,
     turnCount,
     locationDiscoveryOrder,
@@ -760,6 +768,25 @@ const MemoizedModalsComponent = ({
                 location={activeEditLocation}
                 onSaveLocation={handleSaveEditedLocation}
             />
+
+            {/* Regex Manager Modal */}
+            {modalCloseHandlers?.regexManager && handleSaveRegexRules && (
+                (() => {
+                    try {
+                        return (
+                            <RegexManager
+                                isOpen={isRegexManagerModalOpen || false}
+                                onClose={modalCloseHandlers.regexManager}
+                                currentRules={regexRules || []}
+                                onSave={handleSaveRegexRules}
+                            />
+                        );
+                    } catch (error) {
+                        console.error('Error loading RegexManager:', error);
+                        return null;
+                    }
+                })()
+            )}
         </>
     );
 };

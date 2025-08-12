@@ -23,6 +23,7 @@ export interface ModalState {
     isEditNPCModalOpen: boolean;
     isEditPCModalOpen: boolean;
     isEditLocationModalOpen: boolean;
+    isRegexManagerModalOpen: boolean;
     
     // Active modal entities
     activeEntity: Entity | null;
@@ -62,6 +63,7 @@ export interface ModalStateActions {
     setIsEditNPCModalOpen: (open: boolean) => void;
     setIsEditPCModalOpen: (open: boolean) => void;
     setIsEditLocationModalOpen: (open: boolean) => void;
+    setIsRegexManagerModalOpen: (open: boolean) => void;
     
     // Active modal entity setters
     setActiveEntity: (entity: Entity | null) => void;
@@ -97,6 +99,7 @@ export interface ModalStateActions {
         editNPC: () => void;
         editPC: () => void;
         editLocation: () => void;
+        regexManager: () => void;
     };
 }
 
@@ -122,6 +125,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
     const [isEditNPCModalOpen, setIsEditNPCModalOpen] = useState(false);
     const [isEditPCModalOpen, setIsEditPCModalOpen] = useState(false);
     const [isEditLocationModalOpen, setIsEditLocationModalOpen] = useState(false);
+    const [isRegexManagerModalOpen, setIsRegexManagerModalOpen] = useState(false);
     
     // Active modal entities
     const [activeEntity, setActiveEntity] = useState<Entity | null>(null);
@@ -172,6 +176,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
             setIsEditLocationModalOpen(false);
             setActiveEditLocation(null);
         },
+        regexManager: () => setIsRegexManagerModalOpen(false),
     }), []);
 
     const modalState: ModalState = {
@@ -195,6 +200,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         isEditNPCModalOpen,
         isEditPCModalOpen,
         isEditLocationModalOpen,
+        isRegexManagerModalOpen,
         activeEntity,
         activeStatus,
         activeQuest,
@@ -229,6 +235,7 @@ export const useModalState = (): [ModalState, ModalStateActions] => {
         setIsEditNPCModalOpen,
         setIsEditPCModalOpen,
         setIsEditLocationModalOpen,
+        setIsRegexManagerModalOpen,
         setActiveEntity,
         setActiveStatus,
         setActiveQuest,

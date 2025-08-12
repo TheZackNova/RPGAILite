@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
-import type { GameHistoryEntry, SaveData } from '../types';
+import type { GameHistoryEntry, SaveData, RegexRule } from '../types';
 import { buildEnhancedRagPrompt } from '../promptBuilder';
 import { EntityExportManager } from '../utils/EntityExportManager';
 import { createAutoTrimmedStoryLog } from '../utils/storyLogUtils';
+import { regexEngine, RegexPlacement } from '../utils/RegexEngine';
 
 export interface GameActionHandlersParams {
     ai: GoogleGenAI | null;
@@ -27,6 +28,7 @@ export interface GameActionHandlersParams {
     // Current state values
     gameHistory: GameHistoryEntry[];
     customRules: any[];
+    regexRules: RegexRule[];
     ruleChanges: any;
     setRuleChanges: (changes: any) => void;
     parseStoryAndTags: (text: string, applySideEffects: boolean) => string;
@@ -41,7 +43,7 @@ export const createGameActionHandlers = (params: GameActionHandlersParams) => {
         isUsingDefaultKey, userApiKeyCount, rotateKey, rehydratedChoices,
         setIsLoading, setChoices, setCustomAction, setStoryLog, setGameHistory,
         setTurnCount, setCurrentTurnTokens, setTotalTokens,
-        gameHistory, customRules, ruleChanges, setRuleChanges, parseStoryAndTags,
+        gameHistory, customRules, regexRules, ruleChanges, setRuleChanges, parseStoryAndTags,
         updateChoiceHistory
     } = params;
 
@@ -215,13 +217,24 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
 
         if (!originalAction || !ai) return;
 
+        // Process player input through regex rules
+        const processedAction = regexEngine.processText(
+            originalAction, 
+            RegexPlacement.PLAYER_INPUT, 
+            regexRules || [],
+            { 
+                depth: gameHistory?.length || 0,
+                isEdit: false
+            }
+        );
+
         setIsLoading(true);
         setChoices([]);
         setCustomAction('');
-        storyLogManager.update(prev => [...prev, `> ${originalAction}`]);
+        storyLogManager.update(prev => [...prev, `> ${processedAction}`]);
         
         // Track selected choice in history
-        updateChoiceHistory([], originalAction, 'Player action executed');
+        updateChoiceHistory([], processedAction, 'Player action executed');
 
         let ruleChangeContext = '';
         if (ruleChanges) {
@@ -405,7 +418,20 @@ Hãy gợi ý hành động:`;
                 return;
             }
             
-            const cleanStory = parseStoryAndTags(jsonResponse.story, true);
+            let cleanStory = parseStoryAndTags(jsonResponse.story, true);
+            
+            // Process AI output through regex rules
+            cleanStory = regexEngine.processText(
+                cleanStory,
+                RegexPlacement.AI_OUTPUT,
+                regexRules || [],
+                {
+                    depth: gameHistory?.length || 0,
+                    isEdit: false,
+                    isPrompt: false
+                }
+            );
+            
             storyLogManager.update(prev => [...prev, cleanStory]);
             const newChoices = jsonResponse.choices || [];
             setChoices(newChoices);
