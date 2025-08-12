@@ -244,7 +244,7 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                     value = value.toLowerCase() === 'true';
                 } else if (key === 'objectives' && typeof value === 'string') {
                     value = value.split(';').map(desc => ({ description: desc.trim(), completed: false }));
-                } else if ((key === 'quantities' || key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours' || key === 'minutes') && typeof value === 'string' && !isNaN(Number(value))) {
+                } else if ((key === 'quantities' || key === 'uses' || key === 'durability' || key === 'damage' || key === 'repairedAmount' || key === 'years' || key === 'months' || key === 'days' || key === 'hours' || key === 'minutes' || key === 'currentExp') && typeof value === 'string' && !isNaN(Number(value))) {
                     attributes[key] = Number(value);
                     continue;
                 }
