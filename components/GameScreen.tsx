@@ -304,7 +304,20 @@ export const GameScreen: React.FC<{
             !hasGeneratedInitialStory || 
             isLoading ||
             gameHistory.length === 0 ||
-            (cleanupStats && turnCount <= cleanupStats.lastCleanupTurn)) {
+            (cleanupStats && cleanupStats.lastCleanupTurn > 0 && turnCount <= cleanupStats.lastCleanupTurn)) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`⏸️ [${timestamp}] Auto cleanup blocked:`, {
+                turnCount,
+                hasGeneratedInitialStory,
+                isLoading,
+                gameHistoryLength: gameHistory.length,
+                lastCleanupTurn: cleanupStats?.lastCleanupTurn,
+                condition: !turnCount ? 'turnCount=0' : 
+                          !hasGeneratedInitialStory ? 'no_initial_story' :
+                          isLoading ? 'is_loading' :
+                          gameHistory.length === 0 ? 'empty_history' :
+                          'turn_already_cleaned'
+            });
             return;
         }
 
@@ -319,6 +332,15 @@ export const GameScreen: React.FC<{
         let unifiedCleanupResult = null;
         
         if (gameSettings.memoryAutoClean || gameSettings.historyAutoCompress) {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`🔄 [${timestamp}] Auto cleanup triggered:`, {
+                turn: turnCount,
+                memoryAutoClean: gameSettings.memoryAutoClean,
+                historyAutoCompress: gameSettings.historyAutoCompress,
+                currentMemoryCount: memories.length,
+                currentHistoryCount: gameHistory.length
+            });
+            
             // Try unified cleanup first with smart memory generation (more aggressive settings)
             unifiedCleanupResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
                 maxActiveMemories: 45,               // More aggressive than before (50->45)
@@ -425,7 +447,31 @@ export const GameScreen: React.FC<{
                 autoCompressEnabled: false
             });
         }
-    }, [turnCount]);
+    }, [
+        turnCount, 
+        hasGeneratedInitialStory, 
+        isLoading, 
+        gameHistory.length, 
+        gameSettings.memoryAutoClean, 
+        gameSettings.historyAutoCompress,
+        cleanupStats,
+        worldData,
+        knownEntities,
+        statuses,
+        quests,
+        gameHistory,
+        memories,
+        party,
+        customRules,
+        systemInstruction,
+        totalTokens,
+        gameTime,
+        chronicle,
+        compressedHistory,
+        historyStats,
+        archivedMemories,
+        memoryStats
+    ]);
     
     const parseApiResponse = useCallback((text: string) => {
         try {

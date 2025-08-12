@@ -65,6 +65,7 @@ export const CreateWorld: React.FC<{
     const settingsFileInputRef = useRef<HTMLInputElement>(null);
     const rulesFileInputRef = useRef<HTMLInputElement>(null);
     const worldSetupFileInputRef = useRef<HTMLInputElement>(null);
+    const characterCardFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -408,6 +409,70 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
         }
     };
 
+    const handleLoadCharacterCardClick = () => {
+        characterCardFileInputRef.current?.click();
+    };
+    
+    const handleLoadCharacterCardFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text === 'string') {
+                    const characterCardData = JSON.parse(text);
+                    
+                    // Check if it's a SillyTavern character card format
+                    if (characterCardData.data && characterCardData.data.character_book && 
+                        characterCardData.data.character_book.entries && 
+                        Array.isArray(characterCardData.data.character_book.entries)) {
+                        
+                        const entries = characterCardData.data.character_book.entries;
+                        const extractedRules: CustomRule[] = [];
+                        const existingIds = new Set(formData.customRules.map(r => r.id));
+                        
+                        entries.forEach((entry: any, index: number) => {
+                            if (entry.content && typeof entry.content === 'string' && entry.content.trim()) {
+                                const ruleId = `character-card-${Date.now()}-${index}`;
+                                // Ensure unique ID
+                                let finalId = ruleId;
+                                while (existingIds.has(finalId)) {
+                                    finalId = `${ruleId}-${Math.random()}`;
+                                }
+                                
+                                extractedRules.push({
+                                    id: finalId,
+                                    content: entry.content.trim(),
+                                    isActive: true
+                                });
+                                existingIds.add(finalId);
+                            }
+                        });
+
+                        if (extractedRules.length > 0) {
+                            setFormData(prev => ({...prev, customRules: [...prev.customRules, ...extractedRules]}));
+                            alert(`Đã trích xuất và thêm thành công ${extractedRules.length} luật từ Character Card "${characterCardData.data.name || 'Unknown'}".`);
+                        } else {
+                            alert('Không tìm thấy nội dung hợp lệ trong character_book entries của tệp này.');
+                        }
+                    } else {
+                        throw new Error('Tệp không phải định dạng SillyTavern Character Card hợp lệ.');
+                    }
+                }
+            } catch (error) {
+                console.error('Lỗi khi tải Character Card:', error);
+                alert('Không thể đọc tệp Character Card. Tệp có thể bị hỏng hoặc không đúng định dạng SillyTavern Character Card.');
+            }
+        };
+        reader.readAsText(file);
+        
+        if (event.target) {
+            event.target.value = '';
+        }
+    };
+
     const handleLoadWorldSetupClick = () => {
         worldSetupFileInputRef.current?.click();
     };
@@ -531,6 +596,9 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
                         </button>
                         <button onClick={handleLoadRulesClick} className="px-3 py-2 bg-sky-600 hover:bg-sky-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
                             <FileIcon className="w-4 h-4"/> Tải Bộ Luật
+                        </button>
+                        <button onClick={handleLoadCharacterCardClick} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
+                            <DocumentAddIcon className="w-4 h-4"/> Tải Character Card
                         </button>
                     </div>
                 </div>
@@ -1103,6 +1171,13 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
                             type="file"
                             ref={rulesFileInputRef}
                             onChange={handleLoadRulesFileChange}
+                            accept=".json"
+                            className="hidden"
+                        />
+                        <input
+                            type="file"
+                            ref={characterCardFileInputRef}
+                            onChange={handleLoadCharacterCardFileChange}
                             accept=".json"
                             className="hidden"
                         />

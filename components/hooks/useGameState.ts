@@ -164,7 +164,7 @@ export const useGameState = (
     
     // UI state
     const [isLoading, setIsLoading] = useState(initialGameState.gameHistory.length === 0 && isAiReady);
-    const [hasGeneratedInitialStory, setHasGeneratedInitialStory] = useState<boolean>(false);
+    const [hasGeneratedInitialStory, setHasGeneratedInitialStory] = useState<boolean>(initialGameState.gameHistory.length > 0);
     const [customAction, setCustomAction] = useState('');
     
     // Choice history update function

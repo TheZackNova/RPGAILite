@@ -3,6 +3,18 @@ import type { ChangelogEntry } from '../types.ts';
 
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '1.42.0',
+    date: '2025-08-12',
+    changes: [
+      { type: 'feature', text: 'SillyTavern Character Card Import System - Thêm tính năng import character card từ SillyTavern với button "Tải Character Card" riêng biệt. Tự động trích xuất nội dung từ character_book.entries và chuyển đổi thành custom rules. Hỗ trợ cả CreateWorld component và CustomRulesModal với validation format và error handling.' },
+      { type: 'fix', text: 'Khắc phục lỗi Auto Memory Cleanup ngừng hoạt động sau load save hoặc API errors - Sửa useEffect dependency array thiếu gameSettings và state variables quan trọng. Enhanced hasGeneratedInitialStory initialization từ gameHistory.length thay vì luôn false. Thêm comprehensive logging để debug cleanup triggers và blocks.' },
+      { type: 'improvement', text: 'Enhanced Custom Rules Import với dual format support - Giữ nguyên chức năng import JSON rules truyền thống, thêm Character Card import riêng biệt với indigo color scheme. Smart content extraction từ character_book entries, unique ID generation, và success notifications hiển thị số lượng rules imported.' },
+      { type: 'improvement', text: 'Advanced Auto Cleanup Debug System - Thêm detailed logging cho cleanup blocking conditions với specific reasons (turnCount=0, no_initial_story, is_loading, empty_history, turn_already_cleaned). Enhanced cleanup trigger logging với memory/history counts và settings status.' },
+      { type: 'technical', text: 'Character Card Parser Implementation - Validates SillyTavern character card structure (data.character_book.entries), extracts content fields, filters empty entries, generates unique rule IDs với character-card prefix, và handles ID conflicts với existing rules.' },
+      { type: 'technical', text: 'Auto Cleanup Effect Dependency Optimization - Expanded useEffect dependencies từ [turnCount] thành comprehensive array bao gồm gameSettings, hasGeneratedInitialStory, memories, gameHistory, cleanupStats, và tất cả memory-related state để ensure proper reinitialization.' },
+    ],
+  },
+  {
     version: '1.41.0',
     date: '2025-08-11',
     changes: [
