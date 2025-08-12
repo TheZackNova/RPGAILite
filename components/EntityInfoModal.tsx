@@ -7,7 +7,15 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 // Utility function to format numbers properly, removing trailing commas
 const formatNumber = (value: number): string => {
     if (value === 0) return '0';
-    return value.toLocaleString().replace(/,$/, '');
+    if (typeof value !== 'number' || isNaN(value)) return '0';
+    
+    // Use Vietnamese locale formatting for proper thousand separators
+    try {
+        return value.toLocaleString('vi-VN');
+    } catch {
+        // Fallback to manual formatting if locale fails
+        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
 };
 
 export const EntityInfoModal: React.FC<{ 

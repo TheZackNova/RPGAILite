@@ -173,7 +173,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                     type="text"
                                     value={editRule.name}
                                     onChange={(e) => setEditRule(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                     placeholder="Enter rule name..."
                                 />
                             </div>
@@ -185,7 +185,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                 <textarea
                                     value={editRule.description}
                                     onChange={(e) => setEditRule(prev => ({ ...prev, description: e.target.value }))}
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                     rows={2}
                                     placeholder="Describe what this rule does..."
                                 />
@@ -199,7 +199,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                     type="text"
                                     value={editRule.category}
                                     onChange={(e) => setEditRule(prev => ({ ...prev, category: e.target.value }))}
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                     placeholder="e.g., Formatting, Combat, Dialogue..."
                                 />
                             </div>
@@ -212,7 +212,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                 <textarea
                                     value={editRule.findRegex}
                                     onChange={(e) => setEditRule(prev => ({ ...prev, findRegex: e.target.value }))}
-                                    className={`w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm ${
+                                    className={`w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm text-black ${
                                         validationError ? 'border-red-500' : 'border-gray-300'
                                     }`}
                                     rows={3}
@@ -230,7 +230,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                 <textarea
                                     value={editRule.replaceString}
                                     onChange={(e) => setEditRule(prev => ({ ...prev, replaceString: e.target.value }))}
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm text-black"
                                     rows={3}
                                     placeholder="Replacement text... Use $1, $2 for groups, {{match}} for full match"
                                 />
@@ -243,7 +243,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                 <textarea
                                     value={editRule.trimStrings.join('\n')}
                                     onChange={(e) => handleTrimStringsChange(e.target.value)}
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                     rows={2}
                                     placeholder="Strings to remove from matches..."
                                 />
@@ -258,20 +258,78 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                     Apply To (Placement) *
                                 </label>
                                 <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded p-2">
-                                    {Object.entries(placementDescriptions).map(([key, description]) => {
-                                        const placement = parseInt(key) as RegexPlacement;
-                                        return (
-                                            <label key={placement} className="flex items-start space-x-2 text-sm">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={editRule.placement.includes(placement)}
-                                                    onChange={(e) => handlePlacementChange(placement, e.target.checked)}
-                                                    className="mt-0.5"
-                                                />
-                                                <span className="flex-1">{description}</span>
-                                            </label>
-                                        );
-                                    })}
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.PLAYER_INPUT)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.PLAYER_INPUT, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Player Commands</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.AI_OUTPUT)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.AI_OUTPUT, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">AI Responses</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.MEMORY_PROCESSING)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.MEMORY_PROCESSING, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Memory Storage</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.ENTITY_DETECTION)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.ENTITY_DETECTION, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Entity Extraction</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.QUEST_PROCESSING)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.QUEST_PROCESSING, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Quest Updates</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.DIALOGUE_FORMATTING)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.DIALOGUE_FORMATTING, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Dialogue Formatting</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.STAT_EXTRACTION)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.STAT_EXTRACTION, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Statistics Extraction</span>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={editRule.placement.includes(RegexPlacement.COMBAT_FORMATTING)}
+                                            onChange={(e) => handlePlacementChange(RegexPlacement.COMBAT_FORMATTING, e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex-1 text-black font-semibold">Combat Formatting</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -279,50 +337,50 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-gray-700">Options</label>
                                 
-                                <label className="flex items-center space-x-2 text-sm">
+                                <div className="flex items-center gap-2 text-sm">
                                     <input
                                         type="checkbox"
                                         checked={editRule.disabled}
                                         onChange={(e) => setEditRule(prev => ({ ...prev, disabled: e.target.checked }))}
                                     />
-                                    <span>Disabled</span>
-                                </label>
+                                    <span className="text-black font-semibold">Disabled</span>
+                                </div>
 
-                                <label className="flex items-center space-x-2 text-sm">
+                                <div className="flex items-center gap-2 text-sm">
                                     <input
                                         type="checkbox"
                                         checked={editRule.markdownOnly}
                                         onChange={(e) => setEditRule(prev => ({ ...prev, markdownOnly: e.target.checked }))}
                                     />
-                                    <span>Markdown display only</span>
-                                </label>
+                                    <span className="text-black font-semibold">Markdown display only</span>
+                                </div>
 
-                                <label className="flex items-center space-x-2 text-sm">
+                                <div className="flex items-center gap-2 text-sm">
                                     <input
                                         type="checkbox"
                                         checked={editRule.promptOnly}
                                         onChange={(e) => setEditRule(prev => ({ ...prev, promptOnly: e.target.checked }))}
                                     />
-                                    <span>Prompt generation only</span>
-                                </label>
+                                    <span className="text-black font-semibold">Prompt generation only</span>
+                                </div>
 
-                                <label className="flex items-center space-x-2 text-sm">
+                                <div className="flex items-center gap-2 text-sm">
                                     <input
                                         type="checkbox"
                                         checked={editRule.runOnEdit}
                                         onChange={(e) => setEditRule(prev => ({ ...prev, runOnEdit: e.target.checked }))}
                                     />
-                                    <span>Run when editing content</span>
-                                </label>
+                                    <span className="text-black font-semibold">Run when editing content</span>
+                                </div>
 
-                                <label className="flex items-center space-x-2 text-sm">
+                                <div className="flex items-center gap-2 text-sm">
                                     <input
                                         type="checkbox"
                                         checked={editRule.isScoped}
                                         onChange={(e) => setEditRule(prev => ({ ...prev, isScoped: e.target.checked }))}
                                     />
-                                    <span>Character/World specific</span>
-                                </label>
+                                    <span className="text-black font-semibold">Character/World specific</span>
+                                </div>
                             </div>
 
                             {/* Macro Substitution */}
@@ -336,11 +394,11 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                         ...prev, 
                                         substituteRegex: parseInt(e.target.value) as RegexSubstituteMode 
                                     }))}
-                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                 >
-                                    <option value={RegexSubstituteMode.NONE}>None - Use pattern as-is</option>
-                                    <option value={RegexSubstituteMode.RAW}>Raw - Substitute macros</option>
-                                    <option value={RegexSubstituteMode.ESCAPED}>Escaped - Substitute and escape</option>
+                                    <option value={RegexSubstituteMode.NONE} className="text-black">None - Use pattern as-is</option>
+                                    <option value={RegexSubstituteMode.RAW} className="text-black">Raw - Substitute macros</option>
+                                    <option value={RegexSubstituteMode.ESCAPED} className="text-black">Escaped - Substitute and escape</option>
                                 </select>
                             </div>
 
@@ -357,7 +415,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                             ...prev, 
                                             minDepth: e.target.value ? parseInt(e.target.value) : undefined 
                                         }))}
-                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                         placeholder="0"
                                         min="0"
                                     />
@@ -373,7 +431,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                             ...prev, 
                                             maxDepth: e.target.value ? parseInt(e.target.value) : undefined 
                                         }))}
-                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                                         placeholder="∞"
                                         min="0"
                                     />
@@ -400,7 +458,7 @@ const RegexEditorModal: React.FC<RegexEditorModalProps> = ({
                                         <textarea
                                             value={testInput}
                                             onChange={(e) => setTestInput(e.target.value)}
-                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black"
                                             rows={3}
                                             placeholder="Enter test text here..."
                                         />
@@ -663,11 +721,11 @@ export const RegexManager: React.FC<{
                             <select
                                 value={filterCategory}
                                 onChange={(e) => setFilterCategory(e.target.value)}
-                                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                             >
-                                <option value="">All Categories</option>
+                                <option value="" className="text-black">All Categories</option>
                                 {categories.map(category => (
-                                    <option key={category} value={category}>{category}</option>
+                                    <option key={category} value={category} className="text-black">{category}</option>
                                 ))}
                             </select>
 
