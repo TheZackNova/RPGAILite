@@ -1,7 +1,6 @@
 // components/game/StoryPanel.tsx
 import React, { memo, useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import { SpinnerIcon } from '../Icons';
-import { generateGeminiImageFromStory } from '../utils/EnhancedRAG';
 import { OptimizedInteractiveText } from '../OptimizedInteractiveText';
 import { StatusPanelContent } from './StatusPanelContent';
 import { useOptimizedScroll } from '../hooks/useOptimizedScroll';
@@ -110,34 +109,6 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
     className = ''
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
-
-    // State cho ảnh tự động
-    const [autoImage, setAutoImage] = useState(true);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [imageLoading, setImageLoading] = useState(false);
-    const [imageError, setImageError] = useState<string | null>(null);
-
-    // Hàm gọi Gemini tạo ảnh
-    const createImage = useCallback(async (prompt: string) => {
-        setImageLoading(true);
-        setImageError(null);
-        try {
-            const url = await generateGeminiImageFromStory(prompt);
-            setImageUrl(url);
-        } catch (e) {
-            setImageError('Tạo ảnh thất bại, thử lại!');
-        } finally {
-            setImageLoading(false);
-        }
-    }, []);
-
-    // Tự động tạo ảnh khi storyLog thay đổi
-    useEffect(() => {
-        if (autoImage && storyLog.length > 0) {
-            const last = storyLog[storyLog.length - 1];
-            createImage(last);
-        }
-    }, [storyLog, autoImage, createImage]);
     const [virtualState, setVirtualState] = useState<VirtualScrollState>({
         scrollTop: 0,
         containerHeight: window.innerHeight * 0.6, // Use 60% of viewport height initially
@@ -299,14 +270,6 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                         {virtualState.isScrolling && (
                             <div className="w-2 h-2 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse" />
                         )}
-                        {/* Nút bật/tắt tự động tạo ảnh */}
-                        <button
-                            className={`ml-2 px-3 py-1 rounded-xl border ${autoImage ? 'bg-green-500/30 border-green-400/60' : 'bg-gray-700/30 border-gray-500/60'} text-xs`}
-                            onClick={() => setAutoImage(v => !v)}
-                            title="Bật/tắt tự động tạo ảnh minh họa"
-                        >
-                            {autoImage ? 'Tự động ảnh: Bật' : 'Tự động ảnh: Tắt'}
-                        </button>
                     </div>
                 </div>
             </div>
@@ -354,23 +317,6 @@ export const StoryPanel: React.FC<StoryPanelProps> = memo(({
                                     onHeightMeasured={handleHeightMeasured}
                                 />
                             ))}
-                            {/* Hiển thị ảnh minh họa dưới cùng */}
-                            <div className="mt-6">
-                                {imageLoading && (
-                                    <div className="flex items-center gap-2 text-white/70"><SpinnerIcon className="w-5 h-5 animate-spin"/> Đang tạo ảnh minh họa...</div>
-                                )}
-                                {imageError && (
-                                    <div className="text-red-400 flex items-center gap-2">
-                                        {imageError}
-                                        <button className="ml-2 px-2 py-1 rounded bg-red-500/30 border border-red-400/60 text-xs" onClick={() => {
-                                            if (storyLog.length > 0) createImage(storyLog[storyLog.length-1]);
-                                        }}>Tạo lại ảnh</button>
-                                    </div>
-                                )}
-                                {imageUrl && !imageLoading && !imageError && (
-                                    <img src={imageUrl} alt="Minh họa diễn biến" className="w-full rounded-xl border border-white/20 shadow-lg mt-2"/>
-                                )}
-                            </div>
                         </div>
                     </div>
                 )}
