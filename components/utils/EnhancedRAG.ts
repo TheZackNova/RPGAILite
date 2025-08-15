@@ -1,3 +1,18 @@
+// Hàm helper gọi API Gemini tạo ảnh từ nội dung story (dùng fetch tới endpoint backend hoặc cloud function nếu có)
+// Hàm này trả về URL ảnh (hoặc base64 data URL)
+export async function generateGeminiImageFromStory(story: string): Promise<string> {
+    // Ví dụ: gọi endpoint backend nội bộ, bạn cần thay đổi endpoint cho phù hợp
+    // Nếu bạn có sẵn hàm gọi Gemini, thay thế phần fetch này bằng hàm đó
+    const response = await fetch('/api/gemini-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: story })
+    });
+    if (!response.ok) throw new Error('Gemini API error');
+    const data = await response.json();
+    // data.url hoặc data.image (base64)
+    return data.url || data.image;
+}
 import type { Memory, SaveData, Entity } from '../types';
 import { ImportanceScorer } from './ImportanceScorer';
 
