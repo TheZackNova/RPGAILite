@@ -147,7 +147,8 @@ export class EnhancedRAGSystem {
                 playerNsfwRequest,
                 gameState.worldData,
                 intelligentContext,
-                compactContext
+                compactContext,
+                gameState
             );
             
             const endTime = performance.now();
@@ -1207,7 +1208,8 @@ export class EnhancedRAGSystem {
         nsfwContext: string,
         worldData: any,
         intelligentContext?: any,
-        compactContext?: CompactRAGContext | null
+        compactContext?: CompactRAGContext | null,
+        gameState?: SaveData
     ): string {
         let prompt = "";
         
@@ -1240,8 +1242,29 @@ export class EnhancedRAGSystem {
             prompt += sections.supplemental + "\n";
         }
         
-        // Player action
-        prompt += `\n--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"${action}"`;
+        // Player action with enhanced context and randomness to prevent duplicate responses
+        const timestamp = Date.now();
+        const randomSeed = Math.random().toString(36).substring(2, 8);
+        
+        if (gameState) {
+            const actionAnalysis = this.analyzePlayerAction(action, gameState);
+            
+            prompt += `\n--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"${action}"\n`;
+            prompt += `--- BỐI CẢNH HÀNH ĐỘNG ---\n`;
+            prompt += `Lượt: ${gameState.turnCount || 0} | Thời gian: ${this.formatGameTime(gameState.gameTime)} | ID: ${randomSeed}\n`;
+            prompt += `Phân tích: ${actionAnalysis.type} - ${actionAnalysis.description}\n`;
+            prompt += `Độ phức tạp: ${actionAnalysis.complexity} | Thời gian dự kiến: ${actionAnalysis.expectedDuration}\n`;
+            if (actionAnalysis.involvedEntities.length > 0) {
+                prompt += `Đối tượng liên quan: ${actionAnalysis.involvedEntities.join(', ')}\n`;
+            }
+            prompt += `--- KẾT THÚC BỐI CẢNH ---\n`;
+        } else {
+            // Fallback when gameState is not available
+            prompt += `\n--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"${action}"\n`;
+            prompt += `--- BỐI CẢNH HÀNH ĐỘNG ---\n`;
+            prompt += `ID: ${randomSeed} | Timestamp: ${new Date().toISOString()}\n`;
+            prompt += `--- KẾT THÚC BỐI CẢNH ---\n`;
+        }
         
         // Add smart choice generation context
         const choiceContext = this.buildSmartChoiceContext(sections, compactContext, intelligentContext);
@@ -1388,6 +1411,95 @@ HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
 - KHÔNG BAO GIỜ tạo kỹ năng trùng lặp - luôn dùng SKILL_UPDATE để thay thế kỹ năng cũ
 - Ví dụ: "Thiên Hồ Huyễn Linh Bí Pháp (đang phong ấn)" → "Thiên Hồ Huyễn Linh Bí Pháp (Sơ Giải)" phải dùng SKILL_UPDATE`;
 
+    }
+
+    // NEW: Helper methods for enhanced action context
+    private analyzePlayerAction(action: string, gameState: SaveData) {
+        const actionLower = action.toLowerCase();
+        
+        // Determine action type
+        let type = 'khác';
+        if (/nghỉ|ngồi|quan sát|xem|nhìn|thư giãn|tận hưởng/.test(actionLower)) {
+            type = 'thư giãn/quan sát';
+        } else if (/thử thách|yêu cầu|nhờ|đề nghị/.test(actionLower)) {
+            type = 'tương tác/yêu cầu';
+        } else if (/nói|hỏi|trò chuyện|tán gẫu/.test(actionLower)) {
+            type = 'giao tiếp';
+        } else if (/tấn công|chiến đấu|đánh/.test(actionLower)) {
+            type = 'chiến đấu';
+        } else if (/di chuyển|đi|chạy|bay/.test(actionLower)) {
+            type = 'di chuyển';
+        }
+
+        // Extract time from action (if mentioned)
+        let expectedDuration = 'Không xác định';
+        const timeMatch = action.match(/\((\d+)\s*(phút|giờ|ngày)\)/);
+        if (timeMatch) {
+            expectedDuration = `${timeMatch[1]} ${timeMatch[2]}`;
+        }
+
+        // Determine complexity
+        let complexity = 'Đơn giản';
+        if (/thử thách|yêu cầu|nhờ/.test(actionLower)) {
+            complexity = 'Trung bình';
+        } else if (/chiến đấu|tấn công|kỹ năng/.test(actionLower)) {
+            complexity = 'Phức tạp';
+        }
+
+        // Find involved entities
+        const involvedEntities: string[] = [];
+        const entities = gameState.knownEntities || {};
+        
+        // Check for NPC/companion names in action
+        Object.keys(entities).forEach(entityName => {
+            if (actionLower.includes(entityName.toLowerCase())) {
+                involvedEntities.push(entityName);
+            }
+        });
+
+        // Check for party members
+        if (gameState.party) {
+            gameState.party.forEach(member => {
+                if (actionLower.includes(member.name.toLowerCase())) {
+                    involvedEntities.push(member.name);
+                }
+            });
+        }
+
+        // Add common entities if mentioned
+        if (/sakuya/i.test(action)) involvedEntities.push('Sakuya Izayoi');
+
+        return {
+            type,
+            description: this.generateActionDescription(action, type),
+            complexity,
+            expectedDuration,
+            involvedEntities: [...new Set(involvedEntities)] // Remove duplicates
+        };
+    }
+
+    private generateActionDescription(action: string, type: string): string {
+        const descriptions: { [key: string]: string } = {
+            'thư giãn/quan sát': 'Hành động thư giãn, tập trung vào việc quan sát và tận hưởng',
+            'tương tác/yêu cầu': 'Hành động tương tác chủ động, yêu cầu phản hồi từ người khác',
+            'giao tiếp': 'Hành động giao tiếp xã hội, trao đổi thông tin',
+            'chiến đấu': 'Hành động chiến đấu, có thể có nguy hiểm',
+            'di chuyển': 'Hành động di chuyển từ nơi này sang nơi khác',
+            'khác': 'Hành động đặc biệt hoặc không thuộc loại thông thường'
+        };
+        
+        return descriptions[type] || 'Hành động cần được phân tích cụ thể';
+    }
+
+    private formatGameTime(gameTime: any): string {
+        if (!gameTime) return 'Không xác định';
+        
+        try {
+            const { year, month, day, hour, minute } = gameTime;
+            return `Năm ${year || '?'} Tháng ${month || '?'} Ngày ${day || '?'}, ${hour || 0} giờ ${minute || 0} phút`;
+        } catch {
+            return 'Lỗi định dạng thời gian';
+        }
     }
 }
 

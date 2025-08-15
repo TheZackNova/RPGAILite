@@ -245,20 +245,48 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
         let nsfwInstructionPart = isNsfwRequest && currentGameState.worldData.allowNsfw ? `\nLƯU Ý ĐẶC BIỆT: ...` : '';
         
         const userPrompt = buildEnhancedRagPrompt(originalAction, currentGameState, ruleChangeContext, nsfwInstructionPart);
+        
+        // DEBUG: Log prompt details to track duplicate responses
+        console.log(`🔍 [Turn ${currentGameState.turnCount}] Action Handler Debug:`, {
+            originalAction,
+            processedAction,
+            timestamp: new Date().toISOString(),
+            promptLength: userPrompt.length,
+            promptHash: userPrompt.slice(0, 100) + '...' + userPrompt.slice(-100),
+            gameStateHash: `T${currentGameState.turnCount}_${currentGameState.gameTime?.year}_${currentGameState.gameTime?.month}_${currentGameState.gameTime?.day}_${currentGameState.gameTime?.hour}`
+        });
 
         const newUserEntry: GameHistoryEntry = { role: 'user', parts: [{ text: userPrompt }] };
         const updatedHistory = [...gameHistory, newUserEntry];
 
         try {
             const response = await ai.models.generateContent({
-                model: selectedModel, contents: updatedHistory,
-                config: { systemInstruction: systemInstruction, responseMimeType: "application/json", responseSchema: responseSchema, }
+                model: selectedModel, 
+                contents: updatedHistory,
+                config: { 
+                    systemInstruction: systemInstruction, 
+                    responseMimeType: "application/json", 
+                    responseSchema: responseSchema,
+                    // Add randomness to prevent duplicate responses
+                    temperature: 0.9, // Higher temperature for more variability
+                    topP: 0.95,
+                    topK: 40
+                }
             });
             const turnTokens = response.usageMetadata?.totalTokenCount || 0;
             setCurrentTurnTokens(turnTokens);
             setTotalTokens(prev => prev + turnTokens);
 
             const responseText = response.text?.trim() || '';
+            
+            // DEBUG: Log response details 
+            console.log(`📤 [Turn ${currentGameState.turnCount}] AI Response Debug:`, {
+                responseLength: responseText.length,
+                responseHash: responseText.length > 200 ? responseText.slice(0, 100) + '...' + responseText.slice(-100) : responseText,
+                tokenUsage: turnTokens,
+                model: selectedModel,
+                timestamp: new Date().toISOString()
+            });
             
             if (!responseText) {
                 console.error("API returned empty response text in handleAction", {
@@ -283,8 +311,41 @@ Hãy tạo một câu chuyện mở đầu cuốn hút${pcEntity.motivation ? ` 
                 return;
             }
             
-            setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
-            parseApiResponseHandler(responseText);
+            // Detect duplicate responses by comparing with recent history
+            const isDuplicateResponse = detectDuplicateResponse(responseText, gameHistory);
+            if (isDuplicateResponse) {
+                console.warn(`⚠️ [Turn ${currentGameState.turnCount}] Duplicate response detected! Regenerating...`);
+                // Add variation to force different response
+                const retryPrompt = userPrompt + `\n\n**QUAN TRỌNG**: Đây là lần thử lại do phản hồi trùng lặp. Hãy tạo nội dung HOÀN TOÀN KHÁC với lượt trước. Seed: ${Math.random()}`;
+                const retryHistory = [...gameHistory, { role: 'user', parts: [{ text: retryPrompt }] }];
+                
+                const retryResponse = await ai.models.generateContent({
+                    model: selectedModel, 
+                    contents: retryHistory,
+                    config: { 
+                        systemInstruction: systemInstruction, 
+                        responseMimeType: "application/json", 
+                        responseSchema: responseSchema,
+                        temperature: 1.0, // Even higher temperature for retry
+                        topP: 0.9,
+                        topK: 30
+                    }
+                });
+                
+                const retryText = retryResponse.text?.trim() || '';
+                if (retryText) {
+                    setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: retryText }] }]);
+                    parseApiResponseHandler(retryText);
+                    console.log(`✅ [Turn ${currentGameState.turnCount}] Successfully generated unique response on retry`);
+                } else {
+                    // Fallback to original response if retry fails
+                    setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
+                    parseApiResponseHandler(responseText);
+                }
+            } else {
+                setGameHistory(prev => [...prev, newUserEntry, { role: 'model', parts: [{ text: responseText }] }]);
+                parseApiResponseHandler(responseText);
+            }
             
             setTurnCount(prev => {
                 const newTurn = prev + 1;
@@ -451,9 +512,83 @@ Hãy gợi ý hành động:`;
         }
     };
 
+    // Helper method to detect duplicate responses
+    const detectDuplicateResponse = (responseText: string, gameHistory: GameHistoryEntry[]): boolean => {
+        try {
+            const currentResponse = JSON.parse(responseText);
+            const currentStory = currentResponse.story || '';
+            const currentChoices = (currentResponse.choices || []).join('|');
+            
+            // Check the last 3 model responses for duplicates
+            const recentModelResponses = gameHistory
+                .slice(-6) // Last 6 entries (3 user + 3 model pairs)
+                .filter(entry => entry.role === 'model')
+                .slice(-3); // Last 3 model responses
+            
+            for (const pastResponse of recentModelResponses) {
+                try {
+                    const pastParsed = JSON.parse(pastResponse.parts[0].text);
+                    const pastStory = pastParsed.story || '';
+                    const pastChoices = (pastParsed.choices || []).join('|');
+                    
+                    // Compare story content (remove whitespace and tags for comparison)
+                    const normalizeText = (text: string) => 
+                        text.replace(/\[([A-Z_]+):\s*([^\]]+)\]/g, '') // Remove command tags
+                            .replace(/\s+/g, ' ') // Normalize whitespace
+                            .trim()
+                            .toLowerCase();
+                    
+                    const currentNormalized = normalizeText(currentStory);
+                    const pastNormalized = normalizeText(pastStory);
+                    
+                    // Check if stories are very similar (90% similarity)
+                    const similarity = calculateTextSimilarity(currentNormalized, pastNormalized);
+                    if (similarity > 0.9) {
+                        console.log(`🔍 High similarity detected: ${(similarity * 100).toFixed(1)}%`);
+                        return true;
+                    }
+                    
+                    // Check if choices are identical
+                    if (currentChoices === pastChoices && currentChoices.length > 0) {
+                        console.log(`🔍 Identical choices detected`);
+                        return true;
+                    }
+                    
+                } catch (parseError) {
+                    continue; // Skip invalid JSON responses
+                }
+            }
+            
+            return false;
+        } catch (error) {
+            console.warn('Error in duplicate detection:', error);
+            return false;
+        }
+    };
+
+    // Simple text similarity calculation
+    const calculateTextSimilarity = (text1: string, text2: string): number => {
+        if (text1 === text2) return 1.0;
+        if (text1.length === 0 || text2.length === 0) return 0.0;
+        
+        const words1 = text1.split(' ');
+        const words2 = text2.split(' ');
+        const allWords = [...new Set([...words1, ...words2])];
+        
+        let matches = 0;
+        for (const word of words1) {
+            if (words2.includes(word)) {
+                matches++;
+            }
+        }
+        
+        return matches / Math.max(words1.length, words2.length);
+    };
+
     return {
         generateInitialStory,
         handleAction,
-        handleSuggestAction
+        handleSuggestAction,
+        detectDuplicateResponse
     };
 };
