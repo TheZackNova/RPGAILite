@@ -43,10 +43,47 @@ export interface KnownEntities {
     [name: string]: Entity;
 }
 
+export enum RuleLogic {
+  AND_ANY = 0,    // Any primary keyword OR any secondary keyword
+  NOT_ALL = 1,    // Not all keywords must be present
+  NOT_ANY = 2,    // None of the keywords should be present
+  AND_ALL = 3     // All primary keywords AND all secondary keywords
+}
+
 export interface CustomRule {
   id: string;
   content: string;
   isActive: boolean;
+  
+  // Enhanced activation system
+  title?: string;                    // Rule display name
+  keywords?: string[];               // Primary activation keywords
+  secondaryKeywords?: string[];      // Secondary keywords for logic
+  logic?: RuleLogic;                // How keywords are evaluated
+  order?: number;                   // Priority (higher = more important)
+  
+  // Activation conditions
+  alwaysActive?: boolean;           // Always include in prompt (ignores keywords)
+  caseSensitive?: boolean;          // Case sensitive keyword matching
+  matchWholeWords?: boolean;        // Match whole words only
+  probability?: number;             // Activation chance (0-100)
+  maxActivationsPerTurn?: number;   // Limit activations per turn
+  
+  // Scanning settings
+  scanDepth?: number;               // How many messages back to scan
+  scanPlayerInput?: boolean;        // Scan user commands
+  scanAIOutput?: boolean;          // Scan AI responses
+  scanMemories?: boolean;          // Scan memory content
+  
+  // Token management
+  tokenWeight?: number;            // Estimated token cost
+  tokenPriority?: number;          // Priority for token budget selection
+  
+  // Metadata
+  createdAt?: number;              // Creation timestamp
+  lastActivated?: number;          // Last activation turn
+  activationCount?: number;        // Total activation count
+  category?: string;               // Rule category for organization
 }
 
 export interface RealmTier {

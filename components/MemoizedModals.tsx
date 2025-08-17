@@ -6,7 +6,7 @@ import { StatusDetailModal } from './StatusDetailModal.tsx';
 import { QuestDetailModal } from './QuestDetailModal.tsx';
 import { MemoryModal } from './MemoryModal.tsx';
 import { KnowledgeBaseModal } from './KnowledgeBaseModal.tsx';
-import { CustomRulesModal } from './CustomRulesModal.tsx';
+import { EnhancedCustomRulesModal } from './EnhancedCustomRulesModal.tsx';
 import { MapModal } from './MapModal.tsx';
 import { MobileChoicesModal } from './game/MobileChoicesModal.tsx';
 import { PartyMemberTab } from './PartyMemberTab.tsx';
@@ -627,7 +627,7 @@ const MemoizedModalsComponent = ({
                 turnCount={turnCount} 
             />
             
-            <CustomRulesModal 
+            <EnhancedCustomRulesModal 
                 isOpen={isCustomRulesModalOpen} 
                 onClose={modalCloseHandlers.customRules} 
                 onSave={handleSaveRules} 

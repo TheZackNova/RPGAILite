@@ -2,6 +2,7 @@ import React, { useState, useRef, useContext } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIContext } from '../App.tsx';
 import type { FormData, CustomRule } from './types.ts';
+import { RuleHelpers } from './utils/RuleHelpers.ts';
 import { SuggestionModal } from './SuggestionModal.tsx';
 import { FormLabel, CustomSelect, SuggestButton } from './FormControls.tsx';
 import { 
@@ -65,7 +66,7 @@ export const CreateWorld: React.FC<{
     const settingsFileInputRef = useRef<HTMLInputElement>(null);
     const rulesFileInputRef = useRef<HTMLInputElement>(null);
     const worldSetupFileInputRef = useRef<HTMLInputElement>(null);
-    const characterCardFileInputRef = useRef<HTMLInputElement>(null);
+    const worldInfoFileInputRef = useRef<HTMLInputElement>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -100,15 +101,29 @@ export const CreateWorld: React.FC<{
     
     // --- Rule Management Functions ---
     const handleAddRule = () => {
-        setFormData(prev => ({ ...prev, customRules: [...prev.customRules, { id: Date.now().toString(), content: '', isActive: true }] }));
+        const newRule = RuleHelpers.createDefaultRule();
+        setFormData(prev => ({ ...prev, customRules: [...prev.customRules, newRule] }));
     };
 
     const handleDeleteRule = (id: string) => {
         setFormData(prev => ({ ...prev, customRules: prev.customRules.filter(r => r.id !== id) }));
     };
 
-    const handleRuleChange = (id: string, newContent: string) => {
-        setFormData(prev => ({ ...prev, customRules: prev.customRules.map(r => r.id === id ? { ...r, content: newContent } : r) }));
+    const handleRuleChange = (id: string, field: 'content' | 'title', value: string) => {
+        setFormData(prev => ({ 
+            ...prev, 
+            customRules: prev.customRules.map(r => {
+                if (r.id === id) {
+                    const updated = { ...r, [field]: value };
+                    // Auto-estimate token weight if content changed
+                    if (field === 'content') {
+                        updated.tokenWeight = RuleHelpers.estimateTokenWeight(value);
+                    }
+                    return updated;
+                }
+                return r;
+            })
+        }));
     };
 
     const handleToggleActive = (id: string, newIsActive: boolean) => {
@@ -351,12 +366,12 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
             alert("Không có luật nào để lưu.");
             return;
         }
-        const jsonString = JSON.stringify(formData.customRules, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
+        const exportData = RuleHelpers.exportRulesToJSON(formData.customRules);
+        const blob = new Blob([exportData], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        link.download = `AI-RolePlay-CustomRules-${timestamp}.json`;
+        link.download = `AI-RolePlay-EnhancedRules-${timestamp}.json`;
         link.href = url;
         document.body.appendChild(link);
         link.click();
@@ -377,24 +392,24 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
             try {
                 const text = e.target?.result;
                 if (typeof text === 'string') {
-                    const loadedRules: CustomRule[] = JSON.parse(text);
+                    const { rules: importedRules, errors } = RuleHelpers.importRulesFromJSON(text);
                     
-                    if (Array.isArray(loadedRules) && loadedRules.every(r => typeof r === 'object' && r !== null && 'id' in r && 'content' in r && 'isActive' in r)) {
+                    if (errors.length > 0) {
+                        alert('Cảnh báo khi nhập file:\n' + errors.join('\n'));
+                    }
+                    
+                    if (importedRules.length > 0) {
+                        // Handle ID conflicts
                         const existingIds = new Set(formData.customRules.map(r => r.id));
-                        const rulesToAdd: CustomRule[] = [];
-                        
-                        loadedRules.forEach(loadedRule => {
-                            if (existingIds.has(loadedRule.id)) {
-                                rulesToAdd.push({ ...loadedRule, id: `${Date.now()}-${Math.random()}` });
-                            } else {
-                                rulesToAdd.push(loadedRule);
+                        const processedRules = importedRules.map(rule => {
+                            if (existingIds.has(rule.id)) {
+                                return { ...rule, id: `${Date.now()}-${Math.random()}` };
                             }
+                            return rule;
                         });
 
-                        setFormData(prev => ({...prev, customRules: [...prev.customRules, ...rulesToAdd]}));
-                        alert(`Đã tải và thêm thành công ${rulesToAdd.length} luật mới.`);
-                    } else {
-                        throw new Error('Định dạng tệp không hợp lệ.');
+                        setFormData(prev => ({...prev, customRules: [...prev.customRules, ...processedRules]}));
+                        alert(`Đã nhập thành công ${processedRules.length} luật.`);
                     }
                 }
             } catch (error) {
@@ -409,11 +424,30 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
         }
     };
 
-    const handleLoadCharacterCardClick = () => {
-        characterCardFileInputRef.current?.click();
+    const convertWorldInfoEntryToRule = (entry: any, uid: string): CustomRule => {
+        const rule = RuleHelpers.createDefaultRule();
+        rule.id = `worldinfo-${uid}-${Date.now()}`;
+        rule.title = entry.comment || `WorldInfo Entry ${uid}`;
+        rule.content = entry.content || '';
+        rule.keywords = Array.isArray(entry.key) ? entry.key : (entry.key ? [entry.key] : []);
+        rule.secondaryKeywords = Array.isArray(entry.keysecondary) ? entry.keysecondary : (entry.keysecondary ? [entry.keysecondary] : []);
+        rule.logic = entry.selectiveLogic || 0;
+        rule.order = entry.order || 100;
+        rule.probability = entry.probability !== undefined ? entry.probability : 100;
+        rule.scanDepth = entry.depth || 5;
+        rule.caseSensitive = entry.caseSensitive !== null ? entry.caseSensitive : false;
+        rule.matchWholeWords = entry.matchWholeWords !== null ? entry.matchWholeWords : false;
+        rule.isActive = !entry.disable;
+        rule.category = entry.group || 'worldinfo';
+        
+        return rule;
+    };
+
+    const handleLoadWorldInfoClick = () => {
+        worldInfoFileInputRef.current?.click();
     };
     
-    const handleLoadCharacterCardFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLoadWorldInfoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -422,48 +456,43 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
             try {
                 const text = e.target?.result;
                 if (typeof text === 'string') {
-                    const characterCardData = JSON.parse(text);
+                    const worldInfoData = JSON.parse(text);
                     
-                    // Check if it's a SillyTavern character card format
-                    if (characterCardData.data && characterCardData.data.character_book && 
-                        characterCardData.data.character_book.entries && 
-                        Array.isArray(characterCardData.data.character_book.entries)) {
-                        
-                        const entries = characterCardData.data.character_book.entries;
-                        const extractedRules: CustomRule[] = [];
+                    // Check if it's a SillyTavern WorldInfo format
+                    if (worldInfoData.entries && typeof worldInfoData.entries === 'object') {
+                        const entries = worldInfoData.entries;
+                        const convertedRules: CustomRule[] = [];
                         const existingIds = new Set(formData.customRules.map(r => r.id));
                         
-                        entries.forEach((entry: any, index: number) => {
-                            if (entry.content && typeof entry.content === 'string' && entry.content.trim()) {
-                                const ruleId = `character-card-${Date.now()}-${index}`;
-                                // Ensure unique ID
-                                let finalId = ruleId;
-                                while (existingIds.has(finalId)) {
-                                    finalId = `${ruleId}-${Math.random()}`;
-                                }
+                        Object.entries(entries).forEach(([uid, entry]: [string, any]) => {
+                            if (entry && entry.content && typeof entry.content === 'string' && entry.content.trim()) {
+                                const convertedRule = convertWorldInfoEntryToRule(entry, uid);
                                 
-                                extractedRules.push({
-                                    id: finalId,
-                                    content: entry.content.trim(),
-                                    isActive: true
-                                });
+                                // Ensure unique ID
+                                let finalId = convertedRule.id;
+                                while (existingIds.has(finalId)) {
+                                    finalId = `${convertedRule.id}-${Math.random()}`;
+                                }
+                                convertedRule.id = finalId;
+                                
+                                convertedRules.push(convertedRule);
                                 existingIds.add(finalId);
                             }
                         });
 
-                        if (extractedRules.length > 0) {
-                            setFormData(prev => ({...prev, customRules: [...prev.customRules, ...extractedRules]}));
-                            alert(`Đã trích xuất và thêm thành công ${extractedRules.length} luật từ Character Card "${characterCardData.data.name || 'Unknown'}".`);
+                        if (convertedRules.length > 0) {
+                            setFormData(prev => ({...prev, customRules: [...prev.customRules, ...convertedRules]}));
+                            alert(`Đã nhập thành công ${convertedRules.length} luật từ WorldInfo.`);
                         } else {
-                            alert('Không tìm thấy nội dung hợp lệ trong character_book entries của tệp này.');
+                            alert('Không tìm thấy nội dung hợp lệ trong WorldInfo entries.');
                         }
                     } else {
-                        throw new Error('Tệp không phải định dạng SillyTavern Character Card hợp lệ.');
+                        throw new Error('Tệp không phải định dạng SillyTavern WorldInfo hợp lệ.');
                     }
                 }
             } catch (error) {
-                console.error('Lỗi khi tải Character Card:', error);
-                alert('Không thể đọc tệp Character Card. Tệp có thể bị hỏng hoặc không đúng định dạng SillyTavern Character Card.');
+                console.error('Lỗi khi tải WorldInfo:', error);
+                alert('Không thể đọc tệp WorldInfo. Tệp có thể bị hỏng hoặc không đúng định dạng SillyTavern WorldInfo.');
             }
         };
         reader.readAsText(file);
@@ -563,23 +592,37 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
                     </p>
                      {formData.customRules.map((rule, index) => (
                         <div key={rule.id} className="bg-slate-200/50 dark:bg-[#373c5a]/50 p-3 rounded-lg border border-slate-300 dark:border-slate-600 space-y-2">
+                            <input
+                                type="text"
+                                value={rule.title || ''}
+                                onChange={(e) => handleRuleChange(rule.id, 'title', e.target.value)}
+                                placeholder={`Tiêu đề luật #${index + 1}...`}
+                                className="w-full bg-slate-100 dark:bg-[#1f2238] border border-slate-300 dark:border-slate-500 rounded-md py-2 px-3 text-sm font-medium text-slate-800 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
                              <textarea
                                 value={rule.content}
-                                onChange={(e) => handleRuleChange(rule.id, e.target.value)}
+                                onChange={(e) => handleRuleChange(rule.id, 'content', e.target.value)}
                                 placeholder={`Nội dung luật #${index + 1}...`}
                                 className="w-full h-24 bg-slate-100 dark:bg-[#1f2238] border border-slate-300 dark:border-slate-500 rounded-md py-2 px-3 text-sm text-slate-800 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"
                             />
                             <div className="flex justify-between items-center">
-                                <label htmlFor={`rule-toggle-${rule.id}`} className="flex items-center cursor-pointer">
-                                    <input
-                                        id={`rule-toggle-${rule.id}`}
-                                        type="checkbox"
-                                        checked={rule.isActive}
-                                        onChange={(e) => handleToggleActive(rule.id, e.target.checked)}
-                                        className="h-4 w-4 rounded border-gray-400 bg-gray-700 text-purple-600 focus:ring-purple-500"
-                                    />
-                                    <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Hoạt động</span>
-                                </label>
+                                <div className="flex items-center gap-4">
+                                    <label htmlFor={`rule-toggle-${rule.id}`} className="flex items-center cursor-pointer">
+                                        <input
+                                            id={`rule-toggle-${rule.id}`}
+                                            type="checkbox"
+                                            checked={rule.isActive}
+                                            onChange={(e) => handleToggleActive(rule.id, e.target.checked)}
+                                            className="h-4 w-4 rounded border-gray-400 bg-gray-700 text-purple-600 focus:ring-purple-500"
+                                        />
+                                        <span className="ml-2 text-sm text-slate-700 dark:text-gray-300">Hoạt động</span>
+                                    </label>
+                                    {rule.order && rule.order !== 100 && (
+                                        <span className="text-xs text-slate-600 dark:text-slate-400">
+                                            Độ ưu tiên: {rule.order}
+                                        </span>
+                                    )}
+                                </div>
                                 <button onClick={() => handleDeleteRule(rule.id)} className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded-md text-xs font-semibold transition-colors">
                                     Xóa
                                 </button>
@@ -597,8 +640,8 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
                         <button onClick={handleLoadRulesClick} className="px-3 py-2 bg-sky-600 hover:bg-sky-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
                             <FileIcon className="w-4 h-4"/> Tải Bộ Luật
                         </button>
-                        <button onClick={handleLoadCharacterCardClick} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
-                            <DocumentAddIcon className="w-4 h-4"/> Tải Character Card
+                        <button onClick={handleLoadWorldInfoClick} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white text-sm font-semibold transition-colors duration-200 flex items-center gap-2">
+                            <DocumentAddIcon className="w-4 h-4"/> Nhập WorldInfo
                         </button>
                     </div>
                 </div>
@@ -1176,15 +1219,15 @@ QUAN TRỌNG: BẮT BUỘC sử dụng 100% tiếng Việt. TUYỆT ĐỐI KHÔN
                         />
                         <input
                             type="file"
-                            ref={characterCardFileInputRef}
-                            onChange={handleLoadCharacterCardFileChange}
+                            ref={worldSetupFileInputRef}
+                            onChange={handleLoadWorldSetupFileChange}
                             accept=".json"
                             className="hidden"
                         />
                         <input
                             type="file"
-                            ref={worldSetupFileInputRef}
-                            onChange={handleLoadWorldSetupFileChange}
+                            ref={worldInfoFileInputRef}
+                            onChange={handleLoadWorldInfoFileChange}
                             accept=".json"
                             className="hidden"
                         />

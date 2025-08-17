@@ -3,6 +3,7 @@ import { MBTI_PERSONALITIES } from './data/mbti.ts';
 import { EnhancedRAG } from './utils/EnhancedRAG';
 import { MemoryAnalytics } from './utils/MemoryAnalytics';
 import { ReferenceBasedRAG, type CompactRAGContext } from './utils/ReferenceBasedRAG';
+import { ruleActivationEngine, type ActivationContext } from './utils/RuleActivationEngine';
 
 // Aggressive Token Management for 100k hard limit
 const TOKEN_CONFIG = {
@@ -136,7 +137,8 @@ export class EnhancedRAGSystem {
             const contextSections = this.buildPrioritizedContext(
                 relevantEntities,
                 gameState,
-                tokenBudget
+                tokenBudget,
+                action
             );
             
             // Step 6: Assemble final prompt with appropriate context
@@ -374,7 +376,8 @@ export class EnhancedRAGSystem {
     private buildPrioritizedContext(
         relevantEntities: EntityRelevance[],
         gameState: SaveData,
-        budget: TokenBudget
+        budget: TokenBudget,
+        playerInput?: string
     ): ContextSections {
         const sections: ContextSections = {
             critical: '',
@@ -403,11 +406,12 @@ export class EnhancedRAGSystem {
             budget.contextual
         );
 
-        // Supplemental: Custom rules and additional context
+        // Supplemental: Custom rules and additional context (enhanced with new activation engine)
         sections.supplemental = this.buildSupplementalContext(
             gameState,
             relevantEntities,
-            budget.supplemental
+            budget.supplemental,
+            playerInput
         );
 
         return sections;
@@ -1153,53 +1157,56 @@ export class EnhancedRAGSystem {
     private buildSupplementalContext(
         gameState: SaveData,
         relevantEntities: EntityRelevance[],
-        maxTokens: number
+        maxTokens: number,
+        playerInput?: string,
+        aiResponse?: string
     ): string {
-        let context = "";
-        let usedTokens = 0;
+        console.log(`🔧 Building supplemental context with ${gameState.customRules.length} total rules`);
         
-        // Custom rules
-        const activeRules = gameState.customRules.filter(r => r.isActive && r.content.trim());
-        
-        if (activeRules.length > 0) {
-            // Find relevant rules based on entities and keywords
-            const relevantRules = this.findRelevantRules(activeRules, relevantEntities);
+        // Create activation context
+        const activationContext: ActivationContext = {
+            playerInput,
+            aiResponse,
+            gameHistory: gameState.gameHistory,
+            entities: gameState.knownEntities,
+            memories: gameState.memories,
+            currentTurn: gameState.turnCount,
+            scanDepth: 5, // Scan last 5 turns
+            tokenBudget: maxTokens,
+            caseSensitive: false,
+            matchWholeWords: false
+        };
+
+        // Process rules through activation engine
+        const activationResult = ruleActivationEngine.processRules(
+            gameState.customRules,
+            activationContext
+        );
+
+        // Format activated rules for prompt
+        const formattedContext = ruleActivationEngine.formatForPrompt(activationResult);
+
+        // Log activation statistics
+        if (activationResult.activatedRules.length > 0) {
+            console.log(`✅ Activated ${activationResult.activatedRules.length} rules using ${activationResult.totalTokens} tokens`);
             
-            if (relevantRules.length > 0) {
-                context += "\n=== LUẬT LỆ TÙY CHỈNH LIÊN QUAN ===\n";
-                usedTokens += this.estimateTokens(context);
-                
-                relevantRules.forEach(rule => {
-                    const ruleText = `- ${rule.content}\n`;
-                    const ruleTokens = this.estimateTokens(ruleText);
-                    
-                    if (usedTokens + ruleTokens <= maxTokens) {
-                        context += ruleText;
-                        usedTokens += ruleTokens;
-                    }
-                });
-            }
+            // Log which rules were activated and why
+            activationResult.activatedRules.forEach(activated => {
+                const rule = activated.rule;
+                console.log(`  📋 "${rule.title || rule.id}": ${activated.activationReason} (Priority: ${rule.order || 0})`);
+                if (activated.matchedKeywords.length > 0) {
+                    console.log(`    🔍 Matched keywords: ${activated.matchedKeywords.join(', ')}`);
+                }
+            });
         }
-        
-        return context;
+
+        if (activationResult.budgetExceeded) {
+            console.warn(`⚠️ Token budget exceeded, ${activationResult.skippedRules.length} rules skipped`);
+        }
+
+        return formattedContext;
     }
 
-    private findRelevantRules(rules: CustomRule[], entities: EntityRelevance[]): CustomRule[] {
-        const entityNames = new Set(entities.map(e => e.entity.name.toLowerCase()));
-        
-        return rules.filter(rule => {
-            const ruleLower = rule.content.toLowerCase();
-            
-            // Check if rule mentions any relevant entity
-            for (const name of entityNames) {
-                if (ruleLower.includes(name)) return true;
-            }
-            
-            // Check for general relevance keywords
-            const generalKeywords = ['tất cả', 'mọi', 'luôn', 'không được', 'phải'];
-            return generalKeywords.some(keyword => ruleLower.includes(keyword));
-        });
-    }
 
     private assembleFinalPrompt(
         action: string,
