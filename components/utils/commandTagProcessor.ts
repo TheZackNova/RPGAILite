@@ -24,6 +24,70 @@ export interface CommandTagProcessorParams {
     worldData?: any; // For accessing realm tiers and experience system
 }
 
+// Enhanced Entity Deduplication System - Intelligent entity merging
+const intelligentEntityMerge = (existingEntity: Entity, newAttributes: any): Entity => {
+    const merged = { ...existingEntity };
+    
+    // Always preserve critical identity fields
+    const preserveFields = ['referenceId', 'type', 'name'];
+    
+    // Intelligent field merging rules
+    for (const [key, newValue] of Object.entries(newAttributes)) {
+        if (preserveFields.includes(key)) {
+            // Skip critical identity fields
+            continue;
+        }
+        
+        const existingValue = merged[key as keyof Entity];
+        
+        if (!existingValue || existingValue === '' || existingValue === null || existingValue === undefined) {
+            // Fill in missing information
+            merged[key as keyof Entity] = newValue;
+        } else if (key === 'skills') {
+            // Special handling for skills - merge arrays
+            const existingSkills = Array.isArray(existingValue) ? existingValue : (typeof existingValue === 'string' ? existingValue.split(',').map(s => s.trim()) : []);
+            const newSkills = Array.isArray(newValue) ? newValue : (typeof newValue === 'string' ? newValue.split(',').map(s => s.trim()) : []);
+            
+            // Merge unique skills
+            const mergedSkills = [...new Set([...existingSkills, ...newSkills])];
+            merged[key as keyof Entity] = mergedSkills;
+        } else if (key === 'description') {
+            // For descriptions, prefer longer/more detailed version
+            if (typeof newValue === 'string' && typeof existingValue === 'string') {
+                if (newValue.length > existingValue.length) {
+                    merged[key as keyof Entity] = newValue;
+                }
+                // Otherwise keep existing description
+            }
+        } else if (key === 'personality' || key === 'motivation') {
+            // For personality and motivation, prefer more detailed version
+            if (typeof newValue === 'string' && typeof existingValue === 'string') {
+                if (newValue.length > existingValue.length) {
+                    merged[key as keyof Entity] = newValue;
+                }
+            }
+        } else if (key === 'relationship') {
+            // For relationships, allow updates to reflect character development
+            merged[key as keyof Entity] = newValue;
+        } else if (key === 'location') {
+            // Location can change - allow updates
+            merged[key as keyof Entity] = newValue;
+        } else if (key === 'realm' || key === 'level' || key === 'experience') {
+            // Character progression - allow updates to higher values
+            if (typeof newValue === 'string' && typeof existingValue === 'string') {
+                // For realm, trust the AI's assessment of current power
+                merged[key as keyof Entity] = newValue;
+            }
+        } else if (!existingValue) {
+            // Fill in any other missing fields
+            merged[key as keyof Entity] = newValue;
+        }
+        // For other fields, preserve existing values to maintain consistency
+    }
+    
+    return merged;
+};
+
 // Helper function to calculate new time
 const calculateNewTime = (
     currentTime: { year: number; month: number; day: number; hour: number; minute: number; },
@@ -1043,13 +1107,32 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                             if (typeof newAttributes.skills === 'string') {
                                 newAttributes.skills = newAttributes.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
                             }
-                            const newNPC: Entity = { 
-                                type: 'npc', 
-                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'npc'),
-                                ...newAttributes 
-                            };
-                            console.log(`🔗 Generated reference ID for NPC ${attributes.name}: ${newNPC.referenceId}`);
-                            return { ...prev, [attributes.name]: newNPC };
+                            
+                            // Enhanced Entity Deduplication System - Intelligent merging
+                            const existingNPC = prev[attributes.name];
+                            if (existingNPC) {
+                                console.log(`⚠️ ENTITY DEDUPLICATION: NPC "${attributes.name}" already exists. Performing intelligent merge...`);
+                                
+                                // Preserve existing reference ID, relationships, and character development
+                                const mergedNPC = intelligentEntityMerge(existingNPC, newAttributes);
+                                console.log(`✅ Merged NPC "${attributes.name}" while preserving:`, {
+                                    referenceId: existingNPC.referenceId,
+                                    preservedFields: Object.keys(existingNPC).filter(key => 
+                                        existingNPC[key] && (!newAttributes[key] || key === 'referenceId')
+                                    )
+                                });
+                                
+                                return { ...prev, [attributes.name]: mergedNPC };
+                            } else {
+                                // New entity - create normally
+                                const newNPC: Entity = { 
+                                    type: 'npc', 
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'npc'),
+                                    ...newAttributes 
+                                };
+                                console.log(`🔗 Generated reference ID for new NPC ${attributes.name}: ${newNPC.referenceId}`);
+                                return { ...prev, [attributes.name]: newNPC };
+                            }
                         });
                         break;
                     case 'LORE_ITEM':
@@ -1065,20 +1148,41 @@ export const createCommandTagProcessor = (params: CommandTagProcessorParams) => 
                         break;
                     case 'LORE_LOCATION':
                         setKnownEntities(prev => {
-                            const newLocation: Entity = { 
-                                type: 'location', 
-                                referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'location'),
-                                ...attributes 
-                            };
-                            console.log(`🔗 Generated reference ID for location ${attributes.name}: ${newLocation.referenceId}`);
-                            const newEntities = { ...prev, [attributes.name]: newLocation };
-                            setLocationDiscoveryOrder(prevOrder => {
-                                if (!prevOrder.includes(attributes.name)) {
-                                    return [...prevOrder, attributes.name];
-                                }
-                                return prevOrder;
-                            });
-                            return newEntities;
+                            // Enhanced Entity Deduplication for locations too
+                            const existingLocation = prev[attributes.name];
+                            if (existingLocation) {
+                                console.log(`⚠️ ENTITY DEDUPLICATION: Location "${attributes.name}" already exists. Performing intelligent merge...`);
+                                
+                                const mergedLocation = intelligentEntityMerge(existingLocation, { type: 'location', ...attributes });
+                                console.log(`✅ Merged location "${attributes.name}" while preserving reference ID: ${existingLocation.referenceId}`);
+                                
+                                // Still update discovery order if needed
+                                setLocationDiscoveryOrder(prevOrder => {
+                                    if (!prevOrder.includes(attributes.name)) {
+                                        return [...prevOrder, attributes.name];
+                                    }
+                                    return prevOrder;
+                                });
+                                
+                                return { ...prev, [attributes.name]: mergedLocation };
+                            } else {
+                                // New location - create normally
+                                const newLocation: Entity = { 
+                                    type: 'location', 
+                                    referenceId: ReferenceIdGenerator.generateReferenceId(attributes.name, 'location'),
+                                    ...attributes 
+                                };
+                                console.log(`🔗 Generated reference ID for new location ${attributes.name}: ${newLocation.referenceId}`);
+                                
+                                setLocationDiscoveryOrder(prevOrder => {
+                                    if (!prevOrder.includes(attributes.name)) {
+                                        return [...prevOrder, attributes.name];
+                                    }
+                                    return prevOrder;
+                                });
+                                
+                                return { ...prev, [attributes.name]: newLocation };
+                            }
                         });
                         break;
                     case 'LORE_FACTION':

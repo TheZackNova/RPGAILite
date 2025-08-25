@@ -8,6 +8,7 @@ import { CreateWorld } from './components/CreateWorld.tsx';
 import { GameScreen } from './components/GameScreen.tsx';
 import { ApiSettingsModal } from './components/ApiSettingsModal.tsx';
 import { ChangelogModal } from './components/ChangelogModal.tsx';
+import { OptimizedStorage } from './components/utils/OptimizedStorage';
 import { InitializationProgress } from './components/InitializationProgress.tsx';
 import type { SaveData, Entity, AIContextType, FormData, CustomRule, KnownEntities } from './components/types.ts';
 import { CHANGELOG_DATA } from './components/data/changelog.ts';
@@ -849,51 +850,59 @@ Mô tả ngoại hình phải phù hợp với bối cảnh và tính cách, t�
             const text = e.target?.result;
             if (typeof text === 'string') {
                 const loadedJson = JSON.parse(text);
+                
+                // Check if this is an optimized save file and restore it
+                let gameData = loadedJson;
+                if (OptimizedStorage.isOptimizedFormat(loadedJson)) {
+                    console.log(`🔄 Loading optimized save file:`, OptimizedStorage.getCompressionStats(loadedJson));
+                    gameData = OptimizedStorage.restoreFromStorage(loadedJson);
+                }
+                
                 // Xác thực cơ bản
-                if (loadedJson.worldData && loadedJson.knownEntities && loadedJson.gameHistory) {
-                    const pc = Object.values(loadedJson.knownEntities).find((e: any) => e.type === 'pc');
+                if (gameData.worldData && gameData.knownEntities && gameData.gameHistory) {
+                    const pc = Object.values(gameData.knownEntities).find((e: any) => e.type === 'pc');
                     // Đảm bảo các trường mới có giá trị mặc định khi tải save cũ
                     const validatedData: SaveData = {
                         worldData: {
-                            ...loadedJson.worldData,
-                            startLocation: loadedJson.worldData.startLocation || '', // Tương thích ngược
-                            customStartLocation: loadedJson.worldData.customStartLocation || '', // Tương thích ngược
-                            expName: loadedJson.worldData.expName || 'Kinh Nghiệm', // Tương thích ngược
-                            realmTiers: loadedJson.worldData.realmTiers || [
+                            ...gameData.worldData,
+                            startLocation: gameData.worldData.startLocation || '', // Tương thích ngược
+                            customStartLocation: gameData.worldData.customStartLocation || '', // Tương thích ngược
+                            expName: gameData.worldData.expName || 'Kinh Nghiệm', // Tương thích ngược
+                            realmTiers: gameData.worldData.realmTiers || [
                                 { id: '1', name: 'Luyện Khí', requiredExp: 0 },
                                 { id: '2', name: 'Trúc Cơ', requiredExp: 100 }
                             ], // Tương thích ngược
                         },
-                        knownEntities: loadedJson.knownEntities,
-                        statuses: loadedJson.statuses || [],
-                        quests: loadedJson.quests || [],
-                        gameHistory: loadedJson.gameHistory,
-                        memories: loadedJson.memories || [],
-                        party: loadedJson.party || (pc ? [pc] : []),
-                        customRules: loadedJson.customRules || (loadedJson.userKnowledge ? [{ id: 'imported_knowledge', content: loadedJson.userKnowledge, isActive: true }] : []),
-                        systemInstruction: loadedJson.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
-                        turnCount: loadedJson.turnCount || 0,
-                        totalTokens: loadedJson.totalTokens || 0,
+                        knownEntities: gameData.knownEntities,
+                        statuses: gameData.statuses || [],
+                        quests: gameData.quests || [],
+                        gameHistory: gameData.gameHistory,
+                        memories: gameData.memories || [],
+                        party: gameData.party || (pc ? [pc] : []),
+                        customRules: gameData.customRules || (gameData.userKnowledge ? [{ id: 'imported_knowledge', content: gameData.userKnowledge, isActive: true }] : []),
+                        systemInstruction: gameData.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
+                        turnCount: gameData.turnCount || 0,
+                        totalTokens: gameData.totalTokens || 0,
                         gameTime: { 
-                            year: loadedJson.gameTime?.year || 1, 
-                            month: loadedJson.gameTime?.month || 1, 
-                            day: loadedJson.gameTime?.day || 1, 
-                            hour: loadedJson.gameTime?.hour || 8, 
-                            minute: loadedJson.gameTime?.minute || 0 
+                            year: gameData.gameTime?.year || 1, 
+                            month: gameData.gameTime?.month || 1, 
+                            day: gameData.gameTime?.day || 1, 
+                            hour: gameData.gameTime?.hour || 8, 
+                            minute: gameData.gameTime?.minute || 0 
                         },
-                        chronicle: loadedJson.chronicle || { memoir: [], chapter: [], turn: [] },
-                        storyLog: loadedJson.storyLog,
-                        choices: loadedJson.choices,
-                        locationDiscoveryOrder: loadedJson.locationDiscoveryOrder,
+                        chronicle: gameData.chronicle || { memoir: [], chapter: [], turn: [] },
+                        storyLog: gameData.storyLog,
+                        choices: gameData.choices,
+                        locationDiscoveryOrder: gameData.locationDiscoveryOrder,
                         // Hỗ trợ cho lịch sử nén
-                        compressedHistory: loadedJson.compressedHistory || [],
-                        lastCompressionTurn: loadedJson.lastCompressionTurn || 0,
-                        historyStats: loadedJson.historyStats || {
+                        compressedHistory: gameData.compressedHistory || [],
+                        lastCompressionTurn: gameData.lastCompressionTurn || 0,
+                        historyStats: gameData.historyStats || {
                             totalEntriesProcessed: 0,
                             totalTokensSaved: 0,
                             compressionCount: 0
                         },
-                        cleanupStats: loadedJson.cleanupStats || {
+                        cleanupStats: gameData.cleanupStats || {
                             totalCleanupsPerformed: 0,
                             totalTokensSavedFromCleanup: 0,
                             lastCleanupTurn: 0,

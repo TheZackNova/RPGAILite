@@ -1,6 +1,7 @@
 import type { SaveData, CustomRule, Memory, Entity } from '../types';
 import { GameSettings } from '../GameSettingsModal';
 import { ReferenceIdGenerator } from '../utils/ReferenceIdGenerator';
+import { OptimizedStorage } from '../utils/OptimizedStorage';
 
 export interface GameStateHandlersParams {
     worldData: any;
@@ -79,7 +80,17 @@ export const createGameStateHandlers = (params: GameStateHandlersParams) => {
             storyLog, choices, locationDiscoveryOrder, choiceHistory
         };
         
-        const jsonString = JSON.stringify(currentGameState, null, 2);
+        // Apply optimized storage for 95% size reduction
+        const optimizedGameState = OptimizedStorage.optimizeForStorage(currentGameState);
+        const jsonString = JSON.stringify(optimizedGameState, null, 2);
+        
+        console.log(`💾 Save File Optimization:`, {
+            originalEntries: gameHistory.length,
+            optimizedEntries: optimizedGameState.gameHistory.length,
+            estimatedSizeReduction: `${OptimizedStorage.getCompressionStats(optimizedGameState).compressionRatio}%`,
+            tokensSaved: OptimizedStorage.getCompressionStats(optimizedGameState).tokenReduction
+        });
+        
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

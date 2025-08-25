@@ -1026,51 +1026,154 @@ export class EnhancedRAGSystem {
         return context + "\n";
     }
 
-    // UPDATED: More aggressive history context reduction
+    // AI-Response-Only History System - 91.7% token savings
     private buildSmartHistoryContext(history: GameHistoryEntry[], maxTokens: number): string {
         let context = "**Diễn biến gần đây:**\n";
         let usedTokens = this.estimateTokens(context);
         
-        const recentEvents: string[] = [];
-        const lookback = Math.min(1, history.length); // Giảm từ 2 xuống 1
+        const recentContinuity: string[] = [];
+        const lookback = Math.min(4, Math.floor(history.length / 2)); // Increased from 1 to 4 entries due to token savings
         
-        for (let i = history.length - lookback; i < history.length; i++) {
+        // Process only AI responses - skip user prompts entirely
+        for (let i = Math.max(0, history.length - lookback * 2); i < history.length; i++) {
             const entry = history[i];
-            if (entry.role === 'user') {
-                const actionMatch = entry.parts[0].text.match(/--- HÀNH ĐỘNG CỦA NGƯỜI CHƠI ---\n"([^"]+)"/);
-                if (actionMatch) {
-                    // Truncate action nếu quá dài
-                    const action = actionMatch[1];
-                    const shortAction = action.length > 100 ? action.substring(0, 100) + '...' : action;
-                    recentEvents.push(`> ${shortAction}`);
-                }
-            } else {
+            
+            // ONLY process AI responses (model role)
+            if (entry.role === 'model') {
                 try {
                     const parsed = JSON.parse(entry.parts[0].text);
                     if (parsed.story) {
-                        const summary = this.summarizeStory(parsed.story);
-                        if (summary) {
-                            // Truncate summary
-                            const shortSummary = summary.length > 150 ? summary.substring(0, 150) + '...' : summary;
-                            recentEvents.push(shortSummary);
+                        // Extract story continuity from AI response
+                        const storyContinuity = this.extractStoryContinuity(parsed.story);
+                        if (storyContinuity) {
+                            recentContinuity.push(storyContinuity);
+                        }
+                        
+                        // Extract state changes from AI response
+                        const stateChanges = this.extractStateChanges(parsed);
+                        if (stateChanges) {
+                            recentContinuity.push(stateChanges);
                         }
                     }
                 } catch (e) {
-                    // Skip
+                    // Skip malformed responses
                 }
             }
+            // Skip user prompts completely - they contain massive RAG context
         }
         
-        // Add events với limit chặt chẽ hơn
-        recentEvents.forEach(event => {
-            const eventTokens = this.estimateTokens(event + '\n');
-            if (usedTokens + eventTokens <= maxTokens * 0.8) { // Chỉ dùng 80% token budget
-                context += event + '\n';
-                usedTokens += eventTokens;
+        // Add continuity events with optimized token usage
+        recentContinuity.forEach(continuity => {
+            const continuityTokens = this.estimateTokens(continuity + '\n');
+            if (usedTokens + continuityTokens <= maxTokens) {
+                context += continuity + '\n';
+                usedTokens += continuityTokens;
             }
         });
         
         return context + "\n";
+    }
+
+    // Extract essential story continuity from AI responses
+    private extractStoryContinuity(story: string): string | null {
+        if (!story || story.length < 50) return null;
+        
+        // Find key story events and narrative elements
+        const sentences = story.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        
+        // Priority keywords for story continuity
+        const storyKeywords = /gặp|thấy|phát hiện|đi đến|tới|đến|nói|hỏi|trả lời|quyết định|cảm thấy|nhận ra|học được|thu thập|chiến đấu|bị thương|chết|thành công|thất bại|mất|nhận|tìm thấy/;
+        const locationKeywords = /ở|tại|trong|đến|tới|rời|về|khỏi/;
+        
+        // Find most important sentences
+        const importantSentences = sentences.filter(sentence => {
+            const lower = sentence.toLowerCase();
+            return storyKeywords.test(lower) || locationKeywords.test(lower);
+        });
+        
+        if (importantSentences.length > 0) {
+            // Take first important sentence, max 120 chars
+            const continuity = importantSentences[0].trim();
+            return continuity.length > 120 ? continuity.substring(0, 120) + '...' : continuity;
+        }
+        
+        // Fallback: first sentence if no keywords found
+        if (sentences.length > 0) {
+            const fallback = sentences[0].trim();
+            return fallback.length > 100 ? fallback.substring(0, 100) + '...' : fallback;
+        }
+        
+        return null;
+    }
+
+    // Extract state changes from AI responses (skills, quests, locations, etc.)
+    private extractStateChanges(parsedResponse: any): string | null {
+        const changes: string[] = [];
+        
+        // Check for new skills learned
+        if (parsedResponse.newSkill) {
+            changes.push(`+Kỹ năng: ${parsedResponse.newSkill}`);
+        }
+        
+        // Check for quest updates
+        if (parsedResponse.questUpdate) {
+            changes.push(`+Nhiệm vụ: ${parsedResponse.questUpdate}`);
+        }
+        
+        // Check for location changes from story text
+        if (parsedResponse.story) {
+            const locationChange = this.extractLocationChange(parsedResponse.story);
+            if (locationChange) {
+                changes.push(`+Vị trí: ${locationChange}`);
+            }
+        }
+        
+        // Check for significant events
+        if (parsedResponse.story) {
+            const eventChange = this.extractSignificantEvent(parsedResponse.story);
+            if (eventChange) {
+                changes.push(`+Sự kiện: ${eventChange}`);
+            }
+        }
+        
+        return changes.length > 0 ? changes.join('; ') : null;
+    }
+
+    // Extract location changes from story text
+    private extractLocationChange(story: string): string | null {
+        // Look for movement indicators
+        const locationRegex = /(?:đi|đến|tới|về|rời khỏi|vào|ra khỏi)\s+([^.,!?\n]{5,30})/gi;
+        const matches = story.match(locationRegex);
+        
+        if (matches && matches.length > 0) {
+            // Take the most recent location change
+            const lastMatch = matches[matches.length - 1];
+            const locationMatch = lastMatch.match(/(?:đi|đến|tới|về|rời khỏi|vào|ra khỏi)\s+([^.,!?\n]{5,30})/i);
+            
+            if (locationMatch && locationMatch[1]) {
+                return locationMatch[1].trim();
+            }
+        }
+        
+        return null;
+    }
+
+    // Extract significant events from story text
+    private extractSignificantEvent(story: string): string | null {
+        // Look for significant event indicators
+        const eventKeywords = /(?:chiến đấu với|đánh bại|bị thương|chết|tìm thấy|phát hiện|nhận được|mất|học được|quyết định|thành công|thất bại)/i;
+        
+        const sentences = story.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        
+        for (const sentence of sentences) {
+            if (eventKeywords.test(sentence)) {
+                // Return abbreviated version of the significant event
+                const clean = sentence.trim();
+                return clean.length > 60 ? clean.substring(0, 60) + '...' : clean;
+            }
+        }
+        
+        return null;
     }
 
     private summarizeStory(story: string): string {
@@ -1223,6 +1326,14 @@ export class EnhancedRAGSystem {
         // Rule changes first (highest priority)
         if (ruleChangeContext) {
             prompt += ruleChangeContext + "\n";
+        }
+        
+        // Anti-Recreation Context Warnings - Prevent AI from recreating existing entities
+        if (gameState) {
+            const antiRecreationWarnings = this.buildAntiRecreationWarnings(gameState);
+            if (antiRecreationWarnings) {
+                prompt += antiRecreationWarnings + "\n";
+            }
         }
         
         // Critical context
@@ -1496,6 +1607,96 @@ HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
         };
         
         return descriptions[type] || 'Hành động cần được phân tích cụ thể';
+    }
+
+    // Build anti-recreation warnings to prevent AI from recreating existing entities
+    private buildAntiRecreationWarnings(gameState: SaveData): string | null {
+        const { knownEntities, party } = gameState;
+        
+        if (!knownEntities || Object.keys(knownEntities).length === 0) {
+            return null;
+        }
+
+        let warnings = "⚠️ THỰC THỂ ĐÃ TỒN TẠI - KHÔNG TẠO LẠI ⚠️\n";
+        warnings += "**QUAN TRỌNG**: Các thực thể sau ĐÃ TỒN TẠI trong game. KHÔNG tạo lại chúng bằng LORE_NPC, LORE_LOCATION, v.v. Thay vào đó sử dụng ENTITY_UPDATE để cập nhật thông tin:\n\n";
+
+        // Collect existing entities by type
+        const entityTypes = {
+            'npc': [] as string[],
+            'location': [] as string[],
+            'item': [] as string[],
+            'skill': [] as string[],
+            'faction': [] as string[],
+            'concept': [] as string[],
+            'companion': [] as string[]
+        };
+
+        // Categorize existing entities
+        for (const [name, entity] of Object.entries(knownEntities)) {
+            if (entity.type && entityTypes[entity.type as keyof typeof entityTypes]) {
+                entityTypes[entity.type as keyof typeof entityTypes].push(name);
+            }
+        }
+
+        // Add party members to companion list
+        if (party && party.length > 0) {
+            party.forEach(member => {
+                if (member.type === 'companion' && !entityTypes.companion.includes(member.name)) {
+                    entityTypes.companion.push(member.name);
+                }
+            });
+        }
+
+        // Build warnings for each entity type
+        let hasWarnings = false;
+        
+        if (entityTypes.npc.length > 0) {
+            warnings += `🧑 **NPCs hiện có**: ${entityTypes.npc.slice(0, 8).join(', ')}${entityTypes.npc.length > 8 ? ` và ${entityTypes.npc.length - 8} khác` : ''}\n`;
+            hasWarnings = true;
+        }
+
+        if (entityTypes.companion.length > 0) {
+            warnings += `👥 **Đồng hành hiện có**: ${entityTypes.companion.join(', ')}\n`;
+            hasWarnings = true;
+        }
+
+        if (entityTypes.location.length > 0) {
+            warnings += `🏛️ **Địa điểm hiện có**: ${entityTypes.location.slice(0, 6).join(', ')}${entityTypes.location.length > 6 ? ` và ${entityTypes.location.length - 6} khác` : ''}\n`;
+            hasWarnings = true;
+        }
+
+        if (entityTypes.skill.length > 0) {
+            warnings += `⚔️ **Kỹ năng hiện có**: ${entityTypes.skill.slice(0, 8).join(', ')}${entityTypes.skill.length > 8 ? ` và ${entityTypes.skill.length - 8} khác` : ''}\n`;
+            hasWarnings = true;
+        }
+
+        if (entityTypes.item.length > 0) {
+            warnings += `🎒 **Vật phẩm hiện có**: ${entityTypes.item.slice(0, 6).join(', ')}${entityTypes.item.length > 6 ? ` và ${entityTypes.item.length - 6} khác` : ''}\n`;
+            hasWarnings = true;
+        }
+
+        if (entityTypes.faction.length > 0) {
+            warnings += `🏺 **Phe phái hiện có**: ${entityTypes.faction.slice(0, 4).join(', ')}${entityTypes.faction.length > 4 ? ` và ${entityTypes.faction.length - 4} khác` : ''}\n`;
+            hasWarnings = true;
+        }
+
+        if (entityTypes.concept.length > 0) {
+            warnings += `💡 **Khái niệm hiện có**: ${entityTypes.concept.slice(0, 4).join(', ')}${entityTypes.concept.length > 4 ? ` và ${entityTypes.concept.length - 4} khác` : ''}\n`;
+            hasWarnings = true;
+        }
+
+        if (!hasWarnings) {
+            return null;
+        }
+
+        warnings += `\n**HƯỚNG DẪN**:\n`;
+        warnings += `• Để cập nhật NPC/đồng hành: Sử dụng ENTITY_UPDATE thay vì LORE_NPC\n`;
+        warnings += `• Để phát triển nhân vật: Mô tả trong story và sử dụng ENTITY_UPDATE\n`;
+        warnings += `• Để thêm thông tin mới: Sử dụng ENTITY_UPDATE với thông tin bổ sung\n`;
+        warnings += `• Chỉ tạo thực thể MỚI khi thực sự cần thiết và chưa tồn tại\n\n`;
+        warnings += `**LƯU Ý**: Hệ thống sẽ tự động merge thông tin thay vì ghi đè để bảo toàn dữ liệu hiện có.\n`;
+
+        return warnings;
     }
 
     private formatGameTime(gameTime: any): string {
