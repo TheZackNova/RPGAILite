@@ -342,27 +342,8 @@ export const GameScreen: React.FC<{
                 currentHistoryCount: gameHistory.length
             });
             
-            // Try unified cleanup first with smart memory generation (more aggressive settings)
-            unifiedCleanupResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
-                maxActiveMemories: 45,               // More aggressive than before (50->45)
-                memoryCleanupThreshold: 65,          // More aggressive than before (70->65)
-                lowImportanceThreshold: 28,          // More aggressive than before (30->28)
-                maxActiveHistoryEntries: 28,         // More aggressive than before (30->28)
-                historyCompressionThreshold: 28,     // More aggressive than before (30->28)
-                maxTokenBudget: 8000,
-                memoryTokenRatio: 0.32,              // Slightly higher than before (0.3->0.32)
-                enableSmartMemoryGeneration: true,
-                smartMemoryConfig: {
-                    enableEventMemories: true,
-                    enableRelationshipMemories: true,
-                    enableDiscoveryMemories: true,
-                    enableCombatMemories: true,
-                    enableAchievementMemories: true,
-                    minImportanceThreshold: 45,      // Reduced from 60 to allow more memory creation
-                    maxMemoriesPerTurn: 3,           // Increased from 1 to create more memories
-                    lookbackTurns: 6                 // Increased from 2 to analyze more turns
-                }
-            });
+            // Try unified cleanup first with smart memory generation
+            unifiedCleanupResult = UnifiedMemoryManager.coordinatedCleanup(currentState);
             
             if (unifiedCleanupResult.cleanupTriggered) {
                 console.log("🔄 Applying unified auto cleanup (improved settings)...");
@@ -702,6 +683,22 @@ export const GameScreen: React.FC<{
         setActiveEditLocation(null);
     }, [setKnownEntities, setNotification, setIsEditLocationModalOpen, setActiveEditLocation]);
 
+    // Handler for updating single entity (used by KnowledgeBase modal for pinning)
+    const handleUpdateEntity = useCallback((entityName: string, updatedEntity: Entity) => {
+        setKnownEntities(prev => ({
+            ...prev,
+            [entityName]: updatedEntity
+        }));
+    }, [setKnownEntities]);
+
+    // Set global handler for KnowledgeBase modal
+    useEffect(() => {
+        (window as any).updateKnownEntity = handleUpdateEntity;
+        return () => {
+            delete (window as any).updateKnownEntity;
+        };
+    }, [handleUpdateEntity]);
+
     const handleDeleteStatus = useCallback((statusName: string, entityName: string) => {
         setStatuses(prev => {
             const newStatuses = prev.filter(status => 
@@ -794,27 +791,8 @@ export const GameScreen: React.FC<{
             historyStats, cleanupStats, archivedMemories, memoryStats
         };
         
-        // Use unified memory manager for coordinated cleanup with aggressive smart memory generation
-        const unifiedResult = UnifiedMemoryManager.coordinatedCleanup(currentState, {
-            maxActiveMemories: 40,
-            memoryCleanupThreshold: 60,
-            lowImportanceThreshold: 25,
-            maxActiveHistoryEntries: 25,
-            historyCompressionThreshold: 25,
-            maxTokenBudget: 8000,
-            memoryTokenRatio: 0.35,
-            enableSmartMemoryGeneration: true,
-            smartMemoryConfig: {
-                enableEventMemories: true,
-                enableRelationshipMemories: true,
-                enableDiscoveryMemories: true,
-                enableCombatMemories: true,
-                enableAchievementMemories: true,
-                minImportanceThreshold: 35, // Lower threshold for manual cleanup
-                maxMemoriesPerTurn: 5,      // More memories for manual cleanup
-                lookbackTurns: 10           // Longer lookback for manual cleanup
-            }
-        });
+        // Use unified memory manager for coordinated cleanup
+        const unifiedResult = UnifiedMemoryManager.coordinatedCleanup(currentState);
         
         // Apply unified cleanup results
         if (unifiedResult.cleanupTriggered) {

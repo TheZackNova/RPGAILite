@@ -51,7 +51,7 @@ export class UnifiedMemoryManager {
         memoryCleanupThreshold: 150,
         lowImportanceThreshold: 40,
         maxActiveHistoryEntries: 80,
-        historyCompressionThreshold: 60,
+        historyCompressionThreshold: 100,
         maxTokenBudget: 10000,
         memoryTokenRatio: 0.3,
         enableSmartMemoryGeneration: true,

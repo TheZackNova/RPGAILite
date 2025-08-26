@@ -623,7 +623,14 @@ const MemoizedModalsComponent = ({
                 onClose={modalCloseHandlers.knowledge} 
                 pc={entityComputations.pcEntity} 
                 knownEntities={knownEntities} 
-                onEntityClick={handleEntityClick} 
+                onEntityClick={handleEntityClick}
+                onUpdateEntity={(entityName: string, updatedEntity: Entity) => {
+                    // For now, we'll use a window global to update entities
+                    // This should be properly passed as props in the future
+                    if ((window as any).updateKnownEntity) {
+                        (window as any).updateKnownEntity(entityName, updatedEntity);
+                    }
+                }}
                 turnCount={turnCount} 
             />
             

@@ -32,6 +32,7 @@ export interface Entity {
   skills?: string[]; // For NPCs
   learnedSkills?: string[]; // For PC
   state?: 'dead' | 'broken' | 'destroyed';
+  pinned?: boolean;             // Đánh dấu entity quan trọng không được xóa
   [key: string]: any;
   archived?: boolean;           // Đánh dấu entity đã được archive
     archivedAt?: number;         // Turn number khi archive

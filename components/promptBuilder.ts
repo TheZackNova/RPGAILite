@@ -542,7 +542,7 @@ export class EnhancedRAGSystem {
                 // Key skills for party synergy
                 if (companion.skills && companion.skills.length > 0) {
                     const skillsArray = Array.isArray(companion.skills) ? companion.skills : companion.skills.split(',').map(s => s.trim());
-                    companionDetails.push(`Chuyên môn: ${skillsArray.slice(0, 2).join(', ')}`);
+                    companionDetails.push(`Chuyên môn: ${skillsArray.join(', ')}`);
                 }
                 
                 // Active status effects
@@ -721,8 +721,16 @@ export class EnhancedRAGSystem {
         return [...new Set(words)];
     }
 
-    private formatGameTime(time: any, turnCount: number): string {
-        return `Thời gian: Năm ${time.year} Tháng ${time.month} Ngày ${time.day}, ${time.hour} giờ (Lượt ${turnCount})`;
+    private formatGameTime(time: any, turnCount?: number): string {
+        if (!time) return 'Không xác định';
+        
+        try {
+            const { year, month, day, hour, minute } = time;
+            const timeStr = `Năm ${year || '?'} Tháng ${month || '?'} Ngày ${day || '?'}, ${hour || 0} giờ ${minute || 0} phút`;
+            return turnCount ? `Thời gian: ${timeStr} (Lượt ${turnCount})` : timeStr;
+        } catch {
+            return 'Lỗi định dạng thời gian';
+        }
     }
 
     // UPDATED: Aggressive truncation for token control
@@ -931,7 +939,7 @@ export class EnhancedRAGSystem {
             // Skills and abilities (important for party coordination)
             if (entity.skills?.length) {
                 const skillsArray = Array.isArray(entity.skills) ? entity.skills : entity.skills.split(',').map(s => s.trim());
-                details.push(`Kỹ năng: ${skillsArray.slice(0, 4).join(', ')}`);
+                details.push(`Kỹ năng: ${skillsArray.join(', ')}`);
             }
             
             // Power level for tactical decisions
@@ -961,7 +969,7 @@ export class EnhancedRAGSystem {
             if (entity.skills?.length) {
                 // Handle both string and array formats for skills
                 const skillsArray = Array.isArray(entity.skills) ? entity.skills : entity.skills.split(',').map(s => s.trim());
-                const skillsText = `Kỹ năng: ${skillsArray.slice(0, 3).join(', ')}`;
+                const skillsText = `Kỹ năng: ${skillsArray.join(', ')}`;
                 details.push(skillsText);
                 console.log(`🎯 Prompt Builder - NPC "${entity.name}" skills in prompt:`, skillsText);
             } else {
@@ -977,9 +985,9 @@ export class EnhancedRAGSystem {
         if (entityStatuses.length > 0) {
             if (entity.type === 'companion') {
                 // More detailed status for companions
-                details.push(`Trạng thái: ${entityStatuses.map(s => `${s.name} (${s.type})`).slice(0, 3).join(', ')}`);
+                details.push(`Trạng thái: ${entityStatuses.map(s => `${s.name} (${s.type})`).join(', ')}`);
             } else {
-                details.push(`Trạng thái: ${entityStatuses.map(s => s.name).slice(0, 2).join(', ')}`);
+                details.push(`Trạng thái: ${entityStatuses.map(s => s.name).join(', ')}`);
             }
         }
         
@@ -1651,7 +1659,7 @@ HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
         let hasWarnings = false;
         
         if (entityTypes.npc.length > 0) {
-            warnings += `🧑 **NPCs hiện có**: ${entityTypes.npc.slice(0, 8).join(', ')}${entityTypes.npc.length > 8 ? ` và ${entityTypes.npc.length - 8} khác` : ''}\n`;
+            warnings += `🧑 **NPCs hiện có**: ${entityTypes.npc.join(', ')}\n`;
             hasWarnings = true;
         }
 
@@ -1661,27 +1669,27 @@ HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
         }
 
         if (entityTypes.location.length > 0) {
-            warnings += `🏛️ **Địa điểm hiện có**: ${entityTypes.location.slice(0, 6).join(', ')}${entityTypes.location.length > 6 ? ` và ${entityTypes.location.length - 6} khác` : ''}\n`;
+            warnings += `🏛️ **Địa điểm hiện có**: ${entityTypes.location.join(', ')}\n`;
             hasWarnings = true;
         }
 
         if (entityTypes.skill.length > 0) {
-            warnings += `⚔️ **Kỹ năng hiện có**: ${entityTypes.skill.slice(0, 8).join(', ')}${entityTypes.skill.length > 8 ? ` và ${entityTypes.skill.length - 8} khác` : ''}\n`;
+            warnings += `⚔️ **Kỹ năng hiện có**: ${entityTypes.skill.join(', ')}\n`;
             hasWarnings = true;
         }
 
         if (entityTypes.item.length > 0) {
-            warnings += `🎒 **Vật phẩm hiện có**: ${entityTypes.item.slice(0, 6).join(', ')}${entityTypes.item.length > 6 ? ` và ${entityTypes.item.length - 6} khác` : ''}\n`;
+            warnings += `🎒 **Vật phẩm hiện có**: ${entityTypes.item.join(', ')}\n`;
             hasWarnings = true;
         }
 
         if (entityTypes.faction.length > 0) {
-            warnings += `🏺 **Phe phái hiện có**: ${entityTypes.faction.slice(0, 4).join(', ')}${entityTypes.faction.length > 4 ? ` và ${entityTypes.faction.length - 4} khác` : ''}\n`;
+            warnings += `🏺 **Phe phái hiện có**: ${entityTypes.faction.join(', ')}\n`;
             hasWarnings = true;
         }
 
         if (entityTypes.concept.length > 0) {
-            warnings += `💡 **Khái niệm hiện có**: ${entityTypes.concept.slice(0, 4).join(', ')}${entityTypes.concept.length > 4 ? ` và ${entityTypes.concept.length - 4} khác` : ''}\n`;
+            warnings += `💡 **Khái niệm hiện có**: ${entityTypes.concept.join(', ')}\n`;
             hasWarnings = true;
         }
 
@@ -1699,16 +1707,6 @@ HƯỚNG DẪN SỬ DỤNG TAG KỸ NĂNG:
         return warnings;
     }
 
-    private formatGameTime(gameTime: any): string {
-        if (!gameTime) return 'Không xác định';
-        
-        try {
-            const { year, month, day, hour, minute } = gameTime;
-            return `Năm ${year || '?'} Tháng ${month || '?'} Ngày ${day || '?'}, ${hour || 0} giờ ${minute || 0} phút`;
-        } catch {
-            return 'Lỗi định dạng thời gian';
-        }
-    }
 }
 
 // Type definitions for the enhanced system
