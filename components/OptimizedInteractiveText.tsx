@@ -127,7 +127,7 @@ export const OptimizedInteractiveText: React.FC<{
 
     // Memoize regex for text splitting
     const splitRegex = useMemo(() => {
-        const refIdPattern = 'REF_[A-Z]{2}_[A-Z]{3}_[A-F0-9]{8}(?::\\s*)?'; // Include optional colon and space
+        const refIdPattern = 'REF_[A-Z]{2}_[A-Z]{3}_[A-Fa-f0-9]{8}(?::\\s*)?'; // Include optional colon and space
         const thoughtPattern = '`.*?`';
         const announcementPattern = '\\*\\*⭐.*?⭐\\*\\*';
         
@@ -163,7 +163,7 @@ export const OptimizedInteractiveText: React.FC<{
                 }
 
                 // Check if it's a reference ID pattern (with or without colon and space)
-                const isRefId = /^REF_[A-Z]{2}_[A-Z]{3}_[A-F0-9]{8}(?::\s*)?$/.test(part);
+                const isRefId = /^REF_[A-Z]{2}_[A-Z]{3}_[A-Fa-f0-9]{8}(?::\s*)?$/.test(part);
                 const isEntity = Boolean(knownEntities[part]);
                 const isThought = part.startsWith('`') && part.endsWith('`');
                 const isAnnouncement = part.startsWith('**⭐') && part.endsWith('⭐**');
