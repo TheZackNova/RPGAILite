@@ -88,6 +88,7 @@ export function parseHTMLContent(htmlString: string): ParsedHTMLContent {
 
 /**
  * Sanitizes HTML content by removing potentially dangerous elements and attributes
+ * Also removes reference IDs to hide them from display
  */
 export function sanitizeHTML(html: string): string {
   // Basic sanitization - remove script tags and event handlers
@@ -95,5 +96,7 @@ export function sanitizeHTML(html: string): string {
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/on\w+="[^"]*"/gi, '')
     .replace(/javascript:/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/REF_[A-Z]{2}_[A-Z]{3}_[A-F0-9]{8}:\s*/g, '') // Hide reference IDs with optional colon and space
+    .replace(/REF_[A-Z]{2}_[A-Z]{3}_[A-F0-9]{8}/g, ''); // Hide standalone reference IDs
 }

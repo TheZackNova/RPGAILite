@@ -19,7 +19,8 @@
       "WebFetch",
       "Bash(true)",
       "Bash(timeout 5 npm run dev)",
-      "Bash(timeout 8 npm run dev)"
+      "Bash(timeout 8 npm run dev)",
+      "Bash(del test-refid-hiding.js)"
     ],
     "deny": []
   }

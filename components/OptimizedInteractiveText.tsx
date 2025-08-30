@@ -127,8 +127,12 @@ export const OptimizedInteractiveText: React.FC<{
 
     // Memoize regex for text splitting
     const splitRegex = useMemo(() => {
+        const refIdPattern = 'REF_[A-Z]{2}_[A-Z]{3}_[A-F0-9]{8}(?::\\s*)?'; // Include optional colon and space
+        const thoughtPattern = '`.*?`';
+        const announcementPattern = '\\*\\*⭐.*?⭐\\*\\*';
+        
         if (sortedEntityNames.length === 0) {
-            return /(\`.*?\`|\*\*⭐.*?\*⭐\*\*)/g;
+            return new RegExp(`(${refIdPattern}|${thoughtPattern}|${announcementPattern})`, 'g');
         }
         
         const escapedNames = sortedEntityNames.map(name =>
@@ -136,7 +140,7 @@ export const OptimizedInteractiveText: React.FC<{
         );
         
         return new RegExp(
-            `(${escapedNames.join('|')}|` + '`.*?`' + `|` + '\\*\\*⭐.*?⭐\\*\\*' + `)`, 
+            `(${escapedNames.join('|')}|${refIdPattern}|${thoughtPattern}|${announcementPattern})`, 
             'g'
         );
     }, [sortedEntityNames]);
@@ -147,7 +151,7 @@ export const OptimizedInteractiveText: React.FC<{
         const parts = text.split(splitRegex);
 
         return parts
-            .map((part, index): ProcessedTextPart => {
+            .map((part, index): ProcessedTextPart | null => {
                 if (!part) {
                     return {
                         text: part,
@@ -158,9 +162,16 @@ export const OptimizedInteractiveText: React.FC<{
                     };
                 }
 
+                // Check if it's a reference ID pattern (with or without colon and space)
+                const isRefId = /^REF_[A-Z]{2}_[A-Z]{3}_[A-F0-9]{8}(?::\s*)?$/.test(part);
                 const isEntity = Boolean(knownEntities[part]);
                 const isThought = part.startsWith('`') && part.endsWith('`');
                 const isAnnouncement = part.startsWith('**⭐') && part.endsWith('⭐**');
+
+                // If it's a reference ID, hide it by returning null (will be filtered out)
+                if (isRefId) {
+                    return null;
+                }
 
                 return {
                     text: part,
@@ -171,7 +182,7 @@ export const OptimizedInteractiveText: React.FC<{
                     index
                 };
             })
-            .filter(part => part.text); // Remove empty parts
+            .filter(part => part && part.text); // Remove empty parts and null parts (hidden refIDs)
     }, [text, splitRegex, knownEntities]);
 
     // Memoize the callback to prevent unnecessary re-renders
